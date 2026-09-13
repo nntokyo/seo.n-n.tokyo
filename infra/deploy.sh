@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # seo.n-n.tokyo ゼロダウンタイム・デプロイスクリプト
-#
-# 特徴:
-# 1. ビルドが完全に成功するまで既存プロセスを停止しない（ダウンタイムゼロ）
-# 2. ビルド・ヘルスチェック失敗時は即座にロールバックして旧バージョンを継続稼働
-# 3. GitHub Webhook (Port 9104) および cron から安全に呼び出し可能
-# 4. 二重起動防止 (flock 排他制御)
 # ==============================================================================
 
 set -uo pipefail
@@ -56,7 +50,7 @@ REMOTE_SHA=$(git rev-parse "origin/$BRANCH") || { log "rev-parse failed"; exit 1
 LAST_SHA=""
 [ -f "$STATE_FILE" ] && LAST_SHA=$(cat "$STATE_FILE")
 
-# 差分がなければ終了 (Webhook経由の場合は強制実行フラグも許容)
+# 差分がなければ終了
 if [ "$REMOTE_SHA" = "$LAST_SHA" ] && [ "${FORCE_DEPLOY:-false}" != "true" ]; then
   log "already at latest commit: ${REMOTE_SHA:0:7}, nothing to deploy"
   exit 0
@@ -67,7 +61,6 @@ PREV_SHORT=$(printf '%.7s' "${CURRENT_LOCAL_SHA:-none}")
 SUBJECT=$(git log -1 --pretty='%s' "$REMOTE_SHA" 2>/dev/null || echo '(no subject)')
 log "===== zero-downtime deploy start: $BRANCH @ $SHORT (from $PREV_SHORT) — $SUBJECT ====="
 
-# ロールバック用関数
 rollback() {
   log "🚨 DEPLOYMENT FAILED! Initiating zero-downtime rollback to $CURRENT_LOCAL_SHA..."
   git reset --hard "$CURRENT_LOCAL_SHA" 2>&1 || true
@@ -75,7 +68,7 @@ rollback() {
   exit 1
 }
 
-# 1. ワークツリーを更新 (.env, logs, .state などは保持)
+# 1. ワークツリーを更新
 if ! git reset --hard "origin/$BRANCH" 2>&1; then
   log "git reset failed"
   rollback
@@ -83,38 +76,53 @@ fi
 
 chmod +x "$BASE/infra/deploy.sh" 2>/dev/null || true
 
-# 2. 依存パッケージの安全インストール (失敗時はロールバック)
+# 2. 依存パッケージのインストール
 log "Step 1: Installing dependencies (pnpm install)..."
 if ! pnpm install 2>&1; then
   log "pnpm install failed"
   rollback
 fi
 
-# 3. Prisma DB スキーマ反映 (後方互換マイグレーション)
+# 前回の .next キャッシュが壊れている場合の対策
+rm -rf "$BASE/apps/frontend/.next"
+
+# 3. Prisma DB スキーマ反映
 if [ -f "$BASE/prisma/schema.prisma" ]; then
   log "Step 2: Syncing database schema (prisma db push)..."
-  if ! pnpm --filter backend exec prisma db push --accept-data-loss 2>&1; then
+  if ! pnpm --filter @seo/backend exec prisma db push --accept-data-loss 2>&1; then
     log "prisma db push failed"
     rollback
   fi
-  pnpm --filter backend exec prisma generate 2>&1 || true
+  pnpm --filter @seo/backend exec prisma generate 2>&1 || true
 fi
 
-# 4. 事前ビルド (ビルド完了まで旧プロセスは通常通りリクエストを処理中)
+# 4. 事前ビルド
 log "Step 3: Building apps (shared, backend, frontend)..."
 if ! pnpm build 2>&1; then
   log "pnpm build failed"
   rollback
 fi
 
-# 5. リロード & ヘルスチェック (ゼロダウンタイム切り替え)
+# 5. リロード & ヘルスチェック
 log "Step 4: Reloading PM2 processes with updated bundle..."
 
-# バックエンドのリロード
+# バックエンドのリロード / 起動
 if pm2 describe "$BACKEND_NAME" >/dev/null 2>&1; then
   pm2 reload "$BACKEND_NAME" --update-env 2>&1 || pm2 restart "$BACKEND_NAME" --update-env 2>&1
 else
   pm2 start "$BASE/ecosystem.config.cjs" --only "$BACKEND_NAME" 2>&1
+fi
+
+# フロントエンドのリロード / 起動
+if pm2 describe "$FRONTEND_NAME" >/dev/null 2>&1; then
+  pm2 reload "$FRONTEND_NAME" --update-env 2>&1 || pm2 restart "$FRONTEND_NAME" --update-env 2>&1
+else
+  pm2 start "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" 2>&1
+fi
+
+# Webhook サーバーの起動確認
+if ! pm2 describe "seo-webhook" >/dev/null 2>&1; then
+  pm2 start "$BASE/ecosystem.config.cjs" --only "seo-webhook" 2>&1
 fi
 
 # バックエンドヘルスチェック
@@ -133,13 +141,6 @@ done
 if [ "$BACKEND_OK" != "true" ]; then
   log "Backend health check timed out!"
   rollback
-fi
-
-# フロントエンドのリロード
-if pm2 describe "$FRONTEND_NAME" >/dev/null 2>&1; then
-  pm2 reload "$FRONTEND_NAME" --update-env 2>&1 || pm2 restart "$FRONTEND_NAME" --update-env 2>&1
-else
-  pm2 start "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" 2>&1
 fi
 
 # フロントエンドヘルスチェック
