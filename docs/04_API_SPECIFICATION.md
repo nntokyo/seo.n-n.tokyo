@@ -56,6 +56,8 @@ flowchart LR
 | `GET` | `/api/v1/projects/:id/history` | スコア・Core Web Vitalsの日次推移データ | **必須 (所有者Bearerのみ)** |
 | `GET` | `/api/v1/projects/:id/diff` | **前回診断とのメタタグ・スコア変動差分比較** | **必須 (所有者Bearerのみ)** |
 | `POST` | `/api/v1/projects/:id/notify/test`| Slack / Webhook テスト通知送信 | **必須 (所有者Bearerのみ)** |
+| `GET` | `/api/v1/projects/:id/google-settings` | プロジェクト固有のGoogle API認証設定取得 | **必須 (所有者Bearerのみ)** |
+| `POST` | `/api/v1/projects/:id/google-settings` | プロジェクト固有のGoogle API設定（キー・プロパティID）登録/更新 | **必須 (所有者Bearerのみ)** |
 
 ### ④ Google公式API連携 (Google Official Integrations)
 | メソッド | パス | 説明 | 認証 |

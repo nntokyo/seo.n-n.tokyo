@@ -25,8 +25,12 @@ import {
   Bot,
   AlertCircle,
   BarChart3,
+  Settings,
+  Key,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
-import { ProjectRecord, ProjectHistoryItem } from '@seo/shared';
+import { ProjectRecord, ProjectHistoryItem, ProjectGoogleSettings } from '@seo/shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -41,6 +45,17 @@ export default function ProjectDetailPage() {
   const [isAuditing, setIsAuditing] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
 
+  // Google API個別設定モーダル
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [googleApiKey, setGoogleApiKey] = useState('');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [gscSiteUrl, setGscSiteUrl] = useState('');
+  const [ga4PropertyId, setGa4PropertyId] = useState('');
+  const [serviceAccountJson, setServiceAccountJson] = useState('');
+
   const fetchProjectData = () => {
     if (!id) return;
     const token = localStorage.getItem('seo_auth_token') || '';
@@ -53,9 +68,57 @@ export default function ProjectDetailPage() {
         if (res) {
           setProject(res.project);
           setHistory(res.history || []);
+          if (res.project?.googleSettings) {
+            setGoogleApiKey(res.project.googleSettings.googleApiKey || '');
+            setGeminiApiKey(res.project.googleSettings.geminiApiKey || '');
+            setGscSiteUrl(res.project.googleSettings.gscSiteUrl || '');
+            setGa4PropertyId(res.project.googleSettings.ga4PropertyId || '');
+            setServiceAccountJson(res.project.googleSettings.serviceAccountJson || '');
+          }
         }
       })
       .finally(() => setIsLoading(false));
+  };
+
+  const handleSaveGoogleSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
+    setSettingsError(null);
+    setSettingsSuccess(false);
+
+    try {
+      const token = localStorage.getItem('seo_auth_token') || '';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE}/api/v1/projects/${id}/google-settings`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          googleApiKey: googleApiKey.trim() || undefined,
+          geminiApiKey: geminiApiKey.trim() || undefined,
+          gscSiteUrl: gscSiteUrl.trim() || undefined,
+          ga4PropertyId: ga4PropertyId.trim() || undefined,
+          serviceAccountJson: serviceAccountJson.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || '設定の保存に失敗しました');
+      }
+
+      setSettingsSuccess(true);
+      fetchProjectData();
+      setTimeout(() => {
+        setSettingsSuccess(false);
+        setIsSettingsOpen(false);
+      }, 1200);
+    } catch (err: any) {
+      setSettingsError(err.message || '設定の保存に失敗しました');
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   useEffect(() => {
@@ -118,6 +181,14 @@ export default function ProjectDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Key className="w-3.5 h-3.5 text-amber-400" />
+              <span>Google API設定</span>
+            </button>
+
             {history.length >= 2 && (
               <Link
                 href={`/projects/${id}/diff`}
@@ -389,6 +460,117 @@ export default function ProjectDetailPage() {
           )}
         </section>
       </main>
+
+      {/* Google API設定モーダル */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="relative w-full max-w-xl rounded-3xl border border-white/10 bg-[#0F1623] p-6 sm:p-8 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Google API 個別プロジェクト設定</h3>
+                  <p className="text-xs text-slate-400">このプロジェクト専用のGoogle APIキー・プロパティIDを設定します</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {settingsError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{settingsError}</span>
+              </div>
+            )}
+
+            {settingsSuccess && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Google API設定を保存しました</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveGoogleSettings} className="space-y-4 text-xs font-mono">
+              <div className="space-y-1.5">
+                <label className="block text-slate-300 font-bold">Google Cloud API Key (PageSpeed用)</label>
+                <input
+                  type="password"
+                  value={googleApiKey}
+                  onChange={(e) => setGoogleApiKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                />
+                <p className="text-[11px] text-slate-500">PageSpeed Insights APIの高速実行に利用されます（任意）。</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-slate-300 font-bold">Gemini API Key (AI提案生成用)</label>
+                <input
+                  type="password"
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                />
+                <p className="text-[11px] text-slate-500">Google GeminiによるCore Web Vitals改善コードの生成に利用されます。</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-slate-300 font-bold">Search Console サイトURL (任意)</label>
+                  <input
+                    type="text"
+                    value={gscSiteUrl}
+                    onChange={(e) => setGscSiteUrl(e.target.value)}
+                    placeholder="sc-domain:example.com または https://..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-slate-300 font-bold">GA4 プロパティID (任意)</label>
+                  <input
+                    type="text"
+                    value={ga4PropertyId}
+                    onChange={(e) => setGa4PropertyId(e.target.value)}
+                    placeholder="123456789"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-300 text-[11px] leading-relaxed">
+                ※システム共通キーはスーパー管理者専用です。本番テナントの独立性確保のため、各プロジェクトのAPIキーをご登録ください。
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingSettings}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingSettings ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                  <span>{isSavingSettings ? '保存中...' : '設定を保存'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

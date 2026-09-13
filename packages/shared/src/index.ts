@@ -388,6 +388,15 @@ export interface CrawlTreeResponse {
 // 2. プロジェクト管理 & 履歴差分型定義 (SCR-15 〜 SCR-17)
 // ==============================================================================
 
+export interface ProjectGoogleSettings {
+  googleApiKey?: string;
+  geminiApiKey?: string;
+  gscSiteUrl?: string;
+  ga4PropertyId?: string;
+  serviceAccountJson?: string;
+  updatedAt?: string;
+}
+
 export interface ProjectRecord {
   id: string;
   userId?: string; // 所有ユーザーのアカウントID
@@ -397,6 +406,7 @@ export interface ProjectRecord {
   auditCount: number;
   lastScore: number;
   lastAuditedAt?: string;
+  googleSettings?: ProjectGoogleSettings;
   createdAt: string;
   updatedAt?: string;
 }

@@ -30,6 +30,8 @@ import {
   recordAuditToProject,
   getProjectHistory,
   calculateAuditDiff,
+  getProjectGoogleSettings,
+  updateProjectGoogleSettings,
 } from './projects.js';
 import {
   getAlertSettings,
@@ -404,10 +406,35 @@ ${linksSection}
 
   // 5. Google統合ハブデータ取得 (PSI + GSC + GA4 + Gemini)
   fastify.post('/api/v1/google/hub-data', async (request, reply) => {
-    const body = request.body as { url?: string; session_id?: string };
+    const body = request.body as { url?: string; session_id?: string; projectId?: string };
     let targetUrl = (body?.url || 'https://seo.n-n.tokyo').trim();
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
       targetUrl = `https://${targetUrl}`;
+    }
+
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    const isSuperAdmin = user?.role === 'ADMIN';
+
+    // プロジェクト設定の読み込み
+    let projectGoogleApiKey: string | undefined;
+    let projectGeminiApiKey: string | undefined;
+
+    if (body?.projectId) {
+      const p = getProject(body.projectId, user?.id);
+      if (p?.googleSettings) {
+        projectGoogleApiKey = p.googleSettings.googleApiKey;
+        projectGeminiApiKey = p.googleSettings.geminiApiKey;
+      }
+    } else {
+      // URLから該当プロジェクトを検索
+      const parsed = new URL(targetUrl);
+      const userProjects = listProjects(user?.id);
+      const matched = userProjects.find((p) => p.targetDomain === parsed.hostname);
+      if (matched?.googleSettings) {
+        projectGoogleApiKey = matched.googleSettings.googleApiKey;
+        projectGeminiApiKey = matched.googleSettings.geminiApiKey;
+      }
     }
 
     const cookieHeader = request.headers.cookie || '';
@@ -415,7 +442,11 @@ ${linksSection}
     const sessionId = (request.headers['x-google-session'] as string) || body?.session_id || (cookieMatch ? cookieMatch[1] : undefined);
 
     try {
-      const hubData = await getGoogleHubData(sessionId, targetUrl);
+      const hubData = await getGoogleHubData(sessionId, targetUrl, {
+        customGoogleApiKey: projectGoogleApiKey,
+        customGeminiKey: projectGeminiApiKey,
+        isSuperAdmin,
+      });
       return hubData;
     } catch (err: any) {
       fastify.log.error(err);
@@ -581,6 +612,61 @@ ${linksSection}
     if (!project) return reply.status(404).send({ error: 'Project not found or access denied' });
     const history = getProjectHistory(id);
     return { project, history };
+  });
+
+  // プロジェクト個別Google API設定取得
+  fastify.get('/api/v1/projects/:id/google-settings', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+
+    const settings = getProjectGoogleSettings(id, user?.id);
+    if (!settings) {
+      return reply.status(404).send({ error: 'プロジェクトが見つからないか、アクセス権がありません' });
+    }
+
+    // セキュリティ: APIキーの一部をマスクして返却 (先頭4文字と末尾4文字のみ残す)
+    const maskKey = (key?: string) => {
+      if (!key) return '';
+      if (key.length <= 8) return '********';
+      return `${key.slice(0, 4)}...${key.slice(-4)}`;
+    };
+
+    return {
+      settings: {
+        ...settings,
+        googleApiKeyMasked: maskKey(settings.googleApiKey),
+        geminiApiKeyMasked: maskKey(settings.geminiApiKey),
+        hasGoogleApiKey: Boolean(settings.googleApiKey),
+        hasGeminiApiKey: Boolean(settings.geminiApiKey),
+        hasServiceAccountJson: Boolean(settings.serviceAccountJson),
+      },
+    };
+  });
+
+  // プロジェクト個別Google API設定保存
+  fastify.post('/api/v1/projects/:id/google-settings', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: '設定を保存するにはログインが必要です' });
+    }
+
+    const body = (request.body || {}) as {
+      googleApiKey?: string;
+      geminiApiKey?: string;
+      gscSiteUrl?: string;
+      ga4PropertyId?: string;
+      serviceAccountJson?: string;
+    };
+
+    try {
+      const updated = updateProjectGoogleSettings(id, body, user.id);
+      return { success: true, settings: updated };
+    } catch (err: any) {
+      return reply.status(403).send({ error: err.message });
+    }
   });
 
   // Time-Travel 履歴差分比較 (SCR-17: 所有者認可)

@@ -220,14 +220,19 @@ interface PsiCacheEntry {
 const psiMemoryCache = new Map<string, PsiCacheEntry>();
 
 // 1. PageSpeed Insights API (PSI v5)
-export async function fetchPsiData(targetUrl: string): Promise<PsiCruxData> {
+export async function fetchPsiData(
+  targetUrl: string,
+  customApiKey?: string,
+  isSuperAdmin?: boolean
+): Promise<PsiCruxData> {
   const normUrl = targetUrl.trim();
   const cached = psiMemoryCache.get(normUrl);
   if (cached && Date.now() - cached.cachedAt < 3600 * 1000) {
     return cached.data;
   }
 
-  const apiKey = process.env.GOOGLE_PAGESPEED_API_KEY || process.env.GOOGLE_API_KEY;
+  // スーパー管理者のみ環境変数のシステムキーを使用可能。一般ユーザーはプロジェクト独自キーが必要
+  const apiKey = customApiKey || (isSuperAdmin ? (process.env.GOOGLE_PAGESPEED_API_KEY || process.env.GOOGLE_API_KEY) : undefined);
   const urlParams = new URLSearchParams({
     url: normUrl,
     strategy: 'mobile',
@@ -540,9 +545,12 @@ export async function fetchGa4Data(session: GoogleSessionRecord): Promise<Ga4Met
 export async function generateGeminiProposals(
   targetUrl: string,
   psi: PsiCruxData | null,
-  gsc: GscAnalyticsData | null
+  gsc: GscAnalyticsData | null,
+  customGeminiKey?: string,
+  isSuperAdmin?: boolean
 ): Promise<GeminiProposalData> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  // スーパー管理者のみ環境変数のシステムキーを使用可能。一般ユーザーはプロジェクト独自キーが必要
+  const apiKey = customGeminiKey || (isSuperAdmin ? process.env.GEMINI_API_KEY : undefined);
   const parsed = new URL(targetUrl);
 
   const contextData = {
@@ -655,14 +663,22 @@ ${JSON.stringify(contextData, null, 2)}
 }
 
 // 5. 統合データ集約メイン関数
-export async function getGoogleHubData(sessionId: string | undefined, targetUrl: string): Promise<GoogleHubDataResponse> {
+export async function getGoogleHubData(
+  sessionId: string | undefined,
+  targetUrl: string,
+  options?: {
+    customGoogleApiKey?: string;
+    customGeminiKey?: string;
+    isSuperAdmin?: boolean;
+  }
+): Promise<GoogleHubDataResponse> {
   const session = getSession(sessionId);
   const sessionStatus = getSessionStatus(sessionId);
   const errors: GoogleHubDataResponse['errors'] = {};
 
   // 並列実行 (PSI, GSC, GA4, Gemini)
   const [psiResult, gscResult, ga4Result] = await Promise.allSettled([
-    fetchPsiData(targetUrl).catch((err) => {
+    fetchPsiData(targetUrl, options?.customGoogleApiKey, options?.isSuperAdmin).catch((err) => {
       errors.psi = err.message || 'PageSpeedデータの取得に失敗しました';
       return null;
     }),
@@ -693,7 +709,7 @@ export async function getGoogleHubData(sessionId: string | undefined, targetUrl:
   // Gemini改善案の生成 (PSI/GSCの取得結果を入力)
   let gemini: GeminiProposalData | null = null;
   try {
-    gemini = await generateGeminiProposals(targetUrl, psi, gsc);
+    gemini = await generateGeminiProposals(targetUrl, psi, gsc, options?.customGeminiKey, options?.isSuperAdmin);
   } catch (err: any) {
     errors.gemini = err.message || 'Gemini改善案の生成に失敗しました';
   }

@@ -142,6 +142,40 @@ export function deleteProject(id: string, userId?: string): boolean {
   return true;
 }
 
+export function getProjectGoogleSettings(id: string, userId?: string) {
+  const p = getProject(id, userId);
+  if (!p) return null;
+  return p.googleSettings || {};
+}
+
+export function updateProjectGoogleSettings(
+  id: string,
+  settings: {
+    googleApiKey?: string;
+    geminiApiKey?: string;
+    gscSiteUrl?: string;
+    ga4PropertyId?: string;
+    serviceAccountJson?: string;
+  },
+  userId?: string
+) {
+  const p = projectsStore.get(id);
+  if (!p) throw new Error('プロジェクトが見つかりません');
+  if (p.userId && userId && p.userId !== userId) {
+    throw new Error('このプロジェクトのGoogle設定を変更する権限がありません');
+  }
+
+  p.googleSettings = {
+    ...(p.googleSettings || {}),
+    ...settings,
+    updatedAt: new Date().toISOString(),
+  };
+
+  p.updatedAt = new Date().toISOString();
+  saveProjectToDisk(p);
+  return p.googleSettings;
+}
+
 export function recordAuditToProject(projectId: string, audit: FullAuditResult): void {
   const p = projectsStore.get(projectId);
   if (!p) return;
