@@ -380,8 +380,8 @@ export async function fetchGscData(session: GoogleSessionRecord, targetUrl: stri
     } catch {}
   }
 
-  if (!searchData || !searchData.rows) {
-    throw new Error(`Google Search Consoleでサイト「${origin}」の権限が確認できないか、クエリデータが蓄積されていません`);
+  if (!searchData) {
+    throw new Error(`Google Search Consoleでサイト「${origin}」の権限が確認できませんでした`);
   }
 
   const topQueries = (searchData.rows || []).map((r: any) => ({
