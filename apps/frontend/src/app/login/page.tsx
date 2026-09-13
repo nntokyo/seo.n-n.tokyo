@@ -190,10 +190,11 @@ function LoginForm() {
           <span>Googleでログイン</span>
         </button>
 
-        <div className="relative flex items-center justify-center">
-          <div className="border-t border-white/10 w-full"></div>
-          <span className="bg-[#0e1422] px-3 text-[11px] font-mono text-slate-500 uppercase">またはメールで</span>
-          <div className="border-t border-white/10 w-full"></div>
+        {/* Divider */}
+        <div className="flex items-center gap-3 my-1">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-[11px] font-mono text-slate-500 whitespace-nowrap px-1">またはメールアドレスで</span>
+          <div className="flex-1 h-px bg-white/10" />
         </div>
 
         {/* Tab switch */}
