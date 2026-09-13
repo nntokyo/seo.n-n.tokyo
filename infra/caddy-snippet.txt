@@ -1,6 +1,6 @@
 # ==============================================================================
-# /etc/caddy/Caddyfile 追記用設定 (seo.n-n.tokyo)
-# プロキシ先: 127.0.0.1:5600 (PM2: seo-n-n-tokyo)
+# /etc/caddy/Caddyfile 設定 (seo.n-n.tokyo)
+# バックエンド (5601), フロントエンド (5600), GitHub Webhook (9104) のルーティング
 # ==============================================================================
 seo.n-n.tokyo {
     encode gzip zstd
@@ -18,28 +18,55 @@ seo.n-n.tokyo {
     # Next.js 静的アセットキャッシュ
     @static {
         path /_next/static/*
-        path /favicon.svg
-        path /favicon.ico
-        path /icon.svg
-        path /logo.svg
-        path /apple-touch-icon.png
+        path /favicon.*
+        path /icon.*
+        path /logo.*
+        path /apple-touch-icon.*
     }
     header @static Cache-Control "public, max-age=31536000, immutable"
 
-    # アップロード・レポートPDFキャッシュ/保存先
+    # レポートPDF静的配信
     handle_path /reports/* {
-        root * /Datas/www/seo.n-n.tokyo/public/reports
+        root * /Datas/www/seo.n-n.tokyo/apps/backend/public/reports
         file_server
     }
 
-    # Next.js アプリケーション (PM2: 127.0.0.1:5600)
-    reverse_proxy 127.0.0.1:5600 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
+    # ① GitHub Webhook (自動デプロイ: Port 9104)
+    handle /webhook {
+        reverse_proxy 127.0.0.1:9104
+    }
 
-        # Server-Sent Events (SSE) リアルタイム診断進捗のバッファリング無効化
-        flush_interval -1
+    # ② バックエンド API (Port 5601: Fastify API Server)
+    handle /api/* {
+        reverse_proxy 127.0.0.1:5601 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            transport http {
+                read_timeout 600s
+            }
+        }
+    }
+
+    # ③ バックエンド SSE リアルタイム進捗ストリーム (Port 5601)
+    handle /sse/* {
+        reverse_proxy 127.0.0.1:5601 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            flush_interval -1
+        }
+    }
+
+    # ④ フロントエンド アプリケーション (Port 5600: Next.js 15 App)
+    handle {
+        reverse_proxy 127.0.0.1:5600 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
     }
 }

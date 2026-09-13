@@ -9,158 +9,84 @@
 
 ---
 
-## 1. 本番サーバー環境概要
+## 1. 本番サーバー環境概要 & ゼロダウンタイム構成
 
-合同会社NNの自社インフラ基準に準拠し、本番サーバー `home` 上でPM2、Docker PostgreSQL 16、Caddyリバースプロキシ、およびcron自動デプロイパイプラインにより運用します。
+合同会社NNの自社インフラ基準に準拠し、本番サーバー `home` 上でPM2、Docker PostgreSQL 16、Caddyリバースプロキシ、および **GitHub Webhook駆動のゼロダウンタイム自動デプロイパイプライン** により運用します。
 
 ```mermaid
 flowchart TD
-    Client["一般ユーザー / Webブラウザ"] -->|HTTPS (Port 443)| Caddy["Caddy v2 リバースプロキシ\n(/etc/caddy/Caddyfile)\n(Let's Encrypt 自動SSL / HTTP/3 / Zstd / SSEフラッシュ)"]
+    Client["一般ユーザー / Webブラウザ"] -->|HTTPS (Port 443)| Caddy["Caddy v2 リバースプロキシ\n(/etc/caddy/Caddyfile)\n(Let's Encrypt 自動SSL / HTTP/3 / Zstd)"]
     
-    subgraph HomeServer["本番サーバー (ssh home)"]
-        Caddy -->|リバースプロキシ| PM2["PM2: seo-n-n-tokyo\n(Port 5600 / Next.js 15 App Server)"]
-        
-        Cron["Crontab (2分ポーリング)\n(/Datas/www/seo.n-n.tokyo/infra/cron-deploy.sh)"] -.->|コミット検知| GitReset["git reset --hard & pnpm build & pm2 reload"]
-        
-        PM2 --> PostgreSQL["Docker PostgreSQL 16 (Port 5432)\nDB: seo / User: seo"]
-        PM2 --> Redis["Redis 7 (Port 6379)\n(BullMQ & キャッシュ)"]
+    subgraph CaddyProxy["Caddy ルーティング"]
+        Caddy -->|/webhook| WebhookService["127.0.0.1:9104 (GitHub Webhook)"]
+        Caddy -->|/api/*, /sse/*| BackendService["127.0.0.1:5601 (seo-backend)"]
+        Caddy -->|/*| FrontendService["127.0.0.1:5600 (seo-frontend)"]
     end
 
-    GitHub["GitHub (git@nntokyo:nntokyo/seo.n-n.tokyo.git)"] -->|fetch origin main| Cron
+    subgraph ZeroDowntimePipeline["ゼロダウンタイム・デプロイ (/deploy.sh)"]
+        GitHub["GitHub Push Event\n(main branch)"] -->|HMAC-SHA256署名| WebhookService
+        WebhookService -->|非同期実行| DeployScript["ゼロダウンタイム・デプロイスクリプト\n(/Datas/www/seo.n-n.tokyo/infra/deploy.sh)"]
+        
+        DeployScript --> Step1["1. 依存関係インストール (pnpm install)"]
+        Step1 --> Step2["2. DBスキーマ安全同期 (prisma db push)"]
+        Step2 --> Step3["3. バックグラウンド並列ビルド (pnpm build)"]
+        Step3 --> Step4["4. PM2 reload (旧プロセス稼働維持のまま新プロセス起動)"]
+        Step4 --> Step5{"5. 内部ヘルスチェック (HTTP 200確認)"}
+        Step5 -- 成功 --> StepOK["デプロイ完了 (ダウンタイム0秒)"]
+        Step5 -- 失敗 --> StepFail["🚨 自動ロールバック (旧バージョン継続稼働)"]
+    end
+
+    BackendService --> PostgreSQL["Docker PostgreSQL 16 (Port 5432)\nDB: seo / User: seo"]
+    BackendService --> Redis["Redis 7 (Port 6379)\n(BullMQ & キャッシュ)"]
 ```
 
 ---
 
-## 2. インフラ諸元表 (Specification Matrix)
+## 2. システムがダウンしない耐障害性・高可用性アーキテクチャ
 
-| 項目 | 本番設定値 | 備考 |
+本システムでは、以下の5重の保護機構により**「アップデート中・デプロイ失敗時でも絶対にシステムがダウンしない」**構成を徹底しています。
+
+### ① 事前ビルドによる旧バージョン稼働維持（No Pre-kill）
+一般的なデプロイスクリプトでは「プロセス停止 ➔ ビルド ➔ 起動」を行ってしまい数分間のダウンタイム（502 Bad Gateway）が発生しますが、本システムでは **「旧プロセスがリクエストを処理し続けている間にバックグラウンドで新コードをビルド（pnpm build）」** します。
+
+### ② PM2 reload によるGraceful Zero-Downtime Reload
+ビルドが100%成功した後、PM2の `reload` コマンドを使用します。これにより、新プロセスが起動してリッスンを開始するまで旧プロセスがトラフィックを受け持ち、ダウンタイム0秒で世代交代が行われます。
+
+### ③ 自動ヘルスチェック & 即時ロールバック機構
+新プロセスのリロード後、内部エンドポイント（`http://127.0.0.1:5601/api/health` および `http://127.0.0.1:5600/`）に対して最大20秒間のヘルスチェックを実行。もし起動失敗や例外が発生した場合は、**即座に直前の正常コミットへ `git reset --hard` し、旧バージョンを無瞬断で継続稼働** させます。
+
+### ④ Caddyリバースプロキシの自動フォールバック & エラーハンドリング
+Caddyはバックエンドやフロントエンドへの接続をヘルス監視し、仮に通信エラーが発生した場合でも `flush_interval -1` と適切なタイムアウト制御によりクライアントへのパケットドロップを防止します。
+
+### ⑤ 排他制御 (flock) による二重デプロイの完全防止
+連続したGit PushやWebhookの重複受信があっても、`flock` ロックファイル（`/tmp/seo-n-n-tokyo-deploy.lock`）により多重実行を防止し、ビルドの破損を防ぎます。
+
+---
+
+## 3. インフラ諸元表 (Specification Matrix)
+
+| 項目 | 本番設定値 | 役割・備考 |
 |---|---|---|
-| **サーバーホスト** | `home` (社内本番サーバー) | SSH接続: `ssh home` |
 | **公開FQDN** | `https://seo.n-n.tokyo` | Caddyによる自動Let's Encrypt SSL終端 |
 | **Gitリポジトリ** | `git@nntokyo:nntokyo/seo.n-n.tokyo.git` | デプロイブランチ: `main` |
 | **配置パス (BASE)** | `/Datas/www/seo.n-n.tokyo` | Webルート配下 |
-| **内部バインドポート** | `127.0.0.1:5600` | 専用ポート |
-| **プロセスマネージャー** | PM2 (`seo-n-n-tokyo`) | 設定ファイル: `ecosystem.config.cjs` (メモリ上限 512MB) |
-| **Node.js / pnpm** | Node.js v22 LTS / pnpm v10.x | `$HOME/.nvm/versions/node/...` |
+| **フロントエンド** | `127.0.0.1:5600` (PM2: `seo-frontend`) | Next.js 15 UI / SSR |
+| **バックエンド** | `127.0.0.1:5601` (PM2: `seo-backend`) | Fastify API / クローラー / Gemini |
+| **GitHub Webhook** | `127.0.0.1:9104` (PM2: `seo-webhook`) | GitHub Pushイベント受信 & デプロイキック |
+| **外部Webhookパス** | `https://seo.n-n.tokyo/webhook` | GitHubリポジトリ設定用URL |
 | **データベース** | Docker PostgreSQL 16 (`127.0.0.1:5432`) | DB名: `seo`, ユーザー名: `seo` |
-| **Webサーバー** | Caddy v2 | 設定: `/etc/caddy/Caddyfile` |
-| **自動デプロイ** | 2分間隔 cron ポーリング | スクリプト: `infra/cron-deploy.sh` |
-| **状態管理ファイル** | `/Datas/www/seo.n-n.tokyo/.state/deployed.sha` | 前回正常デプロイ済みCommit SHAを記録 |
-| **ログ配置先** | `/Datas/www/seo.n-n.tokyo/logs/` | `cron-deploy.log`, PM2標準出力/エラーログ |
+| **プロセスマネージャー** | PM2 (`ecosystem.config.cjs`) | 3プロセス統合管理 |
+| **状態管理ファイル** | `/Datas/www/seo.n-n.tokyo/.state/deployed.sha` | 前回デプロイ成功Commit SHA |
+| **ログ配置先** | `/Datas/www/seo.n-n.tokyo/logs/` | デプロイログ、PM2標準出力/エラーログ |
 
 ---
 
-## 3. Caddyfile 設定仕様 (`infra/caddy-snippet.txt`)
+## 4. GitHub Webhook の設定手順
 
-`/etc/caddy/Caddyfile` に以下のブロックを追記し、`sudo systemctl reload caddy` を実行します。
+GitHubリポジトリ（`git@nntokyo:nntokyo/seo.n-n.tokyo.git`）の Settings > Webhooks にて以下を設定します：
 
-```caddyfile
-# ==============================================================================
-# SEO Analyzer (seo.n-n.tokyo)
-# ==============================================================================
-seo.n-n.tokyo {
-    encode gzip zstd
-
-    # セキュリティヘッダー
-    header {
-        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
-        -Server
-    }
-
-    # 静的アセットキャッシュ
-    @static {
-        path /_next/static/*
-        path /favicon.svg
-        path /favicon.ico
-        path /icon.svg
-        path /logo.svg
-        path /apple-touch-icon.png
-    }
-    header @static Cache-Control "public, max-age=31536000, immutable"
-
-    # レポートPDF出力
-    handle_path /reports/* {
-        root * /Datas/www/seo.n-n.tokyo/public/reports
-        file_server
-    }
-
-    # Next.js アプリケーション (PM2: 127.0.0.1:5600)
-    reverse_proxy 127.0.0.1:5600 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-
-        # Server-Sent Events (SSE) リアルタイム進捗ストリーミングのバッファリング無効化
-        flush_interval -1
-    }
-}
-```
-
----
-
-## 4. PM2 起動設定 (`ecosystem.config.cjs`)
-
-```javascript
-module.exports = {
-  apps: [
-    {
-      name: "seo-n-n-tokyo",
-      cwd: "/Datas/www/seo.n-n.tokyo",
-      script: "node_modules/next/dist/bin/next",
-      args: "start -H 127.0.0.1 -p 5600",
-      instances: 1,
-      exec_mode: "fork",
-      env: {
-        NODE_ENV: "production",
-        PORT: "5600",
-        HOST: "127.0.0.1",
-        HOSTNAME: "127.0.0.1",
-        NEXT_PUBLIC_APP_URL: "https://seo.n-n.tokyo",
-        NEXT_PUBLIC_DOMAIN: "seo.n-n.tokyo",
-      },
-      max_memory_restart: "512M",
-    },
-  ],
-};
-```
-
----
-
-## 5. 自動デプロイ パイプライン仕様 (`infra/cron-deploy.sh`)
-
-### 5.1 動作メカニズム
-1. **二重起動防止**: `flock -n 9 /tmp/seo-n-n-tokyo-cron-deploy.lock` により並列実行を完全防止。
-2. **Gitポーリング**: `git fetch origin main` を実行し、リモートSHAと `.state/deployed.sha` を比較。
-3. **安全同期**: 新規コミット検知時のみ以下を順次実行：
-   - `git reset --hard origin/main` (.env, logs, .stateは保護)
-   - `pnpm install --frozen-lockfile`
-   - `./node_modules/.bin/prisma db push --accept-data-loss` (DBスキーマ安全反映)
-   - `./node_modules/.bin/prisma generate`
-   - `pnpm build`
-   - `pm2 restart seo-n-n-tokyo --update-env`
-   - `curl http://127.0.0.1:5600/` ヘルスチェック（最大15秒待機）
-   - ヘルスチェック合格時のみ `.state/deployed.sha` を更新。
-
-### 5.2 Crontab 登録エントリ
-```cron
-# seo.n-n.tokyo 自動デプロイ (2分ごと)
-*/2 * * * * /Datas/www/seo.n-n.tokyo/infra/cron-deploy.sh >> /Datas/www/seo.n-n.tokyo/logs/cron-deploy.log 2>&1
-```
-
----
-
-## 6. セキュリティ & SSRF防御仕様
-
-本番サーバー環境において、診断クローラーが社内イントラネットや他の自社サービスへSSRFリクエストを送信することを**DNSレイヤーで厳格にブロック**します。
-
-- **禁止IPレンジ**:
-  - `192.168.0.0/16` (社内LAN全域)
-  - `127.0.0.0/8`, `::1` (ローカルホスト)
-  - `10.0.0.0/8`, `172.16.0.0/12` (プライベートIP)
-  - `169.254.169.254` (リンクローカル/クラウドメタデータ)
-- **トークン保護**: `google_integrations` に保存するOAuthトークン等は **AES-256-GCM** で暗号化し、環境変数 `ENCRYPTION_MASTER_KEY` を用いて保護します。
+1. **Payload URL**: `https://seo.n-n.tokyo/webhook`
+2. **Content type**: `application/json`
+3. **Secret**: `.env` に定義した `DEPLOY_WEBHOOK_SECRET` と同一の文字列（HMAC-SHA256署名検証に使用）
+4. **Which events would you like to trigger this webhook?**: `Just the push event`
+5. **Active**: 有効 (Check)

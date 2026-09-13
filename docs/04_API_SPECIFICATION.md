@@ -1,19 +1,34 @@
 # 04. API詳細仕様書 (API SPECIFICATION)
 
 > **プロジェクト名称**: SEO Analyzer  
-> **ドキュメント種別**: 詳細設計書（REST API・tRPC・SSEリアルタイム通信・型定義・エラーハンドリング）  
-> **ベースURL**: `/api/v1`  
-> **版数**: 2.0.0 (Google公式API・メタ不具合・クロール再開・履歴差分 完全対応版)
+> **ドキュメント種別**: 詳細設計書（REST API・SSEリアルタイム通信・型定義・エラーハンドリング）  
+> **バックエンド基幹ポート**: `127.0.0.1:5601` (Fastify / Node.js 22 LTS)  
+> **ベースURL**: `/api/v1` (SSEストリーム: `/sse/*`)  
+> **版数**: 2.2.0 (バックエンド/フロントエンド分離 & Webhook自動デプロイ対応版)
 
 ---
 
-## 1. エンドポイント完全マトリクス
+## 1. サービスポート & ルーティング仕様
+
+本システムのAPI群は、独立したバックエンドプロセス（`seo-backend` / ポート `5601`）によって高速処理されます。Caddyにより、外部クライアントからは同一ドメイン（`https://seo.n-n.tokyo/api/*` および `https://seo.n-n.tokyo/sse/*`）として透過的に利用できます。
+
+```mermaid
+flowchart LR
+    Browser["フロントエンド UI (Port 5600) / 外部APIクライアント"] -->|https://seo.n-n.tokyo| Caddy["Caddy Proxy"]
+    Caddy -->|/api/*| BackendAPI["Fastify Backend API (Port 5601)"]
+    Caddy -->|/sse/*| BackendSSE["Fastify SSE Streamer (Port 5601)"]
+    Caddy -->|/webhook| Webhook["GitHub Webhook Handler (Port 9104)"]
+```
+
+---
+
+## 2. エンドポイント完全マトリクス
 
 ### ① 診断 & メタ不具合 & AI表示 (Audits & Meta Inspector)
 | メソッド | パス | 説明 | 認証 |
 |---|---|---|---|
 | `POST` | `/api/v1/audit/quick` | 単一URL即時診断開始（Job発行） | 任意 (Rate Limit有) |
-| `GET` | `/api/v1/audit/stream/:jobId` | SSEリアルタイム診断進捗ストリーミング | 不要 |
+| `GET` | `/sse/audit/:jobId` | SSEリアルタイム診断進捗ストリーミング | 不要 |
 | `GET` | `/api/v1/audit/results/:id` | 診断総合スコア・全課題サマリー取得 | 任意 |
 | `GET` | `/api/v1/audit/:id/meta-defects`| **メタタグ不具合・重複・文字化け詳細一覧** | 任意 |
 | `GET` | `/api/v1/audit/:id/dom-diff` | **Raw HTML vs Rendered DOM 差分解析結果** | 任意 |
@@ -26,6 +41,7 @@
 | `POST` | `/api/v1/crawl/start` | サイト全体ディープクロールセッションの開始 | 必須 |
 | `POST` | `/api/v1/crawl/:sessionId/pause` | クロールの一時停止（チェックポイント保存） | 必須 |
 | `POST` | `/api/v1/crawl/:sessionId/resume`| 中断されたクロールセッションの再開 | 必須 |
+| `GET` | `/sse/crawl/:sessionId` | クロール進捗リアルタイムストリーム | 必須 |
 | `GET` | `/api/v1/crawl/:sessionId/status`| 巡回進捗・処理ページ数・404件数 | 必須 |
 | `GET` | `/api/v1/crawl/:sessionId/graph` | **D3.js用 内部リンク有向グラフ (Nodes / Edges)** | 必須 |
 | `GET` | `/api/v1/crawl/:sessionId/broken`| リンク切れ（404/500）およびリンク元一覧 | 必須 |
@@ -53,64 +69,10 @@
 |---|---|---|---|
 | `POST` | `/api/v1/tools/generate-llms-txt` | 対象サイトの構造から `llms.txt` を自動合成 | 任意 |
 | `GET` | `/api/v1/reports/:auditId/pdf` | ホワイトラベルPDFレポートのバイナリ出力 | 任意 |
+| `GET` | `/api/health` | バックエンド死活監視エンドポイント (200 OK) | 不要 |
 
----
-
-## 2. 主要APIレスポンス型定義 (`types/api-v2.ts`)
-
-```typescript
-export interface MetaDefectDto {
-  ruleId: string; // 例: 'META-001', 'META-007'
-  defectCategory: 'DUPLICATION' | 'ENCODING' | 'CANONICAL' | 'ROBOTS' | 'OGP' | 'HREFLANG' | 'SSR_HYDRATION';
-  severity: 'CRITICAL' | 'WARNING' | 'NOTICE';
-  title: string;
-  detectedValues: string[]; // 複数検出されたタグの内容
-  impactDescription: string;
-  fixRecommendation: string;
-}
-
-export interface DomDiffDto {
-  hasDifferences: boolean;
-  titleDiff?: { raw: string; rendered: string; isMismatch: boolean };
-  canonicalDiff?: { raw: string; rendered: string; isMismatch: boolean };
-  robotsDiff?: { raw: string; rendered: string; isMismatch: boolean };
-  linksAddedByJsCount: number;
-  hydrationErrorsDetected: string[];
-}
-
-export interface CrawlGraphDto {
-  nodes: {
-    id: string;
-    url: string;
-    depth: number;
-    httpStatus: number;
-    inLinksCount: number;
-    pageRank: number;
-  }[];
-  edges: {
-    source: string;
-    target: string;
-    anchorText: string;
-    isNofollow: boolean;
-  }[];
-}
-
-export interface TimeTravelDiffDto {
-  baseAuditId: string;
-  previousAuditId: string;
-  daysDifference: number;
-  scoreDelta: {
-    overall: number; // 例: +6
-    technical: number;
-    content: number;
-    performance: number;
-  };
-  resolvedIssues: string[]; // 修正された課題一覧
-  newIssues: string[];      // 新たに発生した課題一覧
-  changedMetaTags: {
-    tag: 'title' | 'description' | 'canonical' | 'robots';
-    before: string;
-    after: string;
-  }[];
-}
-```
+### ⑥ インフラ・自動デプロイ (Webhook)
+| メソッド | パス | 説明 | 認証 |
+|---|---|---|---|
+| `POST` | `/webhook` | GitHub Push イベント受信 & ゼロダウンタイムデプロイキック | HMAC-SHA256署名 |
+| `GET` | `/webhook/health` | Webhookサーバー死活監視 | 不要 |
