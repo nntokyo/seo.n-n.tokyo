@@ -76,6 +76,12 @@ fi
 
 chmod +x "$BASE/infra/deploy.sh" 2>/dev/null || true
 
+# 新スクリプトが更新された場合の再読み込み実行
+if [ "${REEXECED:-0}" != "1" ]; then
+  export REEXECED=1
+  exec bash "$BASE/infra/deploy.sh" "$@"
+fi
+
 # 2. 依存パッケージのインストール
 log "Step 1: Installing dependencies (pnpm install)..."
 if ! pnpm install 2>&1; then
