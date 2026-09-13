@@ -1,0 +1,31 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Next.js build output
+.next
+out
+
+# Production
+build
+dist
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# State & Logs on home server
+.state
+logs
+.data
+
+# Database
+prisma/*.db
+prisma/*.db-journal
+
+# OS & Editor
+.DS_Store
+*.pem
+.vscode
+.idea

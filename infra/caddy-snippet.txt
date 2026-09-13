@@ -1,0 +1,45 @@
+# ==============================================================================
+# /etc/caddy/Caddyfile 追記用設定 (seo.n-n.tokyo)
+# プロキシ先: 127.0.0.1:5600 (PM2: seo-n-n-tokyo)
+# ==============================================================================
+seo.n-n.tokyo {
+    encode gzip zstd
+
+    # セキュリティヘッダー
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        -Server
+    }
+
+    # Next.js 静的アセットキャッシュ
+    @static {
+        path /_next/static/*
+        path /favicon.svg
+        path /favicon.ico
+        path /icon.svg
+        path /logo.svg
+        path /apple-touch-icon.png
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
+
+    # アップロード・レポートPDFキャッシュ/保存先
+    handle_path /reports/* {
+        root * /Datas/www/seo.n-n.tokyo/public/reports
+        file_server
+    }
+
+    # Next.js アプリケーション (PM2: 127.0.0.1:5600)
+    reverse_proxy 127.0.0.1:5600 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # Server-Sent Events (SSE) リアルタイム診断進捗のバッファリング無効化
+        flush_interval -1
+    }
+}
