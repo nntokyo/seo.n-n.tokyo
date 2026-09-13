@@ -44,14 +44,19 @@ export default function AuditDetailPage() {
 
   const [inlineUrl, setInlineUrl] = useState('');
   const [isReauditing, setIsReauditing] = useState(false);
+  const [isReloading, setIsReloading] = useState(false);
 
-  const fetchAuditResult = async () => {
+  const fetchAuditResult = async (forceReload = false) => {
     if (!id) return;
-    setIsLoading(true);
+    if (forceReload) {
+      setIsReloading(true);
+    } else {
+      setIsLoading(true);
+    }
     setErrorMsg(null);
 
-    // 1. まずブラウザの sessionStorage を確認 (サーバー再起動時でも即座に復元)
-    if (typeof window !== 'undefined') {
+    // 1. 強制リロード時でなければブラウザの sessionStorage を確認
+    if (!forceReload && typeof window !== 'undefined') {
       const cached = sessionStorage.getItem(`audit_${id}`);
       if (cached) {
         try {
@@ -63,12 +68,35 @@ export default function AuditDetailPage() {
       }
     }
 
+    if (forceReload && typeof window !== 'undefined') {
+      try { sessionStorage.removeItem(`audit_${id}`); } catch {}
+    }
+
     // 2. URLクエリパラメータの取得 (auto-recovery用)
     const queryUrl = typeof window !== 'undefined'
       ? new URLSearchParams(window.location.search).get('url')
       : null;
 
     try {
+      const targetUrl = audit?.url || queryUrl;
+
+      // forceReload の場合は即座に最新URLでクイック診断を実行して完全更新
+      if (forceReload && targetUrl) {
+        const refreshRes = await fetch('/api/v1/audit/quick', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: targetUrl }),
+        });
+        if (refreshRes.ok) {
+          const freshData = await refreshRes.json();
+          setAudit(freshData);
+          if (typeof window !== 'undefined') {
+            try { sessionStorage.setItem(`audit_${id}`, JSON.stringify(freshData)); } catch {}
+          }
+          return;
+        }
+      }
+
       const endpoint = queryUrl
         ? `/api/v1/audit/results/${id}?url=${encodeURIComponent(queryUrl)}`
         : `/api/v1/audit/results/${id}`;
@@ -103,6 +131,7 @@ export default function AuditDetailPage() {
       setErrorMsg(err.message || 'データ取得エラーが発生しました');
     } finally {
       setIsLoading(false);
+      setIsReloading(false);
     }
   };
 
@@ -232,11 +261,13 @@ export default function AuditDetailPage() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={fetchAuditResult}
-              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-slate-300 flex items-center gap-1.5 transition-colors"
+              type="button"
+              disabled={isReloading}
+              onClick={() => fetchAuditResult(true)}
+              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-slate-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
-              <RefreshCw className="w-3 h-3" />
-              <span className="hidden sm:inline">再読み込み</span>
+              <RefreshCw className={`w-3 h-3 ${isReloading ? 'animate-spin text-cyan-400' : ''}`} />
+              <span className="hidden sm:inline">{isReloading ? '再診断中...' : '再読み込み'}</span>
             </button>
             <Link
               href="/tools/llms-txt"
@@ -1035,8 +1066,19 @@ export const metadata: Metadata = {
                 <div className="space-y-1">
                   <h3 className="text-sm font-bold text-white">サイトマップ検証データがありません</h3>
                   <p className="text-xs text-slate-400 max-w-md mx-auto">
-                    この診断が実行された時点ではサイトマップ情報が保存されていません。ヘッダーの「再読み込み」または再診断を実行してください。
+                    この診断が実行された時点ではサイトマップ情報が保存されていません。下のボタンまたはヘッダーから最新の診断を実行してください。
                   </p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={isReloading}
+                    onClick={() => fetchAuditResult(true)}
+                    className="px-4 py-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-xs font-mono text-sky-400 inline-flex items-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isReloading ? 'animate-spin' : ''}`} />
+                    <span>{isReloading ? 'サイトマップ再診断中...' : 'サイトマップを最新状態で再読み込み'}</span>
+                  </button>
                 </div>
               </div>
             )}
