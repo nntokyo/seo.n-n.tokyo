@@ -75,7 +75,7 @@ graph TD
 | **SCR-13** | リンク切れ (404) 一覧 | `/crawl/:sessionId/broken`| `GET /api/v1/crawl/:sessionId/broken` |
 | **SCR-14** | サイト構造階層ツリー | `/crawl/:sessionId/tree` | `GET /api/v1/crawl/:sessionId/tree` |
 | **SCR-15** | プロジェクト一覧・管理 | `/projects` | `GET /api/v1/projects`, `POST /api/v1/projects`, `PUT /api/v1/projects/:id`, `DELETE /api/v1/projects/:id` |
-| **SCR-16** | プロジェクト詳細・推移 | `/projects/:id` | `GET /api/v1/projects/:id/history` |
+| **SCR-16** | プロジェクト統合ハブ・実行機能詳細 | `/projects/:id` | `GET /api/v1/projects/:id`, `POST /api/v1/audit/quick` |
 | **SCR-17** | Time-Travel 履歴差分 | `/projects/:id/diff` | `GET /api/v1/projects/:id/diff` |
 | **SCR-18** | GSC URL Inspection | `/google/inspect` | `POST /api/v1/google/inspect` |
 | **SCR-19** | Google Indexing 通知 | `/google/indexing` | `POST /api/v1/google/index-publish` |
