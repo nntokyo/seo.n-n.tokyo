@@ -117,6 +117,26 @@ export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOu
           const changefreq = $(el).find('changefreq').text().trim() || undefined;
           const priority = $(el).find('priority').text().trim() || undefined;
           let isValidUrl = true;
+          const companionUrls: import('@seo/shared').CompanionUrlInfo[] = [];
+
+          // xhtml:link コンパニオンURL (hreflang, alternate, mobile) の抽出
+          $(el).find('xhtml\\:link, link').each((__, linkEl) => {
+            const rel = $(linkEl).attr('rel') || '';
+            const href = $(linkEl).attr('href') || '';
+            const hreflang = $(linkEl).attr('hreflang');
+            const media = $(linkEl).attr('media');
+
+            if (href) {
+              if (rel.includes('alternate') && hreflang) {
+                companionUrls.push({ type: 'hreflang', url: href, langOrMedia: hreflang });
+              } else if (rel.includes('alternate') && media) {
+                companionUrls.push({ type: 'amp', url: href, langOrMedia: media });
+              } else if (rel.includes('alternate')) {
+                companionUrls.push({ type: 'alternate', url: href });
+              }
+            }
+          });
+
           try {
             const parsed = new URL(loc);
             // 異なるホスト名の混入チェック
@@ -131,7 +151,14 @@ export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOu
           }
 
           if (loc) {
-            urls.push({ loc, lastmod, changefreq, priority, isValidUrl });
+            urls.push({
+              loc,
+              lastmod,
+              changefreq,
+              priority,
+              isValidUrl,
+              companionUrls: companionUrls.length > 0 ? companionUrls : undefined,
+            });
           }
         });
       } else {
@@ -248,6 +275,215 @@ export default function sitemap(): MetadataRoute.Sitemap {
     } : undefined,
   };
 
+  // --- サイトマップ統計・深層分析 (Sitemap Deep Analytics) ---
+  let analytics: import('@seo/shared').SitemapAnalytics | undefined = undefined;
+
+  if (status === 'found' && urls.length > 0) {
+    const nowMs = Date.now();
+    let recentUpdatedCount = 0;
+    let outdatedCount = 0;
+    let httpsCount = 0;
+    let httpCount = 0;
+    const pathDepthDistribution: Record<string, number> = {
+      'トップ階層 (depth 0)': 0,
+      '第1階層 (depth 1)': 0,
+      '第2階層 (depth 2)': 0,
+      '第3階層以上 (depth 3+)': 0,
+    };
+    const changefreqDistribution: Record<string, number> = {};
+    const priorityDistribution: Record<string, number> = {};
+
+    for (const u of urls) {
+      if (u.loc.startsWith('https://')) httpsCount++;
+      else if (u.loc.startsWith('http://')) httpCount++;
+
+      try {
+        const p = new URL(u.loc);
+        const segments = p.pathname.split('/').filter(Boolean);
+        const depth = segments.length;
+        if (depth === 0) pathDepthDistribution['トップ階層 (depth 0)']++;
+        else if (depth === 1) pathDepthDistribution['第1階層 (depth 1)']++;
+        else if (depth === 2) pathDepthDistribution['第2階層 (depth 2)']++;
+        else pathDepthDistribution['第3階層以上 (depth 3+)']++;
+      } catch {}
+
+      if (u.lastmod) {
+        const lastmodTime = new Date(u.lastmod).getTime();
+        if (!isNaN(lastmodTime)) {
+          const diffDays = (nowMs - lastmodTime) / (1000 * 60 * 60 * 24);
+          if (diffDays <= 30) recentUpdatedCount++;
+          else if (diffDays >= 180) outdatedCount++;
+        } else {
+          outdatedCount++;
+        }
+      } else {
+        outdatedCount++;
+      }
+
+      if (u.changefreq) {
+        changefreqDistribution[u.changefreq] = (changefreqDistribution[u.changefreq] || 0) + 1;
+      }
+      if (u.priority) {
+        const pr = parseFloat(u.priority);
+        const key = pr >= 0.8 ? '高優先度 (0.8 - 1.0)' : pr >= 0.5 ? '通常 (0.5 - 0.7)' : '低優先度 (0.1 - 0.4)';
+        priorityDistribution[key] = (priorityDistribution[key] || 0) + 1;
+      }
+    }
+
+    // 更新鮮度スコア (0-100)
+    const freshnessRatio = (urls.length - outdatedCount) / urls.length;
+    const freshnessScore = Math.max(20, Math.min(100, Math.round(freshnessRatio * 100)));
+
+    if (httpCount > 0) {
+      issues.push({
+        severity: 'critical',
+        message: `サイトマップ内に非HTTPS（http://）のURLが ${httpCount} 件含まれています。正規URLはすべてHTTPSで統一してください。`,
+        proposal: 'http:// をすべて https:// に置き換えてください。',
+      });
+    }
+
+    if (outdatedCount > 0 && urls.length > 5 && (outdatedCount / urls.length) > 0.7) {
+      issues.push({
+        severity: 'notice',
+        message: `登録URLの過半数（${outdatedCount}件）に lastmod が未指定、または180日以上更新がありません。クローラーに更新頻度を伝えるため適切な最終更新日時を指定してください。`,
+      });
+    }
+
+    // 1. ハブページ（トピッククラスター）分析
+    // ディレクトリ共通プレフィックス（/tools, /blog, /docs, /products 等）からハブURLと子ページ群を抽出
+    const clusterMap: Record<string, {
+      hubPath: string;
+      hubUrl: string;
+      childUrls: string[];
+      lastmods: string[];
+      priorities: number[];
+    }> = {};
+
+    // 2. カノニカル & コンパニオン整合性集計
+    let companionUrlsTotal = 0;
+    let hreflangCount = 0;
+    let ampCount = 0;
+    let parameterUrlCount = 0;
+    let trailingSlashMismatchCount = 0;
+
+    for (const u of urls) {
+      // コンパニオンURL集計
+      if (u.companionUrls && u.companionUrls.length > 0) {
+        companionUrlsTotal += u.companionUrls.length;
+        for (const comp of u.companionUrls) {
+          if (comp.type === 'hreflang') hreflangCount++;
+          else if (comp.type === 'amp') ampCount++;
+        }
+      }
+
+      // パラメータ付きURL（非正規混入の可能性）
+      try {
+        const uObj = new URL(u.loc);
+        if (uObj.search && (uObj.search.includes('utm_') || uObj.search.includes('session') || uObj.search.includes('filter'))) {
+          parameterUrlCount++;
+          u.canonicalStatus = 'non_canonical_warning';
+        } else {
+          u.canonicalStatus = 'self_canonical';
+        }
+
+        // クラスタリング (親パスの特定)
+        const segments = uObj.pathname.split('/').filter(Boolean);
+        if (segments.length >= 1) {
+          const parentPrefix = `/${segments[0]}`;
+          if (!clusterMap[parentPrefix]) {
+            clusterMap[parentPrefix] = {
+              hubPath: parentPrefix,
+              hubUrl: `${uObj.origin}${parentPrefix}`,
+              childUrls: [],
+              lastmods: [],
+              priorities: [],
+            };
+          }
+          if (segments.length > 1) {
+            clusterMap[parentPrefix].childUrls.push(u.loc);
+          }
+          if (u.lastmod) clusterMap[parentPrefix].lastmods.push(u.lastmod);
+          if (u.priority) clusterMap[parentPrefix].priorities.push(parseFloat(u.priority));
+        }
+
+        if (segments.length === 1 && !uObj.pathname.endsWith('/') && urls.some((other) => other.loc === `${u.loc}/`)) {
+          trailingSlashMismatchCount++;
+        }
+      } catch {}
+    }
+
+    // ハブページフラグの付与とクラスタ情報整形
+    const hubClusters: import('@seo/shared').HubClusterInfo[] = [];
+    for (const [prefix, data] of Object.entries(clusterMap)) {
+      if (data.childUrls.length > 0) {
+        // ハブページ自身がサイトマップに存在するか確認
+        const hubEntry = urls.find((u) => {
+          try {
+            const p = new URL(u.loc).pathname.replace(/\/$/, '');
+            return p === prefix;
+          } catch {
+            return false;
+          }
+        });
+        if (hubEntry) {
+          hubEntry.isHubPage = true;
+        } else {
+          issues.push({
+            severity: 'notice',
+            message: `トピックハブ（${prefix}）の配下に ${data.childUrls.length} 件の子ページが存在しますが、親ハブページ自身がサイトマップに記載されていません。`,
+            proposal: `サイトマップにハブ親URL（${origin}${prefix}）を追加してください。`,
+          });
+        }
+
+        const avgPriority = data.priorities.length > 0
+          ? Math.round((data.priorities.reduce((a, b) => a + b, 0) / data.priorities.length) * 10) / 10
+          : undefined;
+
+        hubClusters.push({
+          hubPath: data.hubPath,
+          hubUrl: data.hubUrl,
+          childPageCount: data.childUrls.length,
+          sampleChildren: data.childUrls.slice(0, 3),
+          lastUpdated: data.lastmods.sort().reverse()[0],
+          avgPriority,
+        });
+      }
+    }
+
+    if (parameterUrlCount > 0) {
+      issues.push({
+        severity: 'warning',
+        message: `サイトマップ内にトラッキングパラメータ付きのURLが ${parameterUrlCount} 件検出されました。サイトマップには正規（Canonical）URLのみを記載してください。`,
+        proposal: 'URLからクエリパラメータを除去した正規URLで登録してください。',
+      });
+    }
+
+    const canonicalCompanion: import('@seo/shared').CanonicalCompanionAnalytics = {
+      selfCanonicalCount: urls.length - parameterUrlCount,
+      potentialCanonicalConflictCount: parameterUrlCount,
+      companionUrlsTotal,
+      hreflangCount,
+      ampCount,
+      trailingSlashMismatchCount,
+      parameterUrlCount,
+    };
+
+    analytics = {
+      freshnessScore,
+      recentUpdatedCount,
+      outdatedCount,
+      protocol: {
+        httpsCount,
+        httpCount,
+      },
+      pathDepthDistribution,
+      changefreqDistribution,
+      priorityDistribution,
+      hubClusters: hubClusters.length > 0 ? hubClusters : undefined,
+      canonicalCompanion,
+    };
+  }
+
   const sitemapResult: SitemapValidationResult = {
     status,
     sitemapUrl: status === 'found' ? primarySitemapUrl : null,
@@ -260,6 +496,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     xmlSizeKb,
     responseTimeMs,
     generatedNextjsCode,
+    analytics,
   };
 
   return {

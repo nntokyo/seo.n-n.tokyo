@@ -41,7 +41,7 @@ $$
 | `TECH-003` | Canonicalタグの整合性 | 単一の絶対パスURLが指定され、自己参照または正規URLを指しているか | 🚨 CRITICAL | -30 |
 | `TECH-004` | HTTPS & 混在コンテンツ | HTTPS通信であり、HTTPリソース（画像/JS/CSS）の混入がないか | 🚨 CRITICAL | -25 |
 | `TECH-005` | robots.txt 構文と配置 | ルート直下に構文エラーなく存在し、Googlebotを遮断していないか | ⚠️ WARNING | -15 |
-| `TECH-006` | XMLサイトマップ連携 | `robots.txt` にSitemap記載があるか、`/sitemap.xml` が有効か | ⚠️ WARNING | -10 |
+| `TECH-006` | XMLサイトマップ・ハブ・カノニカル連携 | `robots.txt` のSitemap指示、`/sitemap.xml` 構文・URL上限、トピックハブと子クラスター網羅性、非正規/パラメータ付きURLの混入排除、Hreflang/AMPコンパニオンURLの整合性 | ⚠️ WARNING | -15 |
 | `TECH-007` | モバイルフレンドリー Viewport | `width=device-width, initial-scale=1` が指定されズーム禁止がないか | 🚨 CRITICAL | -20 |
 | `TECH-008` | リダイレクトチェーン | 転送ホップ数が2回以上連続していないか（A -> B -> C） | ⚠️ WARNING | -10 |
 | `TECH-009` | URL構造の正規化 | 末尾スラッシュの有無、パラメータ順序、大文字小文字の混在チェック | ℹ️ NOTICE | -5 |

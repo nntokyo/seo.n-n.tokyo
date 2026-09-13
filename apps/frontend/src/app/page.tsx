@@ -136,14 +136,18 @@ export default function LandingPage() {
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
               <span>llms.txt生成</span>
             </Link>
+            <Link href="/tools/sitemap-analyzer" className="hover:text-sky-400 transition-colors flex items-center gap-1.5 font-mono text-xs">
+              <Layers className="w-3.5 h-3.5 text-sky-400" />
+              <span>サイトマップ分析</span>
+            </Link>
           </nav>
 
           <div className="flex items-center gap-3">
             <Link
-              href="/tools/llms-txt"
+              href="/tools/sitemap-analyzer"
               className="hidden sm:flex text-xs font-mono text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-colors"
             >
-              ツール
+              サイトマップ分析
             </Link>
             <a 
               href="#audit-input" 
@@ -248,20 +252,23 @@ export default function LandingPage() {
                 )}
                 <div className="inline-flex p-1 rounded-full bg-slate-900 border border-white/10 text-xs">
                   <button 
+                    type="button"
                     onClick={() => setActiveTab('overview')}
-                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'overview' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'overview' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
                   >
                     総合診断
                   </button>
                   <button 
+                    type="button"
                     onClick={() => setActiveTab('aeo')}
-                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'aeo' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'aeo' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
                   >
                     AEO / LLMO
                   </button>
                   <button 
+                    type="button"
                     onClick={() => setActiveTab('meta')}
-                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'meta' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'meta' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
                   >
                     メタ不具合
                   </button>
@@ -271,7 +278,10 @@ export default function LandingPage() {
 
             {/* 4連 Border Grid KPI Stat Cards (ShadcnAdmin Spec) */}
             <div className="grid gap-px bg-white/[0.08] grid-cols-2 lg:grid-cols-4 bg-[#080B11]">
-              <div className="bg-[#0F1623] p-5">
+              <div 
+                onClick={() => setActiveTab('overview')}
+                className={`bg-[#0F1623] p-5 cursor-pointer transition-colors ${activeTab === 'overview' ? 'ring-1 ring-cyan-500/50 bg-[#131b2b]' : 'hover:bg-[#131b2e]'}`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">TOTAL SCORE</span>
                   <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -286,7 +296,10 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              <div className="bg-[#0F1623] p-5">
+              <div 
+                onClick={() => setActiveTab('overview')}
+                className="bg-[#0F1623] p-5 cursor-pointer hover:bg-[#131b2e] transition-colors"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">CORE WEB VITALS</span>
                   <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">実測速度</span>
@@ -299,7 +312,10 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              <div className="bg-[#0F1623] p-5">
+              <div 
+                onClick={() => setActiveTab('aeo')}
+                className={`bg-[#0F1623] p-5 cursor-pointer transition-colors ${activeTab === 'aeo' ? 'ring-1 ring-violet-500/50 bg-[#15192c]' : 'hover:bg-[#131b2e]'}`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">AEO / LLMO READY</span>
                   <span className="text-[10px] font-mono text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">AI 引用適性</span>
@@ -310,7 +326,10 @@ export default function LandingPage() {
                 <p className="text-xs text-violet-400">AI Overviews カルーセル対象</p>
               </div>
 
-              <div className="bg-[#0F1623] p-5">
+              <div 
+                onClick={() => setActiveTab('meta')}
+                className={`bg-[#0F1623] p-5 cursor-pointer transition-colors ${activeTab === 'meta' ? 'ring-1 ring-amber-500/50 bg-[#1c191a]' : 'hover:bg-[#131b2e]'}`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">META INTEGRITY</span>
                   <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">メタ整合性</span>
@@ -322,16 +341,28 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Proposal Code Split View (Before / After) */}
+            {/* Proposal Code / Dynamic Tab Content */}
             <div className="p-6 bg-[#0B101A] border-t border-white/[0.08]">
               {auditResult ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-white">診断された検査項目 ({auditResult.metrics.length}件)</span>
+                    <span className="text-sm font-bold text-white">
+                      {activeTab === 'aeo'
+                        ? 'AEO / LLMO 関連検査項目'
+                        : activeTab === 'meta'
+                        ? 'メタタグ・Canonical 検査項目'
+                        : `総合診断された検査項目 (${auditResult.metrics.length}件)`}
+                    </span>
                     <span className="text-xs text-slate-400 font-mono">ターゲット: {auditResult.url}</span>
                   </div>
                   <div className="space-y-3">
-                    {auditResult.metrics.map((m, idx) => (
+                    {auditResult.metrics
+                      .filter((m) => {
+                        if (activeTab === 'aeo') return m.category === 'aeo_llmo' || m.id.startsWith('AIO');
+                        if (activeTab === 'meta') return m.category === 'technical' || m.id.startsWith('META') || m.id.startsWith('CANONICAL');
+                        return true;
+                      })
+                      .map((m, idx) => (
                       <div key={idx} className="p-4 rounded-xl border border-white/[0.08] bg-[#0F1623] flex flex-col gap-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -364,35 +395,38 @@ export default function LandingPage() {
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">CRITICAL</span>
-                      <span className="text-sm font-semibold text-white">[AIO-001] AIスニペット最大表示メタタグの付与推奨</span>
-                    </div>
-                    <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                      獲得見込み: +15点
-                    </span>
-                  </div>
+                /* Dynamic fallback preview based on active tab */
+                <div>
+                  {activeTab === 'overview' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">CRITICAL</span>
+                          <span className="text-sm font-semibold text-white">[AIO-001] AIスニペット最大表示メタタグの付与推奨</span>
+                        </div>
+                        <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                          獲得見込み: +15点
+                        </span>
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="rounded-xl border border-red-500/20 bg-red-950/10 p-4 font-mono text-xs">
-                      <div className="text-red-400 font-bold mb-2 flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5" /> 検出された現状コード (未設定)
-                      </div>
-                      <div className="text-slate-400 line-through">
-                        &lt;!-- max-snippet タグが存在しません --&gt;
-                      </div>
-                      <p className="mt-3 text-[11px] text-slate-400 leading-relaxed font-sans">
-                        ⚠️ AI Overviewsや検索スニペットで要約が省略され、サムネイル画像が表示されない危険があります。
-                      </p>
-                    </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="rounded-xl border border-red-500/20 bg-red-950/10 p-4 font-mono text-xs">
+                          <div className="text-red-400 font-bold mb-2 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5" /> 検出された現状コード (未設定)
+                          </div>
+                          <div className="text-slate-400 line-through">
+                            &lt;!-- max-snippet タグが存在しません --&gt;
+                          </div>
+                          <p className="mt-3 text-[11px] text-slate-400 leading-relaxed font-sans">
+                            ⚠️ AI Overviewsや検索スニペットで要約が省略され、サムネイル画像が表示されない危険があります。
+                          </p>
+                        </div>
 
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 font-mono text-xs">
-                      <div className="text-emerald-400 font-bold mb-2 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Next.js App Router 推奨コード
-                      </div>
-                      <pre className="text-emerald-300 leading-relaxed overflow-x-auto">
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 font-mono text-xs relative">
+                          <div className="text-emerald-400 font-bold mb-2 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Next.js App Router 推奨コード
+                          </div>
+                          <pre className="text-emerald-300 leading-relaxed overflow-x-auto">
 {`export const metadata: Metadata = {
   robots: {
     index: true,
@@ -402,10 +436,73 @@ export default function LandingPage() {
     },
   },
 };`}
-                      </pre>
+                          </pre>
+                          <button
+                            type="button"
+                            onClick={() => copyCode(`export const metadata: Metadata = {\n  robots: {\n    index: true,\n    googleBot: {\n      'max-image-preview': 'large',\n      'max-snippet': -1,\n    },\n  },\n};`)}
+                            className="absolute top-3 right-3 p-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] flex items-center gap-1"
+                          >
+                            {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            <span>{copied ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {activeTab === 'aeo' && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-md">AEO / AIO</span>
+                          <span className="text-sm font-semibold text-white">Google AI Overviews & SearchGPT 引用確率シミュレーション</span>
+                        </div>
+                        <span className="text-xs font-mono text-violet-400 bg-violet-500/10 px-3 py-1 rounded-full border border-violet-500/20">
+                          引用適性スコア: 92点
+                        </span>
+                      </div>
+
+                      <div className="p-4 rounded-xl border border-violet-500/20 bg-violet-950/10 space-y-3">
+                        <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                          ✨ <strong>AI生成要約プレビュー:</strong> サイト内のh1〜h3階層と結論先行パラグラフをAIが解析し、強調スニペットおよびAI Overviewsの回答カードとしてカルーセル選出される可能性が極めて高い状態です。
+                        </p>
+                        <div className="flex items-center gap-3 pt-2 text-xs font-mono text-slate-400">
+                          <span>llms.txt: <strong className="text-emerald-400">対応可能</strong></span>
+                          <span>ファクト密度: <strong className="text-cyan-400">88% (高)</strong></span>
+                          <span>定義文構造: <strong className="text-emerald-400">適合</strong></span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </>
+                  )}
+
+                  {activeTab === 'meta' && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">META DEFECT</span>
+                          <span className="text-sm font-semibold text-white">Canonical & OGP 整合性プレビュー</span>
+                        </div>
+                        <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                          整合性: 88点
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                        <div className="p-4 rounded-xl border border-white/10 bg-[#0F1623] space-y-2">
+                          <div className="text-slate-400 font-bold">検出された正規化タグ</div>
+                          <div className="text-cyan-300 break-all">rel="canonical" href="https://seo.n-n.tokyo"</div>
+                          <div className="text-emerald-400 text-[11px]">✅ Self-canonical 正常一致</div>
+                        </div>
+
+                        <div className="p-4 rounded-xl border border-white/10 bg-[#0F1623] space-y-2">
+                          <div className="text-slate-400 font-bold">OGP / ソーシャル設定</div>
+                          <div className="text-slate-200">og:title, og:description, twitter:card (設定済み)</div>
+                          <div className="text-emerald-400 text-[11px]">✅ 1200x630 サムネイル比率準拠</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -424,49 +521,58 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] hover:border-white/20 transition-all">
-              <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-6 text-cyan-400">
+            <a 
+              href="#aeo-llmo"
+              className="p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] hover:border-cyan-500/40 hover:bg-[#121927] transition-all group block text-left"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-6 text-cyan-400 group-hover:scale-105 transition-transform">
                 <Bot className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-3">AEO / AIO / LLMO / GEO 最適化</h3>
+              <h3 className="text-lg font-bold text-white mb-3 group-hover:text-cyan-300 transition-colors">AEO / AIO / LLMO / GEO 最適化</h3>
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
                 Google AI Overviews、SearchGPT、Perplexityでの自社サイト引用確率を判定。AIが抜き出しやすい定義文構造・ファクト密度を自動スコアリングします。
               </p>
-              <div className="text-xs font-mono text-cyan-400 flex items-center gap-1">
-                <span>llms.txt 自動合成対応</span>
+              <div className="text-xs font-mono text-cyan-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                <span>詳細仕様とllms.txt生成</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </div>
-            </div>
+            </a>
 
             {/* Feature 2 */}
-            <div className="p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] hover:border-white/20 transition-all">
-              <div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-6 text-violet-400">
+            <a 
+              href="#google-api"
+              className="p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] hover:border-violet-500/40 hover:bg-[#121927] transition-all group block text-left"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-6 text-violet-400 group-hover:scale-105 transition-transform">
                 <ShieldCheck className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-3">Google 公式 API 完全統合</h3>
+              <h3 className="text-lg font-bold text-white mb-3 group-hover:text-violet-300 transition-colors">Google 公式 API 完全統合</h3>
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
                 PageSpeed Insights (v5) によるCore Web Vitals実測値、およびSearch Console URL InspectionによるGooglebot公式インデックス状態を直接照会。
               </p>
-              <div className="text-xs font-mono text-violet-400 flex items-center gap-1">
-                <span>CrUX & GSC連携</span>
+              <div className="text-xs font-mono text-violet-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                <span>CrUX & GSC連携仕様</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </div>
-            </div>
+            </a>
 
             {/* Feature 3 */}
-            <div className="p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] hover:border-white/20 transition-all">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 text-emerald-400">
+            <Link 
+              href="/tools/sitemap-analyzer"
+              className="p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] hover:border-emerald-500/40 hover:bg-[#121927] transition-all group block text-left"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 text-emerald-400 group-hover:scale-105 transition-transform">
                 <Layers className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-3">Raw HTML vs Rendered DOM 差分</h3>
+              <h3 className="text-lg font-bold text-white mb-3 group-hover:text-emerald-300 transition-colors">サイトマップ & ハブ・カノニカル分析</h3>
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                静的HTMLとPlaywright描画後のDOMを並列比較。JavaScriptによる遅延Canonical注入やSSRハイドレーションエラーを可視化します。
+                XMLサイトマップの構文検証からトピッククラスター親ハブ特定、hreflang/AMP対URL、非正規化パラメータ混入まで一括精密診断。
               </p>
-              <div className="text-xs font-mono text-emerald-400 flex items-center gap-1">
-                <span>JS SEO 完全監査</span>
+              <div className="text-xs font-mono text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                <span>サイトマップ分析ツールを開く</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </section>
@@ -509,26 +615,39 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-4 rounded-2xl bg-[#0F1623] border border-white/[0.06]">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-                    <Code2 className="w-4 h-4" />
+                <Link 
+                  href="/tools/llms-txt"
+                  className="flex items-start gap-3 p-4 rounded-2xl bg-[#0F1623] border border-white/[0.06] hover:border-cyan-500/30 transition-all group block"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Code2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <h4 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">llms.txt 標準自動生成ツール</h4>
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:translate-x-0.5 group-hover:text-cyan-400 transition-all" />
+                      </div>
+                      <p className="text-xs text-slate-400">AIモデルがサイト情報を効率的に把握するための公式Markdown仕様（/llms.txt）をワンクリック合成。</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white mb-1">llms.txt 標準自動生成</h4>
-                    <p className="text-xs text-slate-400">AIモデルがサイト情報を効率的に把握するための公式Markdown仕様（/llms.txt）をワンクリック合成。</p>
-                  </div>
-                </div>
+                </Link>
               </div>
             </div>
 
             {/* Refero 16:10 AI Overview Simulator Card */}
-            <div className="rounded-3xl border border-white/10 bg-[#0F1623] p-6 shadow-2xl">
+            <div id="simulator" className="rounded-3xl border border-white/10 bg-[#0F1623] p-6 shadow-2xl">
               <div className="flex items-center justify-between pb-4 border-b border-white/[0.08] mb-4">
                 <span className="text-xs font-mono text-slate-400 flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
                   Google AI Overviews 引用シミュレータ
                 </span>
-                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">リアルタイム再現</span>
+                <Link
+                  href="#audit-input"
+                  className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 px-2.5 py-1 rounded-full border border-cyan-500/20 transition-colors"
+                >
+                  リアルタイム再現
+                </Link>
               </div>
 
               <div className="space-y-4">
@@ -547,11 +666,56 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-400 pt-2">
-                  <span>AIクローラー対応: <strong className="text-emerald-400">全許可 (200 OK)</strong></span>
-                  <span>スニペット制限: <strong className="text-emerald-400">max-snippet:-1</strong></span>
+                <div className="flex items-center justify-between text-xs text-slate-400 pt-2 font-mono">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    AIクローラー: <strong className="text-emerald-400">全許可 (200 OK)</strong>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    スニペット: <strong className="text-emerald-400">max-snippet:-1</strong>
+                  </span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Google API Section */}
+      <section id="google-api" className="py-20 border-t border-white/[0.08] bg-[#080B11]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-violet-400 mb-3">GOOGLE OFFICIAL API</h2>
+            <p className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
+              Google公式データによる絶対的な客観性と信頼性
+            </p>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              サードパーティの推計値ではなく、Googleが実際に保有するCrUX実測データベースとSearch ConsoleインデックスAPIに直結して診断します。
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold text-violet-400 uppercase tracking-wider">PageSpeed Insights API</span>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">v5 REST</span>
+              </div>
+              <h3 className="text-lg font-bold text-white">Core Web Vitals 実測データ照会</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                実ユーザーのChrome測定データ（Chrome User Experience Report）からLCP、INP、CLS、TTFBをミリ秒単位で抽出。75パーセンタイル値での合格判定を実施します。
+              </p>
+            </div>
+
+            <div className="p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider">Search Console API</span>
+                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">URL Inspection</span>
+              </div>
+              <h3 className="text-lg font-bold text-white">Googlebot インデックス公式状態</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Googlebotが前回クロールした日時、レンダリング成功可否、検出されたCanonicalとGoogleが選択したCanonicalの差異をリアルタイム照会します。
+              </p>
             </div>
           </div>
         </div>

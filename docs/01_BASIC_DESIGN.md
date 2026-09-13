@@ -54,7 +54,9 @@ graph TD
 
 ---
 
-## 3. 全25画面一覧マトリクス
+## 3. 全26画面一覧マトリクス & インタラクティブUI設計規約
+
+すべての画面において、表示されるボタン、タブ、リンク、アクションカードは単なる装飾（ダミーUI）であってはならず、クリック時に即座に状態変更・画面遷移・コピー・モーダル表示などのフィードバックを提供する完全なインタラクティブ性を備えます。
 
 | 画面ID | 画面名称 | ルーティング (Frontend) | 連携バックエンドAPI |
 |---|---|---|---|
@@ -83,3 +85,4 @@ graph TD
 | **SCR-23** | Google APIアカウント連携 | `/settings/integrations` | `GET /api/v1/integrations/google/auth-url` |
 | **SCR-24** | チーム・メンバー管理 | `/settings/team` | `GET /api/v1/team/members` |
 | **SCR-25** | APIキー・Webhook管理 | `/settings/api-keys` | `GET /api/v1/settings/api-keys` |
+| **SCR-26** | サイトマップ&ハブ・カノニカル分析 | `/tools/sitemap-analyzer` | `POST /api/v1/tools/validate-sitemap` |

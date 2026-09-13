@@ -48,18 +48,62 @@ export interface CwvEstimates {
   totalSizeKb: number;
 }
 
+export interface CompanionUrlInfo {
+  type: 'hreflang' | 'amp' | 'alternate';
+  url: string;
+  langOrMedia?: string;
+}
+
 export interface SitemapUrlEntry {
   loc: string;
   lastmod?: string;
   changefreq?: string;
   priority?: string;
   isValidUrl: boolean;
+  isHubPage?: boolean;
+  canonicalStatus?: 'self_canonical' | 'non_canonical_warning' | 'unknown';
+  companionUrls?: CompanionUrlInfo[];
 }
 
 export interface SitemapIssue {
   severity: 'critical' | 'warning' | 'notice';
   message: string;
   proposal?: string;
+}
+
+export interface HubClusterInfo {
+  hubPath: string; // e.g. "/tools" or "/blog"
+  hubUrl: string;
+  childPageCount: number;
+  sampleChildren: string[];
+  lastUpdated?: string;
+  avgPriority?: number;
+}
+
+export interface CanonicalCompanionAnalytics {
+  selfCanonicalCount: number;
+  potentialCanonicalConflictCount: number;
+  companionUrlsTotal: number;
+  hreflangCount: number;
+  ampCount: number;
+  trailingSlashMismatchCount: number;
+  parameterUrlCount: number;
+}
+
+export interface SitemapAnalytics {
+  freshnessScore: number; // 0-100
+  recentUpdatedCount: number; // 30日以内
+  outdatedCount: number; // 180日以上またはlastmod未指定
+  protocol: {
+    httpsCount: number;
+    httpCount: number;
+  };
+  pathDepthDistribution: Record<string, number>; // { "depth_1": 12, "depth_2": 45, ... }
+  changefreqDistribution: Record<string, number>; // { "daily": 5, "weekly": 12, ... }
+  priorityDistribution: Record<string, number>; // { "0.8-1.0": 10, "0.5-0.7": 15, ... }
+  sampleStatusCodes?: Record<string, number>; // { "200": 8, "404": 0, ... }
+  hubClusters?: HubClusterInfo[];
+  canonicalCompanion?: CanonicalCompanionAnalytics;
 }
 
 export interface SitemapValidationResult {
@@ -74,6 +118,7 @@ export interface SitemapValidationResult {
   xmlSizeKb: number;
   responseTimeMs: number;
   generatedNextjsCode?: string;
+  analytics?: SitemapAnalytics;
 }
 
 export interface FullAuditResult {
