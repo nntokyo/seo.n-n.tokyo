@@ -38,22 +38,94 @@ export default function AuditDetailPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
+  const [inlineUrl, setInlineUrl] = useState('');
+  const [isReauditing, setIsReauditing] = useState(false);
+
   const fetchAuditResult = async () => {
     if (!id) return;
     setIsLoading(true);
     setErrorMsg(null);
 
-    try {
-      const res = await fetch(`/api/v1/audit/results/${id}`);
-      if (!res.ok) {
-        throw new Error('診断結果が見つからないか、期限切れです。トップページから再診断を行ってください。');
+    // 1. まずブラウザの sessionStorage を確認 (サーバー再起動時でも即座に復元)
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(`audit_${id}`);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          setAudit(parsed);
+          setIsLoading(false);
+          return;
+        } catch {}
       }
+    }
+
+    // 2. URLクエリパラメータの取得 (auto-recovery用)
+    const queryUrl = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('url')
+      : null;
+
+    try {
+      const endpoint = queryUrl
+        ? `/api/v1/audit/results/${id}?url=${encodeURIComponent(queryUrl)}`
+        : `/api/v1/audit/results/${id}`;
+      const res = await fetch(endpoint);
+
+      if (!res.ok) {
+        // 3. クエリURLがあれば即座にクイック診断を実行して復旧
+        if (queryUrl) {
+          const autoRes = await fetch('/api/v1/audit/quick', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: queryUrl }),
+          });
+          if (autoRes.ok) {
+            const autoData = await autoRes.json();
+            setAudit(autoData);
+            if (typeof window !== 'undefined') {
+              try { sessionStorage.setItem(`audit_${id}`, JSON.stringify(autoData)); } catch {}
+            }
+            return;
+          }
+        }
+        throw new Error('診断結果が見つからないか、有効期限が切れています。下記からURLを入力して再診断を行ってください。');
+      }
+
       const data = await res.json();
       setAudit(data);
+      if (typeof window !== 'undefined') {
+        try { sessionStorage.setItem(`audit_${id}`, JSON.stringify(data)); } catch {}
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'データ取得エラーが発生しました');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleInlineReaudit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inlineUrl) return;
+    setIsReauditing(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/v1/audit/quick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: inlineUrl }),
+      });
+      if (!res.ok) {
+        throw new Error('URLの診断に失敗しました。URLを確認してください。');
+      }
+      const data = await res.json();
+      setAudit(data);
+      if (typeof window !== 'undefined') {
+        try { sessionStorage.setItem(`audit_${id}`, JSON.stringify(data)); } catch {}
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || '診断エラー');
+    } finally {
+      setIsReauditing(false);
     }
   };
 
@@ -78,18 +150,46 @@ export default function AuditDetailPage() {
 
   if (errorMsg || !audit) {
     return (
-      <div className="min-h-screen bg-[#080B11] text-white flex flex-col items-center justify-center p-6 space-y-5">
-        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 max-w-md text-center">
-          <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-red-400" />
-          <p className="text-sm font-semibold">{errorMsg || '診断データが見つかりません'}</p>
+      <div className="min-h-screen bg-[#080B11] text-white flex flex-col items-center justify-center p-6 space-y-6">
+        <div className="p-6 rounded-2xl bg-[#0B0F17] border border-white/10 max-w-lg w-full text-center space-y-4 shadow-2xl">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-white mb-1">診断レポートが見つかりません</h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              {errorMsg || 'サーバー再起動または有効期限によりキャッシュが更新されました。URLを入力して即座に最新診断を実行できます。'}
+            </p>
+          </div>
+
+          {/* インライン再診断フォーム */}
+          <form onSubmit={handleInlineReaudit} className="flex flex-col sm:flex-row gap-2 pt-2">
+            <input
+              type="text"
+              value={inlineUrl}
+              onChange={(e) => setInlineUrl(e.target.value)}
+              placeholder="https://example.com"
+              className="flex-1 px-3.5 py-2 rounded-xl bg-black/50 border border-white/10 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
+            />
+            <button
+              type="submit"
+              disabled={isReauditing || !inlineUrl}
+              className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs font-mono transition-colors disabled:opacity-50"
+            >
+              {isReauditing ? '診断中...' : '再診断'}
+            </button>
+          </form>
+
+          <div className="pt-2 border-t border-white/[0.06]">
+            <Link
+              href="/"
+              className="text-xs font-mono text-slate-400 hover:text-white flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>トップページへ戻る</span>
+            </Link>
+          </div>
         </div>
-        <Link
-          href="/"
-          className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-mono text-white flex items-center gap-2 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>トップへ戻って再診断</span>
-        </Link>
       </div>
     );
   }

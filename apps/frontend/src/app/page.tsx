@@ -92,6 +92,11 @@ export default function LandingPage() {
 
       const data = await res.json();
       setAuditResult(data);
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem(`audit_${data.id}`, JSON.stringify(data));
+        } catch {}
+      }
     } catch (err: any) {
       setErrorMsg(err.message || '診断中に予期せぬエラーが発生しました');
     } finally {
@@ -234,7 +239,7 @@ export default function LandingPage() {
               <div className="flex items-center gap-3">
                 {auditResult && (
                   <Link
-                    href={`/audit/${auditResult.id}`}
+                    href={`/audit/${auditResult.id}?url=${encodeURIComponent(auditResult.url)}`}
                     className="px-3.5 py-1 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm shadow-cyan-500/20"
                   >
                     <span>詳細レポート</span>

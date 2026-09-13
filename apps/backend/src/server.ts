@@ -2,6 +2,9 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { analyzeHtml } from './analyzer.js';
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 async function main() {
   const fastify = Fastify({
     logger: true,
@@ -11,14 +14,36 @@ async function main() {
     origin: true,
   });
 
-  // インメモリ診断結果キャッシュ (直近100件)
+  // 永続化ディレクトリ設定 (.data/audits)
+  const baseDataDir = process.env.DATA_DIR || path.resolve(process.cwd(), '.data', 'audits');
+  try {
+    fs.mkdirSync(baseDataDir, { recursive: true });
+  } catch {}
+
+  // インメモリ診断結果キャッシュ (直近500件)
   const auditCache = new Map<string, any>();
+
+  // 起動時にディスク上の既存レポートを復元
+  try {
+    if (fs.existsSync(baseDataDir)) {
+      const files = fs.readdirSync(baseDataDir);
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const id = file.replace('.json', '');
+          try {
+            const raw = fs.readFileSync(path.join(baseDataDir, file), 'utf8');
+            auditCache.set(id, JSON.parse(raw));
+          } catch {}
+        }
+      }
+    }
+  } catch {}
 
   fastify.get('/api/health', async () => {
     return {
       status: 'ok',
       service: 'seo-backend',
-      version: '1.2.0',
+      version: '1.2.1',
       cachedAudits: auditCache.size,
       timestamp: new Date().toISOString(),
     };
@@ -52,9 +77,13 @@ async function main() {
 
       const result = analyzeHtml(targetUrl, html, responseTimeMs, httpStatus);
 
-      // キャッシュに保存
+      // メモリ & ディスクに永続保存
       auditCache.set(result.id, result);
-      if (auditCache.size > 100) {
+      try {
+        fs.writeFileSync(path.join(baseDataDir, `${result.id}.json`), JSON.stringify(result), 'utf8');
+      } catch {}
+
+      if (auditCache.size > 500) {
         const oldestKey = auditCache.keys().next().value;
         if (oldestKey) auditCache.delete(oldestKey);
       }
@@ -69,10 +98,53 @@ async function main() {
     }
   });
 
-  // 診断結果詳細取得エンドポイント
+  // 診断結果詳細取得エンドポイント (自動リカバリー対応)
   fastify.get('/api/v1/audit/results/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const cached = auditCache.get(id);
+    const query = request.query as { url?: string };
+    let cached = auditCache.get(id);
+
+    if (!cached) {
+      // ディスクから読み込み試行
+      try {
+        const filePath = path.join(baseDataDir, `${id}.json`);
+        if (fs.existsSync(filePath)) {
+          const raw = fs.readFileSync(filePath, 'utf8');
+          cached = JSON.parse(raw);
+          auditCache.set(id, cached);
+        }
+      } catch {}
+    }
+
+    // クエリパラメータに url がある場合、見つからなければその場で即時診断して復元
+    if (!cached && query.url) {
+      let targetUrl = query.url.trim();
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        targetUrl = `https://${targetUrl}`;
+      }
+      try {
+        const startTime = Date.now();
+        const response = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+          signal: AbortSignal.timeout(12000),
+        });
+        const responseTimeMs = Date.now() - startTime;
+        const html = await response.text();
+        const result = analyzeHtml(targetUrl, html, responseTimeMs, response.status);
+        result.id = id; // 要求されたIDで保存
+        auditCache.set(id, result);
+        try {
+          fs.writeFileSync(path.join(baseDataDir, `${id}.json`), JSON.stringify(result), 'utf8');
+        } catch {}
+        return result;
+      } catch (err: any) {
+        fastify.log.error(err);
+      }
+    }
+
     if (!cached) {
       return reply.status(404).send({ error: 'Audit result not found or expired' });
     }
