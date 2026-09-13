@@ -88,7 +88,8 @@ graph TD
 | **SCR-26** | サイトマップ&ハブ・カノニカル分析 | `/tools/sitemap-analyzer` | `POST /api/v1/tools/validate-sitemap` |
 | **SCR-27** | Google公式統合ハブ (PSI/GSC/GA4/Gemini) | `/google/hub` | `POST /api/v1/google/hub-data` |
 | **SCR-28** | ユーザー認証 (ログイン・新規登録) | `/login` | `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, `POST /api/v1/auth/google/callback` |
-| **SCR-29** | マイページ (アカウント・プロファイル管理) | `/account` | `GET /api/v1/auth/me`, `PUT /api/v1/auth/profile`, `PUT /api/v1/auth/password`, `POST /api/v1/auth/logout` |
+| **SCR-29** | マイページ (アカウント・プロファイル管理) | `/account` | `GET /api/v1/auth/me`, `PUT /api/v1/auth/profile`, `PUT /api/v1/auth/password`, `PUT /api/v1/auth/email`, `POST /api/v1/auth/verify-email`, `POST /api/v1/auth/logout` |
+| **SCR-30** | プラットフォーム管理画面 (スーパー管理者専用) | `/admin` | `GET /api/v1/admin/stats`, `GET /api/v1/admin/users`, `PUT /api/v1/admin/users/:id/role`, `GET /api/v1/admin/projects` |
 
 ---
 
@@ -110,14 +111,13 @@ graph TD
     AuthAPI -->|JWT認証トークン (HttpOnly / Bearer) 発行| Client
 ```
 
-### 認証方式の仕様
+### 認証方式 & メール検証の仕様
 1. **メールアドレス＋パスワード認証**:
    - パスワードはソルト付き暗号化ハッシュ（PBKDF2 / Argon2）で不可逆暗号化して保存。
-   - 新規登録時に即座に組織・アカウントを作成し、自動ログイン完了。
+   - 新規登録時およびメールアドレス変更時は「未認証（`emailVerified: false`）」状態となり、6桁のメール認証コードを発行・入力させる。
 2. **Googleログイン (OAuth 2.0 / Google Identity)**:
    - Googleアカウントでワンクリックログイン。
-   - 取得したメールアドレス、氏名、プロフィールアイコンを自動同期。
-   - Google Search Console / GA4 のアクセス権限スコープともスムーズに統合可能。
+   - Google側で本人確認済みであるため、初期状態で「メール認証済み（`emailVerified: true`）」として自動付与。
 3. **セッション維持 & トークン管理**:
    - `JWT (JSON Web Token)` または暗号化セッションIDをCookie / Bearerヘッダーで管理。
    - ログインユーザーの所属組織（Organization）に応じたプロジェクト・監査履歴の完全分離。
@@ -133,9 +133,14 @@ graph TD
 - **ユーザー紐付け必須**: プロジェクト（ドメイン監視・監査履歴・差分比較）の作成・編集・削除は、認証済みアカウント（`userId`）の所有下でのみ実行可能。
 - **認可チェック (IDOR防止)**: プロジェクト詳細 (`/projects/:id`) や差分 (`/projects/:id/diff`) の取得時、リクエスト元のユーザーが所有者または同組織メンバーでない限り `404 Not Found` または `403 Forbidden` を返却し、ID推測によるデータ漏洩を防止。
 
-### ② クイック即時診断のパブリック分離
+### ② メール未認証ユーザーのプロジェクト機能遮断規約
+- **プロジェクト利用の前提条件**: メールアドレス認証が完了していないアカウント（`emailVerified: false`）は、プロジェクトの新規作成、編集、削除、一覧閲覧、詳細ダッシュボードの利用が完全に禁止される（403 Forbidden を返却）。
+- これにより、使い捨ての不正メールアドレスによるスパムプロジェクト作成やサーバーリソースの枯渇を未然に防止する。
+
+### ③ クイック即時診断のパブリック分離
 - トップページ（`/`）で未ログインのまま実行される単一URLクイック診断結果は、登録済みユーザーのプライベートプロジェクトとは一切紐付けず、一時診断キャッシュ（TTL 24時間）として隔離処理する。
 - 診断結果を永続監視・履歴追跡したい場合は、アカウント作成/ログイン後に「プロジェクトに追加」を行わせる。
 
-### ③ Google APIトークン・GSC/GA4データの保護
+### ④ Google APIトークン・GSC/GA4データの保護 & スーパー管理者専用ポリシー
 - Google連携情報（リフレッシュトークン、アクセストークン、Search Console検索データ、GA4指標）は、該当する認証ユーザーのブラウザセッション・アカウントに厳密に閉じ込め、他の利用者に一切漏洩しない構造を維持する。
+- サーバー環境変数（`GOOGLE_API_KEY`, `GEMINI_API_KEY`）は、プラットフォーム管理画面およびスーパー管理者（`role === 'ADMIN'`）のみが利用でき、一般テナントは自プロジェクトに個別設定したAPIキーのみが使用される。

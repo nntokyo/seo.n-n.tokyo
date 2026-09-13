@@ -15,6 +15,8 @@ interface StoredUser extends AuthUser {
   passwordSalt?: string;
   passwordHash?: string;
   googleId?: string;
+  verificationCode?: string;
+  verificationExpires?: number;
 }
 
 interface StoredSession {
@@ -32,6 +34,10 @@ function loadAuthData() {
     if (fs.existsSync(USERS_FILE)) {
       const list: StoredUser[] = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
       for (const u of list) {
+        // デフォルトでemailVerifiedが存在しない既存ユーザーは互換性のためtrueまたはprovider===GOOGLEで判定
+        if (u.emailVerified === undefined) {
+          u.emailVerified = u.provider === 'GOOGLE' || u.role === 'ADMIN';
+        }
         usersMap.set(u.id, u);
       }
     }
@@ -68,6 +74,10 @@ function hashPassword(password: string, salt: string): string {
   return crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
 }
 
+function generateVerificationCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 function createSessionForUser(user: StoredUser): AuthTokenResponse {
   const token = `seo_token_${crypto.randomBytes(32).toString('hex')}`;
   const expiresAt = Date.now() + 30 * 24 * 3600 * 1000; // 30日有効
@@ -91,13 +101,14 @@ function createSessionForUser(user: StoredUser): AuthTokenResponse {
       provider: user.provider,
       role: user.role,
       avatarUrl: user.avatarUrl,
+      emailVerified: Boolean(user.emailVerified),
       createdAt: user.createdAt,
     },
   };
 }
 
-// 1. メールアドレス＋パスワードによる新規登録
-export function registerWithPassword(req: RegisterRequest): AuthTokenResponse {
+// 1. メールアドレス＋パスワードによる新規登録 (6桁認証コード発行)
+export function registerWithPassword(req: RegisterRequest): AuthTokenResponse & { verificationCode?: string } {
   const email = req.email.trim().toLowerCase();
   if (!email || !req.password) {
     throw new Error('メールアドレスとパスワードは必須です');
@@ -114,13 +125,20 @@ export function registerWithPassword(req: RegisterRequest): AuthTokenResponse {
   const passwordHash = hashPassword(req.password, salt);
   const userId = `usr_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
   const defaultName = req.name?.trim() || email.split('@')[0];
+  const isFirstUser = usersMap.size === 0;
+
+  const verificationCode = generateVerificationCode();
+  const verificationExpires = Date.now() + 24 * 3600 * 1000; // 24時間
 
   const newUser: StoredUser = {
     id: userId,
     email,
     name: defaultName,
     provider: 'LOCAL',
-    role: usersMap.size === 0 ? 'ADMIN' : 'MEMBER',
+    role: isFirstUser ? 'ADMIN' : 'MEMBER',
+    emailVerified: isFirstUser, // 最初の管理者は自動認証、それ以外は要認証
+    verificationCode: isFirstUser ? undefined : verificationCode,
+    verificationExpires: isFirstUser ? undefined : verificationExpires,
     passwordSalt: salt,
     passwordHash,
     createdAt: new Date().toISOString(),
@@ -129,7 +147,11 @@ export function registerWithPassword(req: RegisterRequest): AuthTokenResponse {
   usersMap.set(userId, newUser);
   saveUsers();
 
-  return createSessionForUser(newUser);
+  const sessionRes = createSessionForUser(newUser);
+  return {
+    ...sessionRes,
+    verificationCode: newUser.emailVerified ? undefined : verificationCode,
+  };
 }
 
 // 2. メールアドレス＋パスワードによるログイン
@@ -177,8 +199,9 @@ export function loginOrCreateWithGoogle(googleUser: {
   }
 
   if (found) {
-    // 既存ユーザーのGoogle ID / アバター更新
+    // 既存ユーザーのGoogle ID / アバター更新 (Googleログインはメール認証済みに昇格)
     found.googleId = googleUser.googleId;
+    found.emailVerified = true;
     if (googleUser.picture) found.avatarUrl = googleUser.picture;
     if (googleUser.name && !found.name) found.name = googleUser.name;
     usersMap.set(found.id, found);
@@ -186,7 +209,7 @@ export function loginOrCreateWithGoogle(googleUser: {
     return createSessionForUser(found);
   }
 
-  // 新規Googleユーザー作成
+  // 新規Googleユーザー作成 (Googleは自動的に認証済み)
   const userId = `usr_goog_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}`;
   const newUser: StoredUser = {
     id: userId,
@@ -195,6 +218,7 @@ export function loginOrCreateWithGoogle(googleUser: {
     provider: 'GOOGLE',
     googleId: googleUser.googleId,
     avatarUrl: googleUser.picture,
+    emailVerified: true,
     role: usersMap.size === 0 ? 'ADMIN' : 'MEMBER',
     createdAt: new Date().toISOString(),
   };
@@ -228,6 +252,7 @@ export function verifySessionToken(token?: string): AuthUser | null {
     provider: user.provider,
     role: user.role,
     avatarUrl: user.avatarUrl,
+    emailVerified: Boolean(user.emailVerified),
     createdAt: user.createdAt,
   };
 }
@@ -262,6 +287,7 @@ export function updateUserProfile(userId: string, updates: { name?: string }): A
     provider: user.provider,
     role: user.role,
     avatarUrl: user.avatarUrl,
+    emailVerified: Boolean(user.emailVerified),
     createdAt: user.createdAt,
   };
 }
@@ -299,4 +325,154 @@ export function changeUserPassword(userId: string, currentPass: string, newPass:
   saveUsers();
 
   return true;
+}
+
+// 8. メールアドレス変更申請 (新コード発行 & 未認証化)
+export function changeUserEmail(userId: string, newEmail: string): { user: AuthUser; verificationCode: string } {
+  const normEmail = newEmail.trim().toLowerCase();
+  if (!normEmail || !normEmail.includes('@')) {
+    throw new Error('有効なメールアドレスを入力してください');
+  }
+
+  const user = usersMap.get(userId);
+  if (!user) {
+    throw new Error('ユーザーが見つかりません');
+  }
+
+  // 他ユーザーとの重複チェック
+  for (const [id, u] of usersMap.entries()) {
+    if (id !== userId && u.email.toLowerCase() === normEmail) {
+      throw new Error('このメールアドレスは既に使用されています');
+    }
+  }
+
+  const code = generateVerificationCode();
+  const expires = Date.now() + 24 * 3600 * 1000;
+
+  user.email = normEmail;
+  user.emailVerified = false; // 未認証へ戻す
+  user.verificationCode = code;
+  user.verificationExpires = expires;
+
+  usersMap.set(userId, user);
+  saveUsers();
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      provider: user.provider,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      emailVerified: false,
+      createdAt: user.createdAt,
+    },
+    verificationCode: code,
+  };
+}
+
+// 9. メール認証コードの検証
+export function verifyEmailCode(userId: string, code: string): AuthUser {
+  const user = usersMap.get(userId);
+  if (!user) {
+    throw new Error('ユーザーが見つかりません');
+  }
+
+  if (user.emailVerified) {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      provider: user.provider,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      emailVerified: true,
+      createdAt: user.createdAt,
+    };
+  }
+
+  if (!user.verificationCode || user.verificationCode !== code.trim()) {
+    throw new Error('認証コードが一致しません');
+  }
+
+  if (user.verificationExpires && user.verificationExpires < Date.now()) {
+    throw new Error('認証コードの有効期限が切れています。再送信してください');
+  }
+
+  user.emailVerified = true;
+  user.verificationCode = undefined;
+  user.verificationExpires = undefined;
+
+  usersMap.set(userId, user);
+  saveUsers();
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    provider: user.provider,
+    role: user.role,
+    avatarUrl: user.avatarUrl,
+    emailVerified: true,
+    createdAt: user.createdAt,
+  };
+}
+
+// 10. 認証コード再送信
+export function resendVerificationCode(userId: string): { verificationCode: string } {
+  const user = usersMap.get(userId);
+  if (!user) {
+    throw new Error('ユーザーが見つかりません');
+  }
+
+  if (user.emailVerified) {
+    throw new Error('このメールアドレスは既に認証済みです');
+  }
+
+  const code = generateVerificationCode();
+  user.verificationCode = code;
+  user.verificationExpires = Date.now() + 24 * 3600 * 1000;
+
+  usersMap.set(userId, user);
+  saveUsers();
+
+  return { verificationCode: code };
+}
+
+// 11. 全ユーザー一覧 (ADMIN専用)
+export function listAllUsers(): AuthUser[] {
+  return Array.from(usersMap.values()).map((u) => ({
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    provider: u.provider,
+    role: u.role,
+    avatarUrl: u.avatarUrl,
+    emailVerified: Boolean(u.emailVerified),
+    createdAt: u.createdAt,
+  }));
+}
+
+// 12. ユーザー権限変更 (ADMIN専用)
+export function updateUserRole(userId: string, role: 'ADMIN' | 'MEMBER'): AuthUser {
+  const user = usersMap.get(userId);
+  if (!user) {
+    throw new Error('ユーザーが見つかりません');
+  }
+
+  user.role = role;
+  usersMap.set(userId, user);
+  saveUsers();
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    provider: user.provider,
+    role: user.role,
+    avatarUrl: user.avatarUrl,
+    emailVerified: Boolean(user.emailVerified),
+    createdAt: user.createdAt,
+  };
 }

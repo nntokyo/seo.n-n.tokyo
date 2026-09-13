@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
+  ShieldAlert,
+  Sliders,
 } from 'lucide-react';
 import { ProjectRecord, AuthUser } from '@seo/shared';
 
@@ -191,6 +193,16 @@ export default function ProjectsPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {currentUser?.role === 'ADMIN' && (
+              <Link
+                href="/admin"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-xs font-mono text-violet-300 transition-colors"
+              >
+                <Sliders className="w-3.5 h-3.5 text-violet-400" />
+                <span>管理画面</span>
+              </Link>
+            )}
+
             {currentUser ? (
               <Link
                 href="/account"
@@ -211,8 +223,9 @@ export default function ProjectsPage() {
 
             <button
               type="button"
+              disabled={currentUser ? !currentUser.emailVerified : false}
               onClick={() => setShowCreateModal(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors shadow-md shadow-cyan-500/10 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-950 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors shadow-md shadow-cyan-500/10 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>新規プロジェクト</span>
@@ -233,6 +246,29 @@ export default function ProjectsPage() {
               : 'ドメインごとの診断スコア推移、Time-Travel差分比較、過去の監査レポートを一元管理します。'}
           </p>
         </div>
+
+        {currentUser && !currentUser.emailVerified && (
+          <div className="p-6 rounded-3xl border border-amber-500/30 bg-amber-500/10 text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-amber-500/5">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-6 h-6 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-amber-300">
+                  メールアドレスが未認証のため、プロジェクト機能が制限されています
+                </h3>
+                <p className="text-xs text-amber-200/80 leading-relaxed">
+                  プロジェクトの新規作成、編集、削除、詳細推移の閲覧を行うには、マイページでメールアドレス認証を完了してください。
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/account"
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <span>マイページで認証する</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        )}
 
         {message && (
           <div className={`p-4 rounded-xl text-xs flex items-center gap-2 ${

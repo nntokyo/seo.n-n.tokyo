@@ -32,6 +32,8 @@ import {
   calculateAuditDiff,
   getProjectGoogleSettings,
   updateProjectGoogleSettings,
+  listAllProjectsAdmin,
+  countUserProjects,
 } from './projects.js';
 import {
   getAlertSettings,
@@ -51,6 +53,11 @@ import {
   logoutSession,
   updateUserProfile,
   changeUserPassword,
+  changeUserEmail,
+  verifyEmailCode,
+  resendVerificationCode,
+  listAllUsers,
+  updateUserRole,
 } from './auth.js';
 
 import fs from 'node:fs';
@@ -545,19 +552,34 @@ ${linksSection}
   // プロジェクト管理 & 履歴推移 (SCR-15 〜 SCR-17) - アカウント紐付け対応
   // ==============================================================================
 
-  // プロジェクト一覧 (SCR-15: ログインユーザー紐付け)
-  fastify.get('/api/v1/projects', async (request) => {
+  // プロジェクト一覧 (SCR-15: ログインユーザー紐付け & メール認証チェック)
+  fastify.get('/api/v1/projects', async (request, reply) => {
     const authHeader = request.headers.authorization;
     const user = verifySessionToken(authHeader);
-    return { projects: listProjects(user?.id) };
+    if (!user) {
+      return { projects: [] };
+    }
+    if (!user.emailVerified) {
+      return reply.status(403).send({
+        error: 'メールアドレスの認証が必要です。マイページから認証コードを確認・入力してください。',
+        emailVerified: false,
+      });
+    }
+    return { projects: listProjects(user.id) };
   });
 
-  // プロジェクト作成 (SCR-15: ログインユーザー必須)
+  // プロジェクト作成 (SCR-15: ログインユーザー必須 & メール認証必須)
   fastify.post('/api/v1/projects', async (request, reply) => {
     const authHeader = request.headers.authorization;
     const user = verifySessionToken(authHeader);
     if (!user) {
       return reply.status(401).send({ error: 'プロジェクト作成にはログインが必要です' });
+    }
+    if (!user.emailVerified) {
+      return reply.status(403).send({
+        error: 'メールアドレスが未認証です。プロジェクト作成にはメール認証を完了してください。',
+        emailVerified: false,
+      });
     }
 
     const body = (request.body || {}) as { name?: string; url?: string };
@@ -567,12 +589,18 @@ ${linksSection}
     return p;
   });
 
-  // プロジェクト編集 (SCR-15: 所有者ログイン必須)
+  // プロジェクト編集 (SCR-15: 所有者ログイン必須 & メール認証必須)
   fastify.put('/api/v1/projects/:id', async (request, reply) => {
     const authHeader = request.headers.authorization;
     const user = verifySessionToken(authHeader);
     if (!user) {
       return reply.status(401).send({ error: 'プロジェクト編集にはログインが必要です' });
+    }
+    if (!user.emailVerified) {
+      return reply.status(403).send({
+        error: 'メールアドレスが未認証です。メール認証を完了してください。',
+        emailVerified: false,
+      });
     }
 
     const { id } = request.params as { id: string };
@@ -586,12 +614,18 @@ ${linksSection}
     }
   });
 
-  // プロジェクト削除 (SCR-15: 所有者ログイン必須)
+  // プロジェクト削除 (SCR-15: 所有者ログイン必須 & メール認証必須)
   fastify.delete('/api/v1/projects/:id', async (request, reply) => {
     const authHeader = request.headers.authorization;
     const user = verifySessionToken(authHeader);
     if (!user) {
       return reply.status(401).send({ error: 'プロジェクト削除にはログインが必要です' });
+    }
+    if (!user.emailVerified) {
+      return reply.status(403).send({
+        error: 'メールアドレスが未認証です。メール認証を完了してください。',
+        emailVerified: false,
+      });
     }
 
     const { id } = request.params as { id: string };
@@ -604,11 +638,17 @@ ${linksSection}
     }
   });
 
-  // プロジェクト詳細 & 履歴 (SCR-16: 所有者認可)
+  // プロジェクト詳細 & 履歴 (SCR-16: 所有者認可 & メール認証必須)
   fastify.get('/api/v1/projects/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const authHeader = request.headers.authorization;
     const user = verifySessionToken(authHeader);
+    if (user && !user.emailVerified) {
+      return reply.status(403).send({
+        error: 'メールアドレスが未認証です。マイページからメール認証を完了してください。',
+        emailVerified: false,
+      });
+    }
 
     const project = getProject(id, user?.id);
     if (!project) return reply.status(404).send({ error: 'Project not found or access denied' });
@@ -945,11 +985,165 @@ ${linksSection}
     }
   });
 
+  // メールアドレス変更 (SCR-29)
+  fastify.put('/api/v1/auth/email', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: 'ログインが必要です' });
+    }
+
+    const body = (request.body || {}) as { newEmail?: string };
+    if (!body.newEmail || !body.newEmail.trim()) {
+      return reply.status(400).send({ error: '新しいメールアドレスを入力してください' });
+    }
+
+    try {
+      const result = changeUserEmail(user.id, body.newEmail.trim());
+      return {
+        success: true,
+        message: '確認コードを送信しました。認証を完了してください。',
+        verificationCode: result.verificationCode, // テスト・開発環境用
+      };
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  });
+
+  // メール認証コード検証 (SCR-29)
+  fastify.post('/api/v1/auth/verify-email', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: 'ログインが必要です' });
+    }
+
+    const body = (request.body || {}) as { code?: string };
+    if (!body.code) {
+      return reply.status(400).send({ error: '認証コードを入力してください' });
+    }
+
+    try {
+      const updatedUser = verifyEmailCode(user.id, body.code.trim());
+      return { success: true, message: 'メールアドレスが認証されました', user: updatedUser };
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  });
+
+  // メール認証コード再送信 (SCR-29)
+  fastify.post('/api/v1/auth/resend-verification', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: 'ログインが必要です' });
+    }
+
+    try {
+      const result = resendVerificationCode(user.id);
+      return {
+        success: true,
+        message: '認証コードを再発行しました',
+        verificationCode: result.verificationCode,
+      };
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  });
+
   // ログアウト
   fastify.post('/api/v1/auth/logout', async (request) => {
     const authHeader = request.headers.authorization;
     logoutSession(authHeader);
     return { success: true };
+  });
+
+  // ==============================================================================
+  // プラットフォーム管理者向けAPI (SCR-30: Role === 'ADMIN' 必須)
+  // ==============================================================================
+
+  // プラットフォーム統計情報取得
+  fastify.get('/api/v1/admin/stats', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user || user.role !== 'ADMIN') {
+      return reply.status(403).send({ error: '管理者権限(ADMIN)が必要です' });
+    }
+
+    const users = listAllUsers();
+    const verifiedUsers = users.filter((u) => u.emailVerified).length;
+    const allProjects = listAllProjectsAdmin();
+
+    // 診断キャッシュ/ディスクから全診断数をカウント
+    let totalAudits = auditCache.size;
+    try {
+      if (fs.existsSync(baseDataDir)) {
+        const files = fs.readdirSync(baseDataDir).filter((f) => f.endsWith('.json') && !f.startsWith('project_') && !f.startsWith('users') && !f.startsWith('sessions'));
+        totalAudits = Math.max(totalAudits, files.length);
+      }
+    } catch {
+      // ignore
+    }
+
+    return {
+      totalUsers: users.length,
+      verifiedUsers,
+      unverifiedUsers: users.length - verifiedUsers,
+      totalProjects: allProjects.length,
+      totalAudits,
+      uptimeSeconds: Math.floor(process.uptime()),
+    };
+  });
+
+  // プラットフォーム全ユーザー一覧取得
+  fastify.get('/api/v1/admin/users', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user || user.role !== 'ADMIN') {
+      return reply.status(403).send({ error: '管理者権限(ADMIN)が必要です' });
+    }
+
+    const users = listAllUsers();
+    const adminUserRecords = users.map((u) => ({
+      ...u,
+      projectCount: countUserProjects(u.id),
+    }));
+
+    return { users: adminUserRecords };
+  });
+
+  // ユーザー権限変更 (ADMIN / MEMBER)
+  fastify.put('/api/v1/admin/users/:id/role', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user || user.role !== 'ADMIN') {
+      return reply.status(403).send({ error: '管理者権限(ADMIN)が必要です' });
+    }
+
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as { role?: 'ADMIN' | 'MEMBER' };
+    if (!body.role || (body.role !== 'ADMIN' && body.role !== 'MEMBER')) {
+      return reply.status(400).send({ error: '有効な権限(ADMINまたはMEMBER)を指定してください' });
+    }
+
+    try {
+      const updated = updateUserRole(id, body.role);
+      return { success: true, user: updated };
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  });
+
+  // プラットフォーム全プロジェクト一覧取得
+  fastify.get('/api/v1/admin/projects', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user || user.role !== 'ADMIN') {
+      return reply.status(403).send({ error: '管理者権限(ADMIN)が必要です' });
+    }
+
+    const projects = listAllProjectsAdmin();
+    return { projects };
   });
 
   const port = Number(process.env.BACKEND_PORT || (process.env.PORT && process.env.PORT !== '5600' ? process.env.PORT : 5601));

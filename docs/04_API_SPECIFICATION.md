@@ -81,16 +81,27 @@ flowchart LR
 ### ⑥ ユーザー認証 & セッション (Authentication & Users)
 | メソッド | パス | 説明 | 認証 |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/register` | メール＋パスワードによる新規ユーザー登録 | 不要 |
+| `POST` | `/api/v1/auth/register` | メール＋パスワードによる新規ユーザー登録（認証コード発行） | 不要 |
 | `POST` | `/api/v1/auth/login` | メール＋パスワードによるログイン認証 | 不要 |
 | `GET` | `/api/v1/auth/google/url` | Googleログイン用OAuth認証URL発行 | 不要 |
-| `POST` | `/api/v1/auth/google/callback` | Googleログイン認証コード検証 & ログイン完了 | 不要 |
-| `GET` | `/api/v1/auth/me` | 現在のログインユーザー情報（所属・権限）取得 | 必須 (Bearer/Cookie) |
+| `POST` | `/api/v1/auth/google/callback` | Googleログイン認証コード検証 & ログイン完了（自動認証済） | 不要 |
+| `GET` | `/api/v1/auth/me` | 現在のログインユーザー情報（認証状態・権限）取得 | 必須 (Bearer/Cookie) |
 | `PUT` | `/api/v1/auth/profile` | アカウントプロファイル（表示名）更新 | **必須 (Bearer)** |
+| `PUT` | `/api/v1/auth/email` | メールアドレス変更申請（認証コード再発行・未認証化） | **必須 (Bearer)** |
+| `POST` | `/api/v1/auth/verify-email` | 6桁の認証コード検証 & メール認証完了 | **必須 (Bearer)** |
+| `POST` | `/api/v1/auth/resend-verification` | 認証コードの再発行・再送信 | **必須 (Bearer)** |
 | `PUT` | `/api/v1/auth/password` | パスワード変更（旧パスワード照合 & 暗号化保存） | **必須 (Bearer)** |
 | `POST` | `/api/v1/auth/logout` | セッショントークンの破棄・ログアウト | 必須 |
 
-### ⑦ インフラ・自動デプロイ (Webhook)
+### ⑦ プラットフォーム管理者専用API (Platform Administration - SCR-30)
+| メソッド | パス | 説明 | 認証 |
+|---|---|---|---|
+| `GET` | `/api/v1/admin/stats` | システム全体統計（ユーザー数、プロジェクト数、診断実行数、APIキー稼働状況） | **必須 (ADMIN Bearer)** |
+| `GET` | `/api/v1/admin/users` | 全登録ユーザー一覧取得（メール認証状態、プロバイダ、ロール等） | **必須 (ADMIN Bearer)** |
+| `PUT` | `/api/v1/admin/users/:id/role` | ユーザーのロール変更（ADMIN / MEMBER） | **必須 (ADMIN Bearer)** |
+| `GET` | `/api/v1/admin/projects` | システム内の全プロジェクト一覧監視 | **必須 (ADMIN Bearer)** |
+
+### ⑧ インフラ・自動デプロイ (Webhook)
 | メソッド | パス | 説明 | 認証 |
 |---|---|---|---|
 | `POST` | `/webhook` | GitHub Push イベント受信 & ゼロダウンタイムデプロイキック | HMAC-SHA256署名 |

@@ -17,6 +17,9 @@ import {
   ShieldCheck,
   Calendar,
   Key,
+  ShieldAlert,
+  Send,
+  Sliders,
 } from 'lucide-react';
 import { AuthUser, ProjectRecord } from '@seo/shared';
 
@@ -34,6 +37,19 @@ export default function AccountPage() {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  // メールアドレス変更
+  const [newEmailInput, setNewEmailInput] = useState('');
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  // メール認証コード入力 & 再送信
+  const [verificationCodeInput, setVerificationCodeInput] = useState('');
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [isResendingCode, setIsResendingCode] = useState(false);
+  const [verificationNotice, setVerificationNotice] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   // パスワード変更
   const [currentPassword, setCurrentPassword] = useState('');
@@ -120,6 +136,115 @@ export default function AccountPage() {
       setProfileError(err.message || '更新に失敗しました');
     } finally {
       setIsUpdatingProfile(false);
+    }
+  };
+
+  // メールアドレス変更リクエスト
+  const handleUpdateEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmailInput.trim()) return;
+
+    setIsUpdatingEmail(true);
+    setEmailSuccess(null);
+    setEmailError(null);
+    setVerificationNotice(null);
+
+    try {
+      const token = localStorage.getItem('seo_auth_token') || '';
+      const res = await fetch(`${API_BASE}/api/v1/auth/email`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ newEmail: newEmailInput.trim() }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'メールアドレスの変更に失敗しました');
+      }
+
+      const result = await res.json();
+      setEmailSuccess(result.message || 'メールアドレスを変更しました。認証コードを入力してください。');
+      if (result.verificationCode) {
+        setVerificationNotice(`認証コードを発行しました: ${result.verificationCode}`);
+      }
+      setNewEmailInput('');
+      await fetchUserData();
+    } catch (err: any) {
+      setEmailError(err.message || 'メールアドレスの変更に失敗しました');
+    } finally {
+      setIsUpdatingEmail(false);
+    }
+  };
+
+  // メール認証コード検証
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verificationCodeInput.trim()) return;
+
+    setIsVerifyingCode(true);
+    setVerificationError(null);
+
+    try {
+      const token = localStorage.getItem('seo_auth_token') || '';
+      const res = await fetch(`${API_BASE}/api/v1/auth/verify-email`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: verificationCodeInput.trim() }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || '認証コードの検証に失敗しました');
+      }
+
+      const result = await res.json();
+      setUser(result.user);
+      localStorage.setItem('seo_auth_user', JSON.stringify(result.user));
+      setVerificationCodeInput('');
+      setVerificationNotice('メールアドレスの認証が正常に完了しました！すべてのプロジェクト機能をご利用いただけます。');
+      setTimeout(() => setVerificationNotice(null), 5000);
+      await fetchUserData();
+    } catch (err: any) {
+      setVerificationError(err.message || '認証コードが正しくありません');
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  };
+
+  // 認証コード再送信
+  const handleResendVerification = async () => {
+    setIsResendingCode(true);
+    setVerificationError(null);
+    setVerificationNotice(null);
+
+    try {
+      const token = localStorage.getItem('seo_auth_token') || '';
+      const res = await fetch(`${API_BASE}/api/v1/auth/resend-verification`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || '認証コードの再送信に失敗しました');
+      }
+
+      const result = await res.json();
+      if (result.verificationCode) {
+        setVerificationNotice(`新しい認証コードを発行しました: ${result.verificationCode}`);
+      } else {
+        setVerificationNotice('新しい認証コードを送信しました。');
+      }
+    } catch (err: any) {
+      setVerificationError(err.message || '再送信に失敗しました');
+    } finally {
+      setIsResendingCode(false);
     }
   };
 
@@ -217,6 +342,16 @@ export default function AccountPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {user?.role === 'ADMIN' && (
+              <Link
+                href="/admin"
+                className="px-3.5 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors shadow-sm shadow-violet-500/10"
+              >
+                <Sliders className="w-3.5 h-3.5 text-violet-400" />
+                <span>プラットフォーム管理画面</span>
+              </Link>
+            )}
+
             <button
               onClick={handleLogout}
               className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -230,6 +365,66 @@ export default function AccountPage() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-10 space-y-8">
+        {/* Email Verification Banner if Unverified */}
+        {!user?.emailVerified && (
+          <div className="p-6 rounded-3xl border border-amber-500/30 bg-amber-500/10 text-amber-200 space-y-4 shadow-lg shadow-amber-500/5">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-6 h-6 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-amber-300">
+                  メールアドレスが未認証です（プロジェクト機能制限中）
+                </h3>
+                <p className="text-xs text-amber-200/90 leading-relaxed">
+                  不正アクセス防止およびセキュリティ保護のため、メールアドレス認証が完了するまで新規プロジェクト作成・編集・削除・詳細照会が制限されます。
+                  発行された6桁の認証コードを入力して認証を完了してください。
+                </p>
+              </div>
+            </div>
+
+            {verificationNotice && (
+              <div className="p-3.5 rounded-xl bg-black/40 border border-amber-500/30 text-cyan-300 text-xs font-mono flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-cyan-400" />
+                <span>{verificationNotice}</span>
+              </div>
+            )}
+
+            {verificationError && (
+              <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{verificationError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyCode} className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <input
+                type="text"
+                value={verificationCodeInput}
+                onChange={(e) => setVerificationCodeInput(e.target.value)}
+                placeholder="6桁の認証コードを入力 (例: 123456)"
+                maxLength={6}
+                className="w-full sm:w-64 px-4 py-2.5 rounded-xl bg-black/50 border border-amber-500/40 text-white placeholder-slate-500 text-xs font-mono text-center tracking-widest focus:outline-none focus:border-cyan-400"
+              />
+              <button
+                type="submit"
+                disabled={isVerifyingCode || !verificationCodeInput.trim()}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isVerifyingCode ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>認証コードを検証する</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={isResendingCode}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-xs font-mono flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isResendingCode ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                <span>認証コードを再発行</span>
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* Profile Card */}
         <section className="p-6 sm:p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/5">
@@ -238,11 +433,22 @@ export default function AccountPage() {
                 {user?.name ? user.name[0].toUpperCase() : 'U'}
               </div>
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-xl sm:text-2xl font-bold text-white">{user?.name}</h1>
                   <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-violet-500/30 text-violet-400 bg-violet-500/10 font-bold">
                     {user?.role === 'ADMIN' ? 'スーパー管理者 (ADMIN)' : 'メンバー (MEMBER)'}
                   </span>
+                  {user?.emailVerified ? (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      メール認証済
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-amber-500/30 text-amber-400 bg-amber-500/10 flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3" />
+                      未認証
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
                   <Mail className="w-3.5 h-3.5" />
@@ -300,6 +506,48 @@ export default function AccountPage() {
               >
                 {isUpdatingProfile ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <User className="w-3.5 h-3.5" />}
                 <span>表示名を保存</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Edit Email Address */}
+          <form onSubmit={handleUpdateEmail} className="space-y-3 pt-4 border-t border-white/5">
+            <h2 className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">
+              メールアドレスの変更
+            </h2>
+            <p className="text-[11px] text-slate-400">
+              ※ メールアドレスを変更すると一時的に未認証状態となります。変更後に新しい確認コードを入力してください。
+            </p>
+
+            {emailError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{emailError}</span>
+              </div>
+            )}
+
+            {emailSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{emailSuccess}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="email"
+                value={newEmailInput}
+                onChange={(e) => setNewEmailInput(e.target.value)}
+                placeholder="新しいメールアドレス (例: new@example.com)"
+                className="flex-1 px-4 py-2 rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-600 text-xs font-mono focus:outline-none focus:border-cyan-500"
+              />
+              <button
+                type="submit"
+                disabled={isUpdatingEmail || !newEmailInput.trim()}
+                className="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isUpdatingEmail ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                <span>メールアドレスを変更</span>
               </button>
             </div>
           </form>

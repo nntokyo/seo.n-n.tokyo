@@ -53,6 +53,22 @@ export function listProjects(userId?: string): ProjectRecord[] {
   );
 }
 
+// 管理者専用: 全プロジェクト一覧取得
+export function listAllProjectsAdmin(): ProjectRecord[] {
+  return Array.from(projectsStore.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+// ユーザー別プロジェクト数カウント
+export function countUserProjects(userId: string): number {
+  let count = 0;
+  for (const p of projectsStore.values()) {
+    if (p.userId === userId) count++;
+  }
+  return count;
+}
+
 export function getProject(id: string, userId?: string): ProjectRecord | null {
   const p = projectsStore.get(id);
   if (!p) return null;

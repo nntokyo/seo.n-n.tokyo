@@ -168,6 +168,14 @@ export default function LandingPage() {
             >
               サイトマップ分析
             </Link>
+            {currentUser?.role === 'ADMIN' && (
+              <Link
+                href="/admin"
+                className="hidden sm:flex text-xs font-mono px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 transition-colors items-center gap-1.5"
+              >
+                <span>管理画面</span>
+              </Link>
+            )}
             {currentUser ? (
               <Link
                 href="/account"

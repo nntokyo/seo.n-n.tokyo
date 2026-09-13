@@ -549,6 +549,7 @@ export interface AuthUser {
   provider: AuthProviderType;
   role: 'ADMIN' | 'MEMBER' | 'VIEWER';
   avatarUrl?: string;
+  emailVerified: boolean;
   createdAt: string;
 }
 
@@ -566,4 +567,27 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+// ==============================================================================
+// 6. プラットフォーム管理型定義 (SCR-30)
+// ==============================================================================
+
+export interface AdminStatsResponse {
+  totalUsers: number;
+  verifiedUsers: number;
+  unverifiedUsers: number;
+  totalProjects: number;
+  totalAudits: number;
+  uptimeSeconds: number;
+  serverUptime?: number;
+  systemEnv?: {
+    hasGoogleApiKey: boolean;
+    hasGeminiApiKey: boolean;
+    hasGoogleClientId: boolean;
+  };
+}
+
+export interface AdminUserRecord extends AuthUser {
+  projectCount: number;
 }
