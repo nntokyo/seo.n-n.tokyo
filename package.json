@@ -1,0 +1,12 @@
+{
+  "name": "seo-analyzer-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "pnpm --filter @seo/frontend dev",
+    "dev:backend": "pnpm --filter @seo/backend dev",
+    "build": "pnpm --filter @seo/shared build && pnpm --filter @seo/backend build && pnpm --filter @seo/frontend build",
+    "start:frontend": "pnpm --filter @seo/frontend start",
+    "start:backend": "pnpm --filter @seo/backend start"
+  }
+}
