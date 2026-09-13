@@ -8,5 +8,11 @@
     "build": "pnpm --filter @seo/shared build && pnpm --filter @seo/backend build && pnpm --filter @seo/frontend build",
     "start:frontend": "pnpm --filter @seo/frontend start",
     "start:backend": "pnpm --filter @seo/backend start"
+  },
+  "devDependencies": {
+    "prisma": "6.19.3"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3"
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { 
   Sparkles, 
   Search, 
@@ -17,21 +18,91 @@ import {
   Terminal,
   ExternalLink,
   ChevronRight,
-  TrendingUp
+  TrendingUp,
+  FileText,
+  Copy,
+  Check
 } from 'lucide-react';
+
+interface AuditResponse {
+  id: string;
+  url: string;
+  httpStatus: number;
+  responseTimeMs: number;
+  overallScore: number;
+  scores: {
+    seo: number;
+    performance: number;
+    meta: number;
+    aeo_llmo: number;
+  };
+  metrics: Array<{
+    id: string;
+    name: string;
+    category: string;
+    score: number;
+    status: 'good' | 'warning' | 'critical' | 'notice';
+    message: string;
+    proposal?: string;
+    codeDiff?: {
+      before: string;
+      after: string;
+    };
+  }>;
+  aiOverview: {
+    summary: string;
+    citations: Array<{ title: string; url: string; domain: string }>;
+  };
+  metaDetails: {
+    title: string | null;
+    description: string | null;
+    canonical: string | null;
+    robots: string | null;
+    ogImage: string | null;
+    isUtf8: boolean;
+  };
+}
 
 export default function LandingPage() {
   const [url, setUrl] = useState('');
   const [isAuditing, setIsAuditing] = useState(false);
+  const [auditResult, setAuditResult] = useState<AuditResponse | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'aeo' | 'meta' | 'dom'>('overview');
+  const [copied, setCopied] = useState(false);
+  const [llmsCopied, setLlmsCopied] = useState(false);
 
-  const handleAudit = (e: React.FormEvent) => {
+  const handleAudit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url) return;
     setIsAuditing(true);
-    setTimeout(() => {
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/v1/audit/quick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: '診断サーバー通信エラー' }));
+        throw new Error(err.message || err.error || 'URLの取得に失敗しました');
+      }
+
+      const data = await res.json();
+      setAuditResult(data);
+    } catch (err: any) {
+      setErrorMsg(err.message || '診断中に予期せぬエラーが発生しました');
+    } finally {
       setIsAuditing(false);
-    }, 1500);
+    }
+  };
+
+  const copyCode = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -53,20 +124,27 @@ export default function LandingPage() {
 
           <nav className="hidden md:flex items-center gap-6 text-sm text-slate-400">
             <a href="#features" className="hover:text-white transition-colors">機能</a>
-            <a href="#aeo-llmo" className="hover:text-white transition-colors">AEO / LLMO / GEO</a>
+            <a href="#aeo-llmo" className="hover:text-white transition-colors">AEO / AIO / LLMO / GEO</a>
             <a href="#google-api" className="hover:text-white transition-colors">Google公式API</a>
             <a href="#simulator" className="hover:text-white transition-colors">AI表示シミュレータ</a>
+            <Link href="/tools/llms-txt" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5 font-mono text-xs">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>llms.txt生成</span>
+            </Link>
           </nav>
 
           <div className="flex items-center gap-3">
-            <button className="text-xs font-medium text-slate-300 hover:text-white px-3 py-2 rounded-lg transition-colors">
-              ログイン
-            </button>
+            <Link
+              href="/tools/llms-txt"
+              className="hidden sm:flex text-xs font-mono text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-colors"
+            >
+              ツール
+            </Link>
             <a 
               href="#audit-input" 
               className="text-xs font-semibold text-black bg-gradient-to-r from-cyan-400 to-cyan-300 hover:brightness-110 px-4 py-2 rounded-full transition-all shadow-md shadow-cyan-500/20"
             >
-              無料で診断開始
+              無料診断
             </a>
           </div>
         </div>
@@ -96,13 +174,13 @@ export default function LandingPage() {
           </p>
 
           {/* Quick Audit Input Bar */}
-          <div id="audit-input" className="max-w-2xl mx-auto mb-12">
+          <div id="audit-input" className="max-w-2xl mx-auto mb-6">
             <form onSubmit={handleAudit} className="relative flex items-center p-2 rounded-2xl bg-[#0F1623] border border-white/10 shadow-2xl focus-within:border-cyan-500/50 transition-all">
               <div className="pl-3 pr-2 text-slate-500">
                 <Search className="w-5 h-5" />
               </div>
               <input
-                type="url"
+                type="text"
                 required
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
@@ -117,7 +195,7 @@ export default function LandingPage() {
                 {isAuditing ? (
                   <>
                     <Activity className="w-4 h-4 animate-spin" />
-                    <span>解析中...</span>
+                    <span>リアルタイム解析中...</span>
                   </>
                 ) : (
                   <>
@@ -127,6 +205,13 @@ export default function LandingPage() {
                 )}
               </button>
             </form>
+
+            {errorMsg && (
+              <div className="mt-3 p-3 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 text-left">
+                🚨 {errorMsg}
+              </div>
+            )}
+
             <div className="flex items-center justify-center gap-6 mt-4 text-xs text-slate-500">
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> クレジットカード不要</span>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Google公式API連携</span>
@@ -135,40 +220,47 @@ export default function LandingPage() {
           </div>
 
           {/* 3. Interactive Hero Dashboard Preview (ShadcnAdmin Border Grid) */}
-          <div className="relative rounded-3xl p-1 bg-gradient-to-b from-white/10 to-transparent border border-white/10 shadow-2xl shadow-cyan-950/40 text-left overflow-hidden">
+          <div className="relative rounded-3xl p-1 bg-gradient-to-b from-white/10 to-transparent border border-white/10 shadow-2xl shadow-cyan-950/40 text-left overflow-hidden mt-8">
             {/* Top Toolbar */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#0F1623]/90">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500/80" />
                 <div className="w-3 h-3 rounded-full bg-amber-500/80" />
                 <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                <span className="ml-3 font-mono text-xs text-slate-400">audit-preview: https://seo.n-n.tokyo</span>
+                <span className="ml-3 font-mono text-xs text-slate-400">
+                  {auditResult ? `audit-live: ${auditResult.url}` : 'audit-preview: https://seo.n-n.tokyo'}
+                </span>
               </div>
-              <div className="inline-flex p-1 rounded-full bg-slate-900 border border-white/10 text-xs">
-                <button 
-                  onClick={() => setActiveTab('overview')}
-                  className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'overview' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                >
-                  総合診断
-                </button>
-                <button 
-                  onClick={() => setActiveTab('aeo')}
-                  className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'aeo' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                >
-                  AEO / LLMO
-                </button>
-                <button 
-                  onClick={() => setActiveTab('meta')}
-                  className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'meta' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                >
-                  メタ不具合
-                </button>
-                <button 
-                  onClick={() => setActiveTab('dom')}
-                  className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'dom' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                >
-                  DOM差分
-                </button>
+              <div className="flex items-center gap-3">
+                {auditResult && (
+                  <Link
+                    href={`/audit/${auditResult.id}`}
+                    className="px-3.5 py-1 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm shadow-cyan-500/20"
+                  >
+                    <span>詳細レポート</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+                <div className="inline-flex p-1 rounded-full bg-slate-900 border border-white/10 text-xs">
+                  <button 
+                    onClick={() => setActiveTab('overview')}
+                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'overview' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    総合診断
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('aeo')}
+                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'aeo' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    AEO / LLMO
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('meta')}
+                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'meta' ? 'bg-cyan-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    メタ不具合
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -177,9 +269,13 @@ export default function LandingPage() {
               <div className="bg-[#0F1623] p-5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">TOTAL SCORE</span>
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">+12% vs last</span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                    {auditResult ? `${auditResult.httpStatus} OK` : '+12% vs last'}
+                  </span>
                 </div>
-                <div className="font-mono text-4xl font-extrabold text-white mb-1">94<span className="text-slate-500 text-base font-normal">/100</span></div>
+                <div className="font-mono text-4xl font-extrabold text-white mb-1">
+                  {auditResult ? auditResult.overallScore : 94}<span className="text-slate-500 text-base font-normal">/100</span>
+                </div>
                 <p className="text-xs text-emerald-400 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" /> Excellent SEO Health
                 </p>
@@ -188,61 +284,110 @@ export default function LandingPage() {
               <div className="bg-[#0F1623] p-5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">CORE WEB VITALS</span>
-                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">CrUX 実測</span>
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">実測速度</span>
                 </div>
-                <div className="font-mono text-4xl font-extrabold text-white mb-1">98<span className="text-slate-500 text-base font-normal">/100</span></div>
-                <p className="text-xs text-slate-400">LCP 1.1s (Good) / INP 45ms</p>
+                <div className="font-mono text-4xl font-extrabold text-white mb-1">
+                  {auditResult ? auditResult.scores.performance : 98}<span className="text-slate-500 text-base font-normal">/100</span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  {auditResult ? `Response: ${auditResult.responseTimeMs}ms` : 'LCP 1.1s (Good) / INP 45ms'}
+                </p>
               </div>
 
               <div className="bg-[#0F1623] p-5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">AEO / LLMO READY</span>
-                  <span className="text-[10px] font-mono text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">引用確率 88%</span>
+                  <span className="text-[10px] font-mono text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">AI 引用適性</span>
                 </div>
-                <div className="font-mono text-4xl font-extrabold text-white mb-1">92<span className="text-slate-500 text-base font-normal">/100</span></div>
+                <div className="font-mono text-4xl font-extrabold text-white mb-1">
+                  {auditResult ? auditResult.scores.aeo_llmo : 92}<span className="text-slate-500 text-base font-normal">/100</span>
+                </div>
                 <p className="text-xs text-violet-400">AI Overviews カルーセル対象</p>
               </div>
 
               <div className="bg-[#0F1623] p-5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">META INTEGRITY</span>
-                  <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">1 Warning</span>
+                  <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">メタ整合性</span>
                 </div>
-                <div className="font-mono text-4xl font-extrabold text-white mb-1">88<span className="text-slate-500 text-base font-normal">/100</span></div>
-                <p className="text-xs text-amber-400">Canonical正常 / OGP微修正</p>
+                <div className="font-mono text-4xl font-extrabold text-white mb-1">
+                  {auditResult ? auditResult.scores.meta : 88}<span className="text-slate-500 text-base font-normal">/100</span>
+                </div>
+                <p className="text-xs text-amber-400">Canonical & OGP 整合性</p>
               </div>
             </div>
 
             {/* Proposal Code Split View (Before / After) */}
             <div className="p-6 bg-[#0B101A] border-t border-white/[0.08]">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">CRITICAL</span>
-                  <span className="text-sm font-semibold text-white">[AIO-001] AIスニペット最大表示メタタグの付与推奨</span>
+              {auditResult ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-white">診断された検査項目 ({auditResult.metrics.length}件)</span>
+                    <span className="text-xs text-slate-400 font-mono">ターゲット: {auditResult.url}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {auditResult.metrics.map((m, idx) => (
+                      <div key={idx} className="p-4 rounded-xl border border-white/[0.08] bg-[#0F1623] flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                              m.status === 'good' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              m.status === 'warning' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                              'bg-red-500/10 text-red-400 border border-red-500/20'
+                            }`}>
+                              {m.id}
+                            </span>
+                            <span className="text-sm font-semibold text-white">{m.name}</span>
+                          </div>
+                          <span className="text-xs font-mono text-slate-400">{m.score} 点</span>
+                        </div>
+                        <p className="text-xs text-slate-400">{m.message}</p>
+                        {m.codeDiff && (
+                          <div className="mt-2 rounded-lg bg-black/60 p-3 font-mono text-xs text-emerald-300 overflow-x-auto relative">
+                            <pre>{m.codeDiff.after}</pre>
+                            <button 
+                              onClick={() => copyCode(m.codeDiff?.after || '')}
+                              className="absolute top-2 right-2 p-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] flex items-center gap-1"
+                            >
+                              {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                              <span>{copied ? 'Copied' : 'Copy'}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                  獲得見込み: +15点
-                </span>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">CRITICAL</span>
+                      <span className="text-sm font-semibold text-white">[AIO-001] AIスニペット最大表示メタタグの付与推奨</span>
+                    </div>
+                    <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                      獲得見込み: +15点
+                    </span>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-red-500/20 bg-red-950/10 p-4 font-mono text-xs">
-                  <div className="text-red-400 font-bold mb-2 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5" /> 検出された現状コード (未設定)
-                  </div>
-                  <div className="text-slate-400 line-through">
-                    &lt;!-- max-snippet タグが存在しません --&gt;
-                  </div>
-                  <p className="mt-3 text-[11px] text-slate-400 leading-relaxed font-sans">
-                    ⚠️ AI Overviewsや検索スニペットで要約が省略され、サムネイル画像が表示されない危険があります。
-                  </p>
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-red-500/20 bg-red-950/10 p-4 font-mono text-xs">
+                      <div className="text-red-400 font-bold mb-2 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" /> 検出された現状コード (未設定)
+                      </div>
+                      <div className="text-slate-400 line-through">
+                        &lt;!-- max-snippet タグが存在しません --&gt;
+                      </div>
+                      <p className="mt-3 text-[11px] text-slate-400 leading-relaxed font-sans">
+                        ⚠️ AI Overviewsや検索スニペットで要約が省略され、サムネイル画像が表示されない危険があります。
+                      </p>
+                    </div>
 
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 font-mono text-xs">
-                  <div className="text-emerald-400 font-bold mb-2 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Next.js App Router 推奨コード
-                  </div>
-                  <pre className="text-emerald-300 leading-relaxed overflow-x-auto">
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 font-mono text-xs">
+                      <div className="text-emerald-400 font-bold mb-2 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Next.js App Router 推奨コード
+                      </div>
+                      <pre className="text-emerald-300 leading-relaxed overflow-x-auto">
 {`export const metadata: Metadata = {
   robots: {
     index: true,
@@ -252,9 +397,11 @@ export default function LandingPage() {
     },
   },
 };`}
-                  </pre>
-                </div>
-              </div>
+                      </pre>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -382,21 +529,14 @@ export default function LandingPage() {
               <div className="space-y-4">
                 <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20">
                   <p className="text-xs text-slate-200 leading-relaxed mb-3">
-                    ✨ <strong>AI生成要約:</strong> SEO Analyzerは、Core Web VitalsやCanonicalタグの整合性を自動診断するエンジニア向けプラットフォームです。AIが引用しやすい結論ファースト構文をサポートしています。
+                    ✨ <strong>AI生成要約:</strong> {auditResult ? auditResult.aiOverview.summary : 'SEO Analyzerは、Core Web VitalsやCanonicalタグの整合性を自動診断するエンジニア向けプラットフォームです。AIが引用しやすい結論ファースト構文をサポートしています。'}
                   </p>
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     <div className="p-2.5 rounded-xl bg-[#080B11] border border-white/10 shrink-0 flex items-center gap-2">
                       <div className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px] text-cyan-400 font-bold">NN</div>
                       <div>
-                        <div className="text-[11px] font-bold text-white">seo.n-n.tokyo</div>
+                        <div className="text-[11px] font-bold text-white">{auditResult ? new URL(auditResult.url).hostname : 'seo.n-n.tokyo'}</div>
                         <div className="text-[9px] text-slate-500">機能と仕様書...</div>
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-[#080B11] border border-white/10 shrink-0 flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] text-violet-400 font-bold">DOC</div>
-                      <div>
-                        <div className="text-[11px] font-bold text-white">公式ガイド</div>
-                        <div className="text-[9px] text-slate-500">AEO/LLMO対応...</div>
                       </div>
                     </div>
                   </div>
