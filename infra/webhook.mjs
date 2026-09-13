@@ -10,6 +10,7 @@
  */
 import crypto from 'node:crypto';
 import http from 'node:http';
+import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -115,10 +116,16 @@ const server = http.createServer((req, res) => {
       pusher: payload.pusher ? payload.pusher.name : 'unknown'
     });
 
+    const logFile = resolve(baseDir, 'logs', 'deploy.log');
+    let logFd = null;
+    try {
+      logFd = fs.openSync(logFile, 'a');
+    } catch {}
+
     const child = spawn('bash', [deployScript], {
       cwd: baseDir,
       detached: true,
-      stdio: 'ignore',
+      stdio: logFd ? ['ignore', logFd, logFd] : 'ignore',
       env: {
         ...process.env,
         TRIGGERED_BY: 'github-webhook',
@@ -126,12 +133,20 @@ const server = http.createServer((req, res) => {
       }
     });
 
+    child.on('close', (code) => {
+      isDeploying = false;
+      if (logFd) {
+        try { fs.closeSync(logFd); } catch {}
+      }
+      console.log(`[seo-webhook] deploy finished with exit code ${code}`);
+    });
+
     child.unref();
 
-    // 5分後に安全のためロックをリセット
+    // 安全のため最大10分でロック解除
     setTimeout(() => {
       isDeploying = false;
-    }, 5 * 60 * 1000);
+    }, 10 * 60 * 1000);
   });
 });
 
