@@ -74,7 +74,7 @@ graph TD
 | **SCR-12** | 内部リンク有向グラフ | `/crawl/:sessionId/graph` | `GET /api/v1/crawl/:sessionId/graph` |
 | **SCR-13** | リンク切れ (404) 一覧 | `/crawl/:sessionId/broken`| `GET /api/v1/crawl/:sessionId/broken` |
 | **SCR-14** | サイト構造階層ツリー | `/crawl/:sessionId/tree` | `GET /api/v1/crawl/:sessionId/tree` |
-| **SCR-15** | プロジェクト一覧 | `/projects` | `GET /api/v1/projects` |
+| **SCR-15** | プロジェクト一覧・管理 | `/projects` | `GET /api/v1/projects`, `POST /api/v1/projects`, `PUT /api/v1/projects/:id`, `DELETE /api/v1/projects/:id` |
 | **SCR-16** | プロジェクト詳細・推移 | `/projects/:id` | `GET /api/v1/projects/:id/history` |
 | **SCR-17** | Time-Travel 履歴差分 | `/projects/:id/diff` | `GET /api/v1/projects/:id/diff` |
 | **SCR-18** | GSC URL Inspection | `/google/inspect` | `POST /api/v1/google/inspect` |
@@ -120,3 +120,21 @@ graph TD
 3. **セッション維持 & トークン管理**:
    - `JWT (JSON Web Token)` または暗号化セッションIDをCookie / Bearerヘッダーで管理。
    - ログインユーザーの所属組織（Organization）に応じたプロジェクト・監査履歴の完全分離。
+
+---
+
+## 5. 世界公開 (Public SaaS) 前提のデータ完全分離 & セキュリティ原則
+
+本システム（`https://seo.n-n.tokyo`）はインターネット上に全世界公開されるため、不特定多数の利用者が同一システムにアクセスします。情報漏洩および不正操作を完全に防止するため、以下の**「テナント完全分離規約」**を厳格に適用します。
+
+### ① プロジェクト・監査履歴の完全秘匿（ゼロリーク原則）
+- **未認証アクセス制限**: 未ログイン状態の第三者が `/api/v1/projects` にアクセスした場合、他人が登録したプロジェクトを1件たりとも返却してはならない（常に空配列 `[]` または要ログインエラー `401` を返却）。
+- **ユーザー紐付け必須**: プロジェクト（ドメイン監視・監査履歴・差分比較）の作成・編集・削除は、認証済みアカウント（`userId`）の所有下でのみ実行可能。
+- **認可チェック (IDOR防止)**: プロジェクト詳細 (`/projects/:id`) や差分 (`/projects/:id/diff`) の取得時、リクエスト元のユーザーが所有者または同組織メンバーでない限り `404 Not Found` または `403 Forbidden` を返却し、ID推測によるデータ漏洩を防止。
+
+### ② クイック即時診断のパブリック分離
+- トップページ（`/`）で未ログインのまま実行される単一URLクイック診断結果は、登録済みユーザーのプライベートプロジェクトとは一切紐付けず、一時診断キャッシュ（TTL 24時間）として隔離処理する。
+- 診断結果を永続監視・履歴追跡したい場合は、アカウント作成/ログイン後に「プロジェクトに追加」を行わせる。
+
+### ③ Google APIトークン・GSC/GA4データの保護
+- Google連携情報（リフレッシュトークン、アクセストークン、Search Console検索データ、GA4指標）は、該当する認証ユーザーのブラウザセッション・アカウントに厳密に閉じ込め、他の利用者に一切漏洩しない構造を維持する。

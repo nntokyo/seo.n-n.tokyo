@@ -188,6 +188,8 @@ model Project {
   id                   String                 @id @default(uuid()) @db.Uuid
   orgId                String                 @map("org_id") @db.Uuid
   organization         Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId               String?                @map("user_id") @db.Uuid // 作成者・所有アカウント紐付け
+  user                 User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   name                 String
   targetDomain         String                 @map("target_domain")
   rootUrl              String                 @map("root_url")
@@ -201,6 +203,7 @@ model Project {
   updatedAt            DateTime               @updatedAt @map("updated_at")
 
   @@index([orgId])
+  @@index([userId])
   @@index([targetDomain])
   @@map("projects")
 }

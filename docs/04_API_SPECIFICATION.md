@@ -49,11 +49,13 @@ flowchart LR
 ### ③ プロジェクト管理 & 履歴差分 (Projects & Time-Travel Diff)
 | メソッド | パス | 説明 | 認証 |
 |---|---|---|---|
-| `GET` | `/api/v1/projects` | 登録ドメイン・プロジェクト一覧 | 必須 |
-| `POST` | `/api/v1/projects` | 新規ドメイン監視プロジェクトの登録 | 必須 |
-| `GET` | `/api/v1/projects/:id/history` | スコア・Core Web Vitalsの日次推移データ | 必須 |
-| `GET` | `/api/v1/projects/:id/diff` | **前回診断とのメタタグ・スコア変動差分比較** | 必須 |
-| `POST` | `/api/v1/projects/:id/notify/test`| Slack / Webhook テスト通知送信 | 必須 |
+| `GET` | `/api/v1/projects` | ログイン中ユーザーが所有するプロジェクト一覧取得（未ログイン時は空配列返却） | 任意 (Bearer) |
+| `POST` | `/api/v1/projects` | ログイン中アカウントに紐付いた新規プロジェクト登録 | **必須 (Bearer)** |
+| `PUT` | `/api/v1/projects/:id` | **プロジェクト名・監視ルートURLの編集** | **必須 (所有者Bearerのみ)** |
+| `DELETE` | `/api/v1/projects/:id` | **プロジェクトおよび関連履歴の完全削除** | **必須 (所有者Bearerのみ)** |
+| `GET` | `/api/v1/projects/:id/history` | スコア・Core Web Vitalsの日次推移データ | **必須 (所有者Bearerのみ)** |
+| `GET` | `/api/v1/projects/:id/diff` | **前回診断とのメタタグ・スコア変動差分比較** | **必須 (所有者Bearerのみ)** |
+| `POST` | `/api/v1/projects/:id/notify/test`| Slack / Webhook テスト通知送信 | **必須 (所有者Bearerのみ)** |
 
 ### ④ Google公式API連携 (Google Official Integrations)
 | メソッド | パス | 説明 | 認証 |

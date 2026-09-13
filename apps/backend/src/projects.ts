@@ -41,17 +41,29 @@ function saveProjectToDisk(p: ProjectRecord) {
   } catch {}
 }
 
-export function listProjects(): ProjectRecord[] {
-  return Array.from(projectsStore.values()).sort(
+export function listProjects(userId?: string): ProjectRecord[] {
+  // 世界公開環境: ログインしていないユーザーにはプロジェクトを一切返却しない (情報漏洩防止)
+  if (!userId) {
+    return [];
+  }
+  const all = Array.from(projectsStore.values());
+  const filtered = all.filter((p) => p.userId === userId);
+  return filtered.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }
 
-export function getProject(id: string): ProjectRecord | null {
-  return projectsStore.get(id) || null;
+export function getProject(id: string, userId?: string): ProjectRecord | null {
+  const p = projectsStore.get(id);
+  if (!p) return null;
+  // 所有者チェック (プロジェクトにuserIdが紐付いており、アクセス者のuserIdと不一致の場合はアクセス不可)
+  if (p.userId && userId && p.userId !== userId) {
+    return null;
+  }
+  return p;
 }
 
-export function createProject(name: string, targetUrl: string): ProjectRecord {
+export function createProject(name: string, targetUrl: string, userId?: string): ProjectRecord {
   let norm = targetUrl.trim();
   if (!norm.startsWith('http://') && !norm.startsWith('https://')) {
     norm = `https://${norm}`;
@@ -59,9 +71,9 @@ export function createProject(name: string, targetUrl: string): ProjectRecord {
   const parsed = new URL(norm);
   const targetDomain = parsed.hostname;
 
-  // 既存同一ドメインのプロジェクトがあればそれを返す
+  // 既存同一ユーザー・同一ドメインのプロジェクトがあればそれを返す
   for (const existing of projectsStore.values()) {
-    if (existing.targetDomain === targetDomain) {
+    if (existing.targetDomain === targetDomain && (!userId || existing.userId === userId)) {
       return existing;
     }
   }
@@ -69,6 +81,7 @@ export function createProject(name: string, targetUrl: string): ProjectRecord {
   const id = `proj_${crypto.randomBytes(6).toString('hex')}`;
   const record: ProjectRecord = {
     id,
+    userId,
     name: name.trim() || targetDomain,
     targetDomain,
     rootUrl: norm,
@@ -79,6 +92,54 @@ export function createProject(name: string, targetUrl: string): ProjectRecord {
 
   saveProjectToDisk(record);
   return record;
+}
+
+export function updateProject(id: string, updates: { name?: string; rootUrl?: string }, userId?: string): ProjectRecord {
+  const p = projectsStore.get(id);
+  if (!p) {
+    throw new Error('プロジェクトが見つかりません');
+  }
+
+  // 権限チェック (所有者が存在し、かつリクエストユーザーと不一致の場合)
+  if (p.userId && userId && p.userId !== userId) {
+    throw new Error('このプロジェクトを変更する権限がありません');
+  }
+
+  if (updates.name && updates.name.trim()) {
+    p.name = updates.name.trim();
+  }
+
+  if (updates.rootUrl && updates.rootUrl.trim()) {
+    let norm = updates.rootUrl.trim();
+    if (!norm.startsWith('http://') && !norm.startsWith('https://')) {
+      norm = `https://${norm}`;
+    }
+    const parsed = new URL(norm);
+    p.rootUrl = norm;
+    p.targetDomain = parsed.hostname;
+  }
+
+  p.updatedAt = new Date().toISOString();
+  saveProjectToDisk(p);
+  return p;
+}
+
+export function deleteProject(id: string, userId?: string): boolean {
+  const p = projectsStore.get(id);
+  if (!p) return false;
+
+  if (p.userId && userId && p.userId !== userId) {
+    throw new Error('このプロジェクトを削除する権限がありません');
+  }
+
+  projectsStore.delete(id);
+  try {
+    const projPath = path.join(projectsDataDir, `${id}.json`);
+    if (fs.existsSync(projPath)) fs.unlinkSync(projPath);
+    const histPath = path.join(projectHistoryDir, `${id}.json`);
+    if (fs.existsSync(histPath)) fs.unlinkSync(histPath);
+  } catch {}
+  return true;
 }
 
 export function recordAuditToProject(projectId: string, audit: FullAuditResult): void {

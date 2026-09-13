@@ -390,6 +390,7 @@ export interface CrawlTreeResponse {
 
 export interface ProjectRecord {
   id: string;
+  userId?: string; // 所有ユーザーのアカウントID
   name: string;
   targetDomain: string;
   rootUrl: string;
@@ -397,6 +398,7 @@ export interface ProjectRecord {
   lastScore: number;
   lastAuditedAt?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface ProjectHistoryItem {

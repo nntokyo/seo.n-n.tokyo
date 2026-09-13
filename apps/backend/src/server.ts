@@ -25,6 +25,8 @@ import {
   listProjects,
   getProject,
   createProject,
+  updateProject,
+  deleteProject,
   recordAuditToProject,
   getProjectHistory,
   calculateAuditDiff,
@@ -134,10 +136,14 @@ async function main() {
         fs.writeFileSync(path.join(baseDataDir, `${result.id}.json`), JSON.stringify(result), 'utf8');
       } catch {}
 
-      // プロジェクト自動記録 (同一ドメインのプロジェクトがある、または自動生成)
+      // ログイン中のユーザーの場合のみ、プロジェクトへ自動記録（未ログイン時はパブリック汚染防止）
       try {
-        const proj = createProject(new URL(targetUrl).hostname, targetUrl);
-        recordAuditToProject(proj.id, result);
+        const authHeader = request.headers.authorization;
+        const user = verifySessionToken(authHeader);
+        if (user) {
+          const proj = createProject(new URL(targetUrl).hostname, targetUrl, user.id);
+          recordAuditToProject(proj.id, result);
+        }
       } catch {}
 
       if (auditCache.size > 500) {
@@ -503,38 +509,90 @@ ${linksSection}
   });
 
   // ==============================================================================
-  // プロジェクト管理 & 履歴推移 (SCR-15 〜 SCR-17)
+  // プロジェクト管理 & 履歴推移 (SCR-15 〜 SCR-17) - アカウント紐付け対応
   // ==============================================================================
 
-  // プロジェクト一覧 (SCR-15)
-  fastify.get('/api/v1/projects', async () => {
-    return { projects: listProjects() };
+  // プロジェクト一覧 (SCR-15: ログインユーザー紐付け)
+  fastify.get('/api/v1/projects', async (request) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    return { projects: listProjects(user?.id) };
   });
 
-  // プロジェクト作成 (SCR-15)
+  // プロジェクト作成 (SCR-15: ログインユーザー必須)
   fastify.post('/api/v1/projects', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: 'プロジェクト作成にはログインが必要です' });
+    }
+
     const body = (request.body || {}) as { name?: string; url?: string };
     if (!body.url) return reply.status(400).send({ error: 'url is required' });
-    const p = createProject(body.name || '', body.url);
+
+    const p = createProject(body.name || '', body.url, user.id);
     return p;
   });
 
-  // プロジェクト詳細 & 履歴 (SCR-16)
+  // プロジェクト編集 (SCR-15: 所有者ログイン必須)
+  fastify.put('/api/v1/projects/:id', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: 'プロジェクト編集にはログインが必要です' });
+    }
+
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as { name?: string; rootUrl?: string };
+
+    try {
+      const updated = updateProject(id, body, user.id);
+      return updated;
+    } catch (err: any) {
+      return reply.status(403).send({ error: err.message });
+    }
+  });
+
+  // プロジェクト削除 (SCR-15: 所有者ログイン必須)
+  fastify.delete('/api/v1/projects/:id', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: 'プロジェクト削除にはログインが必要です' });
+    }
+
+    const { id } = request.params as { id: string };
+    try {
+      const ok = deleteProject(id, user.id);
+      if (!ok) return reply.status(404).send({ error: 'プロジェクトが見つかりません' });
+      return { success: true, message: 'プロジェクトを削除しました' };
+    } catch (err: any) {
+      return reply.status(403).send({ error: err.message });
+    }
+  });
+
+  // プロジェクト詳細 & 履歴 (SCR-16: 所有者認可)
   fastify.get('/api/v1/projects/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const project = getProject(id);
-    if (!project) return reply.status(404).send({ error: 'Project not found' });
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+
+    const project = getProject(id, user?.id);
+    if (!project) return reply.status(404).send({ error: 'Project not found or access denied' });
     const history = getProjectHistory(id);
     return { project, history };
   });
 
-  // Time-Travel 履歴差分比較 (SCR-17)
+  // Time-Travel 履歴差分比較 (SCR-17: 所有者認可)
   fastify.get('/api/v1/projects/:id/diff', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const query = request.query as { baseId?: string; compareId?: string };
-    const project = getProject(id);
-    if (!project) return reply.status(404).send({ error: 'Project not found' });
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
 
+    const project = getProject(id, user?.id);
+    if (!project) return reply.status(404).send({ error: 'Project not found or access denied' });
+
+    const query = request.query as { baseId?: string; compareId?: string };
     const history = getProjectHistory(id);
     if (history.length < 2 && (!query.baseId || !query.compareId)) {
       return reply.status(400).send({ error: '履歴が2件以上必要です。複数回診断を実行してください。' });
