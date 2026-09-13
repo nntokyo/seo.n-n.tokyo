@@ -175,7 +175,7 @@ ${linksSection}
     };
   });
 
-  const port = Number(process.env.PORT || 5601);
+  const port = Number(process.env.BACKEND_PORT || (process.env.PORT && process.env.PORT !== '5600' ? process.env.PORT : 5601));
   const host = process.env.HOST || '127.0.0.1';
 
   try {

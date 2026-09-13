@@ -120,18 +120,18 @@ fi
 # 5. リロード & ヘルスチェック
 log "Step 4: Reloading PM2 processes with updated bundle..."
 
-# バックエンドのリロード / 起動
+# バックエンドのリロード / 起動 (Port 5601)
 if pm2 describe "$BACKEND_NAME" >/dev/null 2>&1; then
-  pm2 reload "$BACKEND_NAME" --update-env 2>&1 || pm2 restart "$BACKEND_NAME" --update-env 2>&1
+  PORT="5601" BACKEND_PORT="5601" pm2 reload "$BACKEND_NAME" --update-env 2>&1 || PORT="5601" BACKEND_PORT="5601" pm2 restart "$BACKEND_NAME" --update-env 2>&1
 else
-  pm2 start "$BASE/ecosystem.config.cjs" --only "$BACKEND_NAME" 2>&1
+  PORT="5601" BACKEND_PORT="5601" pm2 start "$BASE/ecosystem.config.cjs" --only "$BACKEND_NAME" 2>&1
 fi
 
-# フロントエンドのリロード / 起動
+# フロントエンドのリロード / 起動 (Port 5600)
 if pm2 describe "$FRONTEND_NAME" >/dev/null 2>&1; then
-  pm2 reload "$FRONTEND_NAME" --update-env 2>&1 || pm2 restart "$FRONTEND_NAME" --update-env 2>&1
+  PORT="5600" pm2 reload "$FRONTEND_NAME" --update-env 2>&1 || PORT="5600" pm2 restart "$FRONTEND_NAME" --update-env 2>&1
 else
-  pm2 start "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" 2>&1
+  PORT="5600" pm2 start "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" 2>&1
 fi
 
 # Webhook サーバーの起動確認
