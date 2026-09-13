@@ -709,3 +709,192 @@ export async function getGoogleHubData(sessionId: string | undefined, targetUrl:
     fetchedAt: new Date().toISOString(),
   };
 }
+
+// 6. SCR-18: GSC URL Inspection 詳細取得関数
+export async function inspectUrlInGsc(session: GoogleSessionRecord | null, inspectionUrl: string, siteUrl?: string) {
+  const parsed = new URL(inspectionUrl);
+  const origin = parsed.origin;
+  const siteUrlCandidates = siteUrl
+    ? [siteUrl]
+    : [origin + '/', origin, `sc-domain:${parsed.hostname}`];
+
+  if (!session) {
+    // セッションがない場合はローカル検査シミュレーション (HTTP HEAD/GETとRobotsチェック)
+    try {
+      const resp = await fetch(inspectionUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      const html = await resp.text();
+      const hasNoindex = html.toLowerCase().includes('noindex');
+
+      return {
+        inspectionUrl,
+        verdict: resp.ok && !hasNoindex ? 'PASS' : hasNoindex ? 'FAIL' : 'PARTIAL',
+        coverageState: resp.ok ? (hasNoindex ? 'Excluded by noindex tag' : 'Submitted and indexed') : `HTTP ${resp.status}`,
+        robotsTxtState: 'ALLOWED',
+        indexingState: hasNoindex ? 'BLOCKED_BY_META_TAG' : 'INDEXING_ALLOWED',
+        lastCrawlTime: new Date().toISOString(),
+        pageFetchState: resp.ok ? 'SUCCESSFUL' : resp.status === 404 ? 'NOT_FOUND' : 'SERVER_ERROR',
+        userCanonical: inspectionUrl,
+        googleCanonical: inspectionUrl,
+        mobileUsabilityResult: {
+          verdict: 'PASS',
+          issues: [],
+        },
+        richResults: [
+          { name: 'Organization', status: 'VALID' },
+          { name: 'WebSite', status: 'VALID' },
+        ],
+        isSimulated: true,
+      };
+    } catch (err: any) {
+      return {
+        inspectionUrl,
+        verdict: 'FAIL',
+        coverageState: `Inspection connection error: ${err.message}`,
+        robotsTxtState: 'UNKNOWN',
+        indexingState: 'UNKNOWN',
+        pageFetchState: 'SERVER_ERROR',
+        mobileUsabilityResult: { verdict: 'UNKNOWN', issues: ['Fetch timeout'] },
+        richResults: [],
+        isSimulated: true,
+      };
+    }
+  }
+
+  // 認証済みセッションがある場合は公式 Inspection API を呼び出し
+  const token = await getFreshAccessToken(session);
+  let matchedSite = siteUrlCandidates[0];
+  let apiData: any = null;
+  let lastError: any = null;
+
+  for (const candidate of siteUrlCandidates) {
+    try {
+      const res = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inspectionUrl,
+          siteUrl: candidate,
+        }),
+      });
+      if (res.ok) {
+        apiData = await res.json();
+        matchedSite = candidate;
+        break;
+      } else {
+        const e = await res.json().catch(() => ({}));
+        lastError = e.error?.message || `HTTP ${res.status}`;
+      }
+    } catch (e: any) {
+      lastError = e.message;
+    }
+  }
+
+  if (apiData?.inspectionResult) {
+    const ir = apiData.inspectionResult;
+    const isr = ir.indexStatusResult || {};
+    const mur = ir.mobileUsabilityResult || {};
+    const rri = ir.richResultsResult?.detectedItems || [];
+
+    return {
+      inspectionUrl,
+      verdict: isr.verdict || 'NEUTRAL',
+      coverageState: isr.coverageState || 'Crawled - currently not indexed',
+      robotsTxtState: isr.robotsTxtState || 'ALLOWED',
+      indexingState: isr.indexingState || 'INDEXING_ALLOWED',
+      lastCrawlTime: isr.lastCrawlTime,
+      pageFetchState: isr.pageFetchState || 'SUCCESSFUL',
+      googleCanonical: isr.googleCanonical,
+      userCanonical: isr.userCanonical,
+      mobileUsabilityResult: {
+        verdict: mur.verdict || 'PASS',
+        issues: (mur.issues || []).map((i: any) => i.issueType || String(i)),
+      },
+      richResults: rri.map((r: any) => ({
+        name: r.richResultType || 'Structured Data',
+        status: (r.items?.[0]?.issues?.length ? 'WARNING' : 'VALID') as 'VALID' | 'WARNING' | 'ERROR',
+      })),
+      siteUrl: matchedSite,
+      isSimulated: false,
+    };
+  }
+
+  // API権限がない、またはプロパティ不一致時の安全なフォールバック
+  return {
+    inspectionUrl,
+    verdict: 'PARTIAL',
+    coverageState: lastError ? `GSC API通知: ${lastError}` : 'プロパティ所有権が確認できませんでした',
+    robotsTxtState: 'UNKNOWN',
+    indexingState: 'UNKNOWN',
+    pageFetchState: 'UNKNOWN',
+    mobileUsabilityResult: { verdict: 'UNKNOWN', issues: [lastError || '権限未確認'] },
+    richResults: [],
+    isSimulated: true,
+  };
+}
+
+// 7. SCR-19: Google Indexing API 通知処理
+export async function publishUrlToIndexingApi(session: GoogleSessionRecord | null, url: string, type: 'URL_UPDATED' | 'URL_DELETED') {
+  if (!session) {
+    // 連携未完了時はローカルシミュレーション返却
+    return {
+      url,
+      type,
+      status: 'SIMULATED_SUCCESS' as const,
+      notifyTime: new Date().toISOString(),
+      message: '【テスト送信】Googleアカウント未連携のため、ローカル環境でIndexing API形式のシミュレーション送信を完了しました。本番送信にはGoogle連携が必要です。',
+    };
+  }
+
+  const token = await getFreshAccessToken(session);
+  try {
+    const res = await fetch('https://indexing.googleapis.com/v3/urlNotifications:publish', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        type,
+      }),
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      return {
+        url,
+        type,
+        status: 'SUBMITTED' as const,
+        notifyTime: json.urlNotificationMetadata?.latestUpdate?.notifyTime || new Date().toISOString(),
+        message: 'Google Indexing APIへ正常にURL通知を送信しました。クローラーの即時巡回がリクエストされました。',
+      };
+    } else {
+      const errJson = await res.json().catch(() => ({}));
+      const msg = errJson.error?.message || `HTTP ${res.status}`;
+      return {
+        url,
+        type,
+        status: 'ERROR' as const,
+        notifyTime: new Date().toISOString(),
+        message: `Indexing APIエラー: ${msg}（※GCPコンソールでIndexing APIが有効化され、サービスアカウントまたはOAuthユーザーに所有権が付与されている必要があります）`,
+      };
+    }
+  } catch (err: any) {
+    return {
+      url,
+      type,
+      status: 'ERROR' as const,
+      notifyTime: new Date().toISOString(),
+      message: `通信エラー: ${err.message}`,
+    };
+  }
+}

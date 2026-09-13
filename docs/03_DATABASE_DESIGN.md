@@ -161,12 +161,21 @@ model Organization {
   @@map("organizations")
 }
 
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
 model User {
   id             String       @id @default(uuid()) @db.Uuid
   orgId          String       @map("org_id") @db.Uuid
   organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   email          String       @unique
   name           String
+  passwordHash   String?      @map("password_hash") // メール+パスワード認証時 (PBKDF2/Argon2)
+  provider       AuthProvider @default(LOCAL)
+  googleId       String?      @unique @map("google_id") // Google OAuth認証時
+  avatarUrl      String?      @map("avatar_url")
   role           Role         @default(MEMBER)
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")

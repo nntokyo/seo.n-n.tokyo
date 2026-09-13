@@ -8,6 +8,9 @@ import {
   getSessionStatus,
   deleteSession,
   getGoogleHubData,
+  inspectUrlInGsc,
+  publishUrlToIndexingApi,
+  getSession,
 } from './google.js';
 import {
   startCrawlSession,
@@ -26,6 +29,23 @@ import {
   getProjectHistory,
   calculateAuditDiff,
 } from './projects.js';
+import {
+  getAlertSettings,
+  saveAlertSettings,
+  listTeamMembers,
+  addTeamMember,
+  removeTeamMember,
+  listApiKeys,
+  createApiKey,
+  revokeApiKey,
+} from './settings.js';
+import {
+  registerWithPassword,
+  loginWithPassword,
+  loginOrCreateWithGoogle,
+  verifySessionToken,
+  logoutSession,
+} from './auth.js';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -544,6 +564,204 @@ ${linksSection}
 
     const diff = calculateAuditDiff(project, baseAudit, compAudit);
     return diff;
+  });
+
+  // ==============================================================================
+  // Google URL Inspection & Indexing API (SCR-18, SCR-19)
+  // ==============================================================================
+
+  // SCR-18: GSC URL Inspection
+  fastify.post('/api/v1/google/inspect', async (request, reply) => {
+    const body = (request.body || {}) as { url?: string; siteUrl?: string; sessionId?: string };
+    if (!body.url) return reply.status(400).send({ error: 'url is required' });
+
+    const session = getSession(body.sessionId);
+    const result = await inspectUrlInGsc(session, body.url.trim(), body.siteUrl);
+    return result;
+  });
+
+  // SCR-19: Google Indexing API 即時通知
+  fastify.post('/api/v1/google/index-publish', async (request, reply) => {
+    const body = (request.body || {}) as { url?: string; type?: 'URL_UPDATED' | 'URL_DELETED'; sessionId?: string };
+    if (!body.url) return reply.status(400).send({ error: 'url is required' });
+
+    const session = getSession(body.sessionId);
+    const type = body.type || 'URL_UPDATED';
+    const result = await publishUrlToIndexingApi(session, body.url.trim(), type);
+    return result;
+  });
+
+  // ==============================================================================
+  // 監視・アラート & チーム & APIキー管理 (SCR-22, SCR-24, SCR-25)
+  // ==============================================================================
+
+  // SCR-22: アラート設定取得
+  fastify.get('/api/v1/settings/alerts', async () => {
+    return getAlertSettings();
+  });
+
+  // SCR-22: アラート設定保存
+  fastify.post('/api/v1/settings/alerts', async (request) => {
+    const body = request.body || {};
+    return saveAlertSettings(body);
+  });
+
+  // SCR-22: Webhook テスト送信 (SCR-22)
+  fastify.post('/api/v1/projects/:id/notify/test', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as { webhookUrl?: string };
+    const webhookUrl = body.webhookUrl || getAlertSettings().webhookUrl;
+
+    if (!webhookUrl) {
+      return reply.status(400).send({ error: 'Webhook URLが設定されていません' });
+    }
+
+    try {
+      const payload = {
+        text: `🚨 [SEO Analyzer] 監視アラートテスト通知 (プロジェクトID: ${id})\n本番スコア監視システムのテスト配信です。正常にWebhookを受信しました。`,
+        project: id,
+        timestamp: new Date().toISOString(),
+      };
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(5000),
+      });
+      return { success: true, status: res.status, message: 'テスト通知を送信しました' };
+    } catch (err: any) {
+      return reply.status(500).send({ error: `Webhook送信失敗: ${err.message}` });
+    }
+  });
+
+  // SCR-24: チームメンバー一覧
+  fastify.get('/api/v1/team/members', async () => {
+    return { members: listTeamMembers() };
+  });
+
+  // SCR-24: チームメンバー追加
+  fastify.post('/api/v1/team/members', async (request, reply) => {
+    const body = (request.body || {}) as { name?: string; email?: string; role?: any };
+    if (!body.name || !body.email) return reply.status(400).send({ error: 'name and email are required' });
+    const member = addTeamMember(body.name, body.email, body.role || 'viewer');
+    return member;
+  });
+
+  // SCR-24: チームメンバー削除
+  fastify.delete('/api/v1/team/members/:id', async (request) => {
+    const { id } = request.params as { id: string };
+    const ok = removeTeamMember(id);
+    return { success: ok };
+  });
+
+  // SCR-25: APIキー一覧
+  fastify.get('/api/v1/settings/api-keys', async () => {
+    return { keys: listApiKeys() };
+  });
+
+  // SCR-25: APIキー新規発行
+  fastify.post('/api/v1/settings/api-keys', async (request, reply) => {
+    const body = (request.body || {}) as { name?: string; scopes?: any };
+    if (!body.name) return reply.status(400).send({ error: 'name is required' });
+    const key = createApiKey(body.name, body.scopes || ['read']);
+    return key;
+  });
+
+  // SCR-25: APIキー失効
+  fastify.delete('/api/v1/settings/api-keys/:id', async (request) => {
+    const { id } = request.params as { id: string };
+    const ok = revokeApiKey(id);
+    return { success: ok };
+  });
+
+  // ==============================================================================
+  // ユーザー認証 & セッション (SCR-28: メール/パスワード & Googleログイン)
+  // ==============================================================================
+
+  // メール＋パスワード新規登録
+  fastify.post('/api/v1/auth/register', async (request, reply) => {
+    const body = (request.body || {}) as { email?: string; password?: string; name?: string };
+    if (!body.email || !body.password) {
+      return reply.status(400).send({ error: 'メールアドレスとパスワードは必須です' });
+    }
+    try {
+      const authRes = registerWithPassword({
+        email: body.email,
+        password: body.password,
+        name: body.name,
+      });
+      return authRes;
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  });
+
+  // メール＋パスワードログイン
+  fastify.post('/api/v1/auth/login', async (request, reply) => {
+    const body = (request.body || {}) as { email?: string; password?: string };
+    if (!body.email || !body.password) {
+      return reply.status(400).send({ error: 'メールアドレスとパスワードを入力してください' });
+    }
+    try {
+      const authRes = loginWithPassword({
+        email: body.email,
+        password: body.password,
+      });
+      return authRes;
+    } catch (err: any) {
+      return reply.status(401).send({ error: err.message });
+    }
+  });
+
+  // Googleログイン認証URL発行
+  fastify.get('/api/v1/auth/google/url', async (request) => {
+    const query = request.query as { redirectUri?: string };
+    const redirectUri = query.redirectUri || 'https://seo.n-n.tokyo/login?provider=google';
+    const authUrl = createOAuthAuthUrl(redirectUri);
+    return { authUrl };
+  });
+
+  // Googleログイン コールバック検証
+  fastify.post('/api/v1/auth/google/callback', async (request, reply) => {
+    const body = (request.body || {}) as { code?: string; redirectUri?: string };
+    if (!body.code) {
+      return reply.status(400).send({ error: 'OAuth code is required' });
+    }
+    const redirectUri = body.redirectUri || 'https://seo.n-n.tokyo/login?provider=google';
+    try {
+      const session = await exchangeOAuthCode(body.code, redirectUri);
+      if (!session.email) {
+        return reply.status(400).send({ error: 'Googleアカウントのメールアドレスを取得できませんでした' });
+      }
+
+      const authRes = loginOrCreateWithGoogle({
+        googleId: session.sessionId,
+        email: session.email,
+        name: session.name || session.email.split('@')[0],
+        picture: session.picture,
+      });
+
+      return authRes;
+    } catch (err: any) {
+      return reply.status(400).send({ error: `Googleログインに失敗しました: ${err.message}` });
+    }
+  });
+
+  // ログイン中ユーザー情報照会
+  fastify.get('/api/v1/auth/me', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: '未ログインまたはセッションが有効期限切れです' });
+    }
+    return { user };
+  });
+
+  // ログアウト
+  fastify.post('/api/v1/auth/logout', async (request) => {
+    const authHeader = request.headers.authorization;
+    logoutSession(authHeader);
+    return { success: true };
   });
 
   const port = Number(process.env.BACKEND_PORT || (process.env.PORT && process.env.PORT !== '5600' ? process.env.PORT : 5601));

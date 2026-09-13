@@ -152,15 +152,22 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/tools/sitemap-analyzer"
-              className="hidden sm:flex text-xs font-mono text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-colors"
+              className="hidden lg:flex text-xs font-mono text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-colors"
             >
               サイトマップ分析
+            </Link>
+            <Link
+              href="/login"
+              className="text-xs font-mono px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/30 bg-white/5 hover:bg-cyan-500/10 text-slate-200 hover:text-cyan-300 transition-colors flex items-center gap-1.5"
+            >
+              <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+              <span>ログイン</span>
             </Link>
             <a 
               href="#audit-input" 
               className="text-xs font-semibold text-black bg-gradient-to-r from-cyan-400 to-cyan-300 hover:brightness-110 px-4 py-2 rounded-full transition-all shadow-md shadow-cyan-500/20"
             >
-              無料診断
+              即時診断
             </a>
           </div>
         </div>

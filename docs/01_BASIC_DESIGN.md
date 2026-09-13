@@ -87,3 +87,36 @@ graph TD
 | **SCR-25** | APIキー・Webhook管理 | `/settings/api-keys` | `GET /api/v1/settings/api-keys` |
 | **SCR-26** | サイトマップ&ハブ・カノニカル分析 | `/tools/sitemap-analyzer` | `POST /api/v1/tools/validate-sitemap` |
 | **SCR-27** | Google公式統合ハブ (PSI/GSC/GA4/Gemini) | `/google/hub` | `POST /api/v1/google/hub-data` |
+| **SCR-28** | ユーザー認証 (ログイン・新規登録) | `/login` | `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, `POST /api/v1/auth/google/callback` |
+
+---
+
+## 4. ユーザー認証・認可アーキテクチャ (AUTH ARCHITECTURE)
+
+本システムは、セキュアなマルチテナント利用およびプロジェクト保護のため、**「メールアドレス＋パスワード認証」** および **「Googleアカウント認証 (OAuth 2.0)」** のハイブリッドログイン方式を採用します。
+
+```mermaid
+graph TD
+    Client["フロントエンド (Web UI)"]
+    AuthAPI["認証API (/api/v1/auth/*)"]
+    GoogleAuth["Google OAuth 2.0 (Google Identity)"]
+    UserStore[("ユーザーDB / セッションストア")]
+
+    Client -->|メールアドレス + パスワード| AuthAPI
+    Client -->|Googleでログイン (ワンクリック)| GoogleAuth
+    GoogleAuth -->|OAuthコールバック (IDトークン/アクセストークン)| AuthAPI
+    AuthAPI -->|Argon2/PBKDF2 ハッシュ検証 / Google検証| UserStore
+    AuthAPI -->|JWT認証トークン (HttpOnly / Bearer) 発行| Client
+```
+
+### 認証方式の仕様
+1. **メールアドレス＋パスワード認証**:
+   - パスワードはソルト付き暗号化ハッシュ（PBKDF2 / Argon2）で不可逆暗号化して保存。
+   - 新規登録時に即座に組織・アカウントを作成し、自動ログイン完了。
+2. **Googleログイン (OAuth 2.0 / Google Identity)**:
+   - Googleアカウントでワンクリックログイン。
+   - 取得したメールアドレス、氏名、プロフィールアイコンを自動同期。
+   - Google Search Console / GA4 のアクセス権限スコープともスムーズに統合可能。
+3. **セッション維持 & トークン管理**:
+   - `JWT (JSON Web Token)` または暗号化セッションIDをCookie / Bearerヘッダーで管理。
+   - ログインユーザーの所属組織（Organization）に応じたプロジェクト・監査履歴の完全分離。

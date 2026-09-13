@@ -447,5 +447,111 @@ export interface AuditTimeTravelDiffResponse {
   };
 }
 
+// ==============================================================================
+// 3. Google URL Inspection & Indexing API (SCR-18, SCR-19)
+// ==============================================================================
 
+export interface GscInspectRequest {
+  url: string;
+  siteUrl?: string;
+}
 
+export interface GscInspectResult {
+  inspectionUrl: string;
+  verdict: 'PASS' | 'PARTIAL' | 'FAIL' | 'NEUTRAL';
+  coverageState: string;
+  robotsTxtState: 'ALLOWED' | 'DISALLOWED' | 'UNKNOWN';
+  indexingState: 'INDEXING_ALLOWED' | 'BLOCKED_BY_META_TAG' | 'BLOCKED_BY_HTTP_HEADER' | 'UNKNOWN';
+  lastCrawlTime?: string;
+  pageFetchState: 'SUCCESSFUL' | 'SOFT_404' | 'BLOCKED_ROBOTS_TXT' | 'NOT_FOUND' | 'SERVER_ERROR' | 'UNKNOWN';
+  googleCanonical?: string;
+  userCanonical?: string;
+  mobileUsabilityResult: {
+    verdict: 'PASS' | 'FAIL' | 'UNKNOWN';
+    issues: string[];
+  };
+  richResults: Array<{
+    name: string;
+    status: 'VALID' | 'WARNING' | 'ERROR';
+  }>;
+}
+
+export interface IndexingPublishRequest {
+  url: string;
+  type: 'URL_UPDATED' | 'URL_DELETED';
+}
+
+export interface IndexingPublishResult {
+  url: string;
+  type: 'URL_UPDATED' | 'URL_DELETED';
+  status: 'SUBMITTED' | 'SIMULATED_SUCCESS' | 'ERROR';
+  notifyTime: string;
+  message: string;
+}
+
+// ==============================================================================
+// 4. アラート・監視・チーム・APIキー型定義 (SCR-22 〜 SCR-25)
+// ==============================================================================
+
+export interface AlertSettings {
+  enabled: boolean;
+  scoreThreshold: number; // 例: 70
+  notifyOnBrokenLinks: boolean;
+  brokenLinkThreshold: number; // 例: 3
+  webhookUrl: string;
+  slackChannel?: string;
+  emailNotifications: boolean;
+  notificationEmail?: string;
+  lastTestedAt?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'analyst' | 'viewer';
+  status: 'active' | 'invited';
+  createdAt: string;
+}
+
+export interface ApiKeyRecord {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  fullKey?: string; // 生成時のみ表示
+  scopes: ('read' | 'write' | 'admin')[];
+  createdAt: string;
+  lastUsedAt?: string;
+}
+
+// ==============================================================================
+// 5. ユーザー認証型定義 (SCR-28)
+// ==============================================================================
+
+export type AuthProviderType = 'LOCAL' | 'GOOGLE';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  provider: AuthProviderType;
+  role: 'ADMIN' | 'MEMBER' | 'VIEWER';
+  avatarUrl?: string;
+  createdAt: string;
+}
+
+export interface AuthTokenResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}

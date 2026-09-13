@@ -74,7 +74,17 @@ flowchart LR
 | `GET` | `/api/v1/reports/:auditId/pdf` | ホワイトラベルPDFレポートのバイナリ出力 | 任意 |
 | `GET` | `/api/health` | バックエンド死活監視エンドポイント (200 OK) | 不要 |
 
-### ⑥ インフラ・自動デプロイ (Webhook)
+### ⑥ ユーザー認証 & セッション (Authentication & Users)
+| メソッド | パス | 説明 | 認証 |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | メール＋パスワードによる新規ユーザー登録 | 不要 |
+| `POST` | `/api/v1/auth/login` | メール＋パスワードによるログイン認証 | 不要 |
+| `GET` | `/api/v1/auth/google/url` | Googleログイン用OAuth認証URL発行 | 不要 |
+| `POST` | `/api/v1/auth/google/callback` | Googleログイン認証コード検証 & ログイン完了 | 不要 |
+| `GET` | `/api/v1/auth/me` | 現在のログインユーザー情報（所属・権限）取得 | 必須 (Bearer/Cookie) |
+| `POST` | `/api/v1/auth/logout` | セッショントークンの破棄・ログアウト | 必須 |
+
+### ⑦ インフラ・自動デプロイ (Webhook)
 | メソッド | パス | 説明 | 認証 |
 |---|---|---|---|
 | `POST` | `/webhook` | GitHub Push イベント受信 & ゼロダウンタイムデプロイキック | HMAC-SHA256署名 |
