@@ -16,6 +16,12 @@ import { dirname, resolve } from 'node:path';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const baseDir = resolve(currentDir, '..');
+
+// .env ファイルの自動読み込み (Node.js 20.6+)
+try {
+  process.loadEnvFile(resolve(baseDir, '.env'));
+} catch {}
+
 const port = Number.parseInt(process.env.DEPLOY_WEBHOOK_PORT || '9104', 10);
 const host = process.env.DEPLOY_WEBHOOK_HOST || '127.0.0.1';
 const secret = process.env.DEPLOY_WEBHOOK_SECRET || '';
@@ -39,7 +45,7 @@ function reply(res, statusCode, body) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
+  if (req.method === 'GET' && (req.url === '/health' || req.url === '/' || req.url === '/webhook')) {
     reply(res, 200, { status: 'ok', service: 'seo-deploy-webhook', deploying: isDeploying });
     return;
   }
