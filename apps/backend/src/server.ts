@@ -9,6 +9,23 @@ import {
   deleteSession,
   getGoogleHubData,
 } from './google.js';
+import {
+  startCrawlSession,
+  getCrawlSession,
+  getCrawlGraphData,
+  getCrawlBrokenData,
+  getCrawlTreeData,
+  addProgressListener,
+  removeProgressListener,
+} from './crawler.js';
+import {
+  listProjects,
+  getProject,
+  createProject,
+  recordAuditToProject,
+  getProjectHistory,
+  calculateAuditDiff,
+} from './projects.js';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -95,6 +112,12 @@ async function main() {
       auditCache.set(result.id, result);
       try {
         fs.writeFileSync(path.join(baseDataDir, `${result.id}.json`), JSON.stringify(result), 'utf8');
+      } catch {}
+
+      // プロジェクト自動記録 (同一ドメインのプロジェクトがある、または自動生成)
+      try {
+        const proj = createProject(new URL(targetUrl).hostname, targetUrl);
+        recordAuditToProject(proj.id, result);
       } catch {}
 
       if (auditCache.size > 500) {
@@ -375,6 +398,152 @@ ${linksSection}
         message: err.message || 'Unknown error',
       });
     }
+  });
+
+  // ==============================================================================
+  // ディープクロール & 内部リンク有向グラフ (SCR-10 〜 SCR-14)
+  // ==============================================================================
+
+  // クロール開始 (SCR-10)
+  fastify.post('/api/v1/crawl/start', async (request, reply) => {
+    const body = (request.body || {}) as { url?: string; maxPages?: number };
+    if (!body.url) {
+      return reply.status(400).send({ error: 'url is required' });
+    }
+    try {
+      const sessionId = await startCrawlSession(body.url, body.maxPages || 60);
+      return { sessionId, status: 'started' };
+    } catch (err: any) {
+      fastify.log.error(err);
+      return reply.status(500).send({ error: 'Failed to start crawl', message: err.message });
+    }
+  });
+
+  // クロール進捗取得 (ポーリング用)
+  fastify.get('/api/v1/crawl/:sessionId/status', async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const state = getCrawlSession(sessionId);
+    if (!state) {
+      return reply.status(404).send({ error: 'Crawl session not found' });
+    }
+    return state.session;
+  });
+
+  // クロール進捗 Server-Sent Events (SCR-11)
+  fastify.get('/sse/crawl/:sessionId', (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    reply.raw.setHeader('Content-Type', 'text/event-stream');
+    reply.raw.setHeader('Cache-Control', 'no-cache, no-transform');
+    reply.raw.setHeader('Connection', 'keep-alive');
+    reply.raw.setHeader('X-Accel-Buffering', 'no'); // Nginx / Caddyバッファ無効化
+
+    const listener = (event: any) => {
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+      if (event.status === 'completed' || event.status === 'failed') {
+        removeProgressListener(sessionId, listener);
+        reply.raw.end();
+      }
+    };
+
+    addProgressListener(sessionId, listener);
+
+    request.raw.on('close', () => {
+      removeProgressListener(sessionId, listener);
+    });
+  });
+
+  // 内部リンク有向グラフ (SCR-12)
+  fastify.get('/api/v1/crawl/:sessionId/graph', async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const data = getCrawlGraphData(sessionId);
+    if (!data) {
+      return reply.status(404).send({ error: 'Crawl graph data not found' });
+    }
+    return data;
+  });
+
+  // リンク切れ404一覧 (SCR-13)
+  fastify.get('/api/v1/crawl/:sessionId/broken', async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const data = getCrawlBrokenData(sessionId);
+    if (!data) {
+      return reply.status(404).send({ error: 'Crawl broken links not found' });
+    }
+    return data;
+  });
+
+  // サイト構造階層ツリー (SCR-14)
+  fastify.get('/api/v1/crawl/:sessionId/tree', async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const data = getCrawlTreeData(sessionId);
+    if (!data) {
+      return reply.status(404).send({ error: 'Crawl tree data not found' });
+    }
+    return data;
+  });
+
+  // ==============================================================================
+  // プロジェクト管理 & 履歴推移 (SCR-15 〜 SCR-17)
+  // ==============================================================================
+
+  // プロジェクト一覧 (SCR-15)
+  fastify.get('/api/v1/projects', async () => {
+    return { projects: listProjects() };
+  });
+
+  // プロジェクト作成 (SCR-15)
+  fastify.post('/api/v1/projects', async (request, reply) => {
+    const body = (request.body || {}) as { name?: string; url?: string };
+    if (!body.url) return reply.status(400).send({ error: 'url is required' });
+    const p = createProject(body.name || '', body.url);
+    return p;
+  });
+
+  // プロジェクト詳細 & 履歴 (SCR-16)
+  fastify.get('/api/v1/projects/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const project = getProject(id);
+    if (!project) return reply.status(404).send({ error: 'Project not found' });
+    const history = getProjectHistory(id);
+    return { project, history };
+  });
+
+  // Time-Travel 履歴差分比較 (SCR-17)
+  fastify.get('/api/v1/projects/:id/diff', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const query = request.query as { baseId?: string; compareId?: string };
+    const project = getProject(id);
+    if (!project) return reply.status(404).send({ error: 'Project not found' });
+
+    const history = getProjectHistory(id);
+    if (history.length < 2 && (!query.baseId || !query.compareId)) {
+      return reply.status(400).send({ error: '履歴が2件以上必要です。複数回診断を実行してください。' });
+    }
+
+    const baseAuditId = query.baseId || history[history.length - 1]?.auditId;
+    const compAuditId = query.compareId || history[0]?.auditId;
+
+    // ディスクまたはキャッシュから取得
+    let baseAudit = auditCache.get(baseAuditId);
+    if (!baseAudit) {
+      try {
+        baseAudit = JSON.parse(fs.readFileSync(path.join(baseDataDir, `${baseAuditId}.json`), 'utf8'));
+      } catch {}
+    }
+
+    let compAudit = auditCache.get(compAuditId);
+    if (!compAudit) {
+      try {
+        compAudit = JSON.parse(fs.readFileSync(path.join(baseDataDir, `${compAuditId}.json`), 'utf8'));
+      } catch {}
+    }
+
+    if (!baseAudit || !compAudit) {
+      return reply.status(404).send({ error: '指定された監査データが見つかりません' });
+    }
+
+    const diff = calculateAuditDiff(project, baseAudit, compAudit);
+    return diff;
   });
 
   const port = Number(process.env.BACKEND_PORT || (process.env.PORT && process.env.PORT !== '5600' ? process.env.PORT : 5601));

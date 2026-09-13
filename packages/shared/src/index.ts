@@ -291,4 +291,161 @@ export interface GoogleHubDataResponse {
   fetchedAt: string;
 }
 
+// ==============================================================================
+// 1. クロール & 内部リンク有向グラフ型定義 (SCR-10 〜 SCR-14)
+// ==============================================================================
+
+export interface CrawlGraphNode {
+  id: string; // URL
+  url: string;
+  title: string;
+  httpStatus: number;
+  depth: number;
+  inLinksCount: number;
+  outLinksCount: number;
+  pageRankScore: number;
+  isOrphan: boolean; // 被リンク0の孤立ページ
+  hasCanonicalIssue: boolean;
+  metaDescription?: string;
+}
+
+export interface CrawlGraphEdge {
+  source: string; // source URL
+  target: string; // target URL
+  anchorText: string;
+  isNofollow: boolean;
+}
+
+export interface CrawlBrokenLink {
+  sourceUrl: string;
+  targetUrl: string;
+  anchorText: string;
+  httpStatus: number;
+  errorReason: string;
+  discoveredAt: string;
+}
+
+export interface CrawlTreeItem {
+  path: string;
+  url: string;
+  depth: number;
+  httpStatus: number;
+  childCount: number;
+  children?: CrawlTreeItem[];
+}
+
+export interface CrawlSessionSummary {
+  id: string;
+  targetUrl: string;
+  rootDomain: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  totalPages: number;
+  maxPages: number;
+  crawledPages: number;
+  brokenLinksCount: number;
+  orphanPagesCount: number;
+  avgDepth: number;
+  startedAt: string;
+  completedAt?: string;
+}
+
+export interface CrawlProgressEvent {
+  sessionId: string;
+  status: 'running' | 'completed' | 'failed';
+  currentUrl: string;
+  crawledCount: number;
+  totalFound: number;
+  brokenCount: number;
+  percent: number;
+}
+
+export interface CrawlGraphResponse {
+  session: CrawlSessionSummary;
+  nodes: CrawlGraphNode[];
+  edges: CrawlGraphEdge[];
+  stats: {
+    totalNodes: number;
+    totalEdges: number;
+    orphanCount: number;
+    brokenCount: number;
+    maxDepth: number;
+  };
+}
+
+export interface CrawlBrokenResponse {
+  session: CrawlSessionSummary;
+  brokenLinks: CrawlBrokenLink[];
+  totalBroken: number;
+}
+
+export interface CrawlTreeResponse {
+  session: CrawlSessionSummary;
+  tree: CrawlTreeItem[];
+  totalNodes: number;
+}
+
+// ==============================================================================
+// 2. プロジェクト管理 & 履歴差分型定義 (SCR-15 〜 SCR-17)
+// ==============================================================================
+
+export interface ProjectRecord {
+  id: string;
+  name: string;
+  targetDomain: string;
+  rootUrl: string;
+  auditCount: number;
+  lastScore: number;
+  lastAuditedAt?: string;
+  createdAt: string;
+}
+
+export interface ProjectHistoryItem {
+  id: string;
+  auditId: string;
+  url: string;
+  overallScore: number;
+  categories: {
+    technical: number;
+    content: number;
+    cwv: number;
+    aeo_llmo: number;
+    security: number;
+  };
+  auditedAt: string;
+}
+
+export interface AuditDiffItem {
+  id: string;
+  name: string;
+  category: string;
+  statusBefore: 'good' | 'warning' | 'critical' | 'notice' | 'none';
+  statusAfter: 'good' | 'warning' | 'critical' | 'notice' | 'none';
+  scoreBefore: number;
+  scoreAfter: number;
+  changeType: 'improved' | 'degraded' | 'unchanged' | 'new_issue' | 'fixed';
+  description: string;
+}
+
+export interface AuditTimeTravelDiffResponse {
+  project: ProjectRecord;
+  baseAudit: {
+    id: string;
+    auditedAt: string;
+    score: number;
+  };
+  compareAudit: {
+    id: string;
+    auditedAt: string;
+    score: number;
+  };
+  scoreDelta: number;
+  diffItems: AuditDiffItem[];
+  summary: {
+    improvedCount: number;
+    degradedCount: number;
+    unchangedCount: number;
+  };
+}
+
+
 

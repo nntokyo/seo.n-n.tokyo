@@ -27,6 +27,7 @@ import {
   Sparkles,
   Terminal,
   Zap,
+  Printer,
 } from 'lucide-react';
 import { FullAuditResult, AuditMetric } from '@seo/shared';
 
@@ -260,6 +261,15 @@ export default function AuditDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Link
+              href={`/reports/${audit.id}`}
+              target="_blank"
+              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-slate-300 flex items-center gap-1.5 transition-colors"
+              title="PDFとして保存・印刷"
+            >
+              <Printer className="w-3 h-3 text-slate-400" />
+              <span className="hidden sm:inline">PDF保存</span>
+            </Link>
             <Link
               href={`/google/hub?url=${encodeURIComponent(audit.url)}`}
               className="px-3 py-1.5 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-xs font-mono text-violet-300 flex items-center gap-1.5 transition-colors"

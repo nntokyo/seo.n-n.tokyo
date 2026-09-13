@@ -21,7 +21,9 @@ import {
   TrendingUp,
   FileText,
   Copy,
-  Check
+  Check,
+  Network,
+  FolderKanban
 } from 'lucide-react';
 
 interface AuditResponse {
@@ -127,17 +129,19 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm text-slate-400">
+          <nav className="hidden md:flex items-center gap-5 text-sm text-slate-400">
             <a href="#features" className="hover:text-white transition-colors">機能</a>
-            <a href="#aeo-llmo" className="hover:text-white transition-colors">AEO / AIO / LLMO / GEO</a>
+            <Link href="/crawl/new" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
+              <Network className="w-3.5 h-3.5 text-cyan-400" />
+              <span>ディープクロール</span>
+            </Link>
+            <Link href="/projects" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
+              <FolderKanban className="w-3.5 h-3.5 text-cyan-400" />
+              <span>プロジェクト</span>
+            </Link>
             <Link href="/google/hub" className="hover:text-violet-400 transition-colors flex items-center gap-1.5 font-mono text-xs text-violet-300">
               <ShieldCheck className="w-3.5 h-3.5 text-violet-400" />
               <span>Google公式統合</span>
-            </Link>
-            <a href="#simulator" className="hover:text-white transition-colors">AI表示シミュレータ</a>
-            <Link href="/tools/llms-txt" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5 font-mono text-xs">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>llms.txt生成</span>
             </Link>
             <Link href="/tools/sitemap-analyzer" className="hover:text-sky-400 transition-colors flex items-center gap-1.5 font-mono text-xs">
               <Layers className="w-3.5 h-3.5 text-sky-400" />
