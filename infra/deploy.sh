@@ -33,6 +33,14 @@ fi
 
 cd "$BASE" || { log "cd failed: $BASE"; exit 1; }
 
+# 環境変数の読み込み (.env)
+if [ -f "$BASE/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$BASE/.env"
+  set +a
+fi
+
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   log "git repository is not initialized: $BASE"
   exit 1
