@@ -48,6 +48,34 @@ export interface CwvEstimates {
   totalSizeKb: number;
 }
 
+export interface SitemapUrlEntry {
+  loc: string;
+  lastmod?: string;
+  changefreq?: string;
+  priority?: string;
+  isValidUrl: boolean;
+}
+
+export interface SitemapIssue {
+  severity: 'critical' | 'warning' | 'notice';
+  message: string;
+  proposal?: string;
+}
+
+export interface SitemapValidationResult {
+  status: 'found' | 'not_found' | 'error';
+  sitemapUrl: string | null;
+  robotsTxtUrl: string | null;
+  hasRobotsTxtSitemap: boolean;
+  isSitemapIndex: boolean;
+  totalUrls: number;
+  urls: SitemapUrlEntry[];
+  issues: SitemapIssue[];
+  xmlSizeKb: number;
+  responseTimeMs: number;
+  generatedNextjsCode?: string;
+}
+
 export interface FullAuditResult {
   id: string;
   url: string;
@@ -67,6 +95,7 @@ export interface FullAuditResult {
   meta: PageMeta;
   links: CrawlLink[];
   cwv: CwvEstimates;
+  sitemap?: SitemapValidationResult;
   aiOverview: {
     summary: string;
     answerabilityScore: number;

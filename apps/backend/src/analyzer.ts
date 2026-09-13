@@ -1,12 +1,16 @@
 import * as cheerio from 'cheerio';
-import { AuditMetric, FullAuditResult, CrawlLink, PageMeta, CwvEstimates } from '@seo/shared';
+import { AuditMetric, FullAuditResult, CrawlLink, PageMeta, CwvEstimates, SitemapValidationResult } from '@seo/shared';
 
 export function analyzeHtml(
   url: string,
   html: string,
   responseTimeMs: number,
   httpStatus: number,
-  responseHeaders?: Record<string, string>
+  responseHeaders?: Record<string, string>,
+  sitemapData?: {
+    sitemapResult: SitemapValidationResult;
+    metric: AuditMetric;
+  }
 ): FullAuditResult {
   const $ = cheerio.load(html);
   const metrics: AuditMetric[] = [];
@@ -448,6 +452,11 @@ export function analyzeHtml(
     });
   }
 
+  // --- XML Sitemap (TECH-006) ---
+  if (sitemapData) {
+    metrics.push(sitemapData.metric);
+  }
+
   // --- Core Web Vitals & Performance Estimates ---
   const pageSizeBytes = Buffer.byteLength(html, 'utf8');
   const pageSizeKb = Math.round(pageSizeBytes / 1024);
@@ -563,6 +572,7 @@ export function analyzeHtml(
     meta: pageMeta,
     links,
     cwv,
+    sitemap: sitemapData?.sitemapResult,
     aiOverview: {
       summary: `${parsedUrl.hostname} のコンテンツは、${title || 'Webページ'} に関する情報を発信しており、${aeoScore >= 80 ? '最新のAI検索・AEO基準に高水準で最適化されています。' : 'AIによる要約や引用の獲得に向けて改善の余地が存在します。'}`,
       answerabilityScore,

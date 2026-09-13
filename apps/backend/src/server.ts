@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { analyzeHtml } from './analyzer.js';
+import { checkSitemap } from './sitemap.js';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -63,19 +64,25 @@ async function main() {
 
     try {
       const startTime = Date.now();
-      const response = await fetch(targetUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-        signal: AbortSignal.timeout(12000),
-      });
+      const [response, sitemapOutcome] = await Promise.all([
+        fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+          signal: AbortSignal.timeout(12000),
+        }),
+        checkSitemap(targetUrl).catch((err) => {
+          fastify.log.warn({ err }, 'Sitemap check failed');
+          return undefined;
+        }),
+      ]);
 
       const responseTimeMs = Date.now() - startTime;
       const html = await response.text();
       const httpStatus = response.status;
 
-      const result = analyzeHtml(targetUrl, html, responseTimeMs, httpStatus);
+      const result = analyzeHtml(targetUrl, html, responseTimeMs, httpStatus, undefined, sitemapOutcome);
 
       // メモリ & ディスクに永続保存
       auditCache.set(result.id, result);
@@ -124,16 +131,22 @@ async function main() {
       }
       try {
         const startTime = Date.now();
-        const response = await fetch(targetUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          },
-          signal: AbortSignal.timeout(12000),
-        });
+        const [response, sitemapOutcome] = await Promise.all([
+          fetch(targetUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+            signal: AbortSignal.timeout(12000),
+          }),
+          checkSitemap(targetUrl).catch((err) => {
+            fastify.log.warn({ err }, 'Sitemap check failed in recovery');
+            return undefined;
+          }),
+        ]);
         const responseTimeMs = Date.now() - startTime;
         const html = await response.text();
-        const result = analyzeHtml(targetUrl, html, responseTimeMs, response.status);
+        const result = analyzeHtml(targetUrl, html, responseTimeMs, response.status, undefined, sitemapOutcome);
         result.id = id; // 要求されたIDで保存
         auditCache.set(id, result);
         try {
@@ -245,6 +258,26 @@ ${linksSection}
       llmsTxt,
       recommendedPath: '/llms.txt',
     };
+  });
+
+  // XMLサイトマップ単体検証エンドポイント
+  fastify.post('/api/v1/tools/validate-sitemap', async (request, reply) => {
+    const body = request.body as { url?: string };
+    let siteUrl = (body?.url || 'https://seo.n-n.tokyo').trim();
+    if (!siteUrl.startsWith('http://') && !siteUrl.startsWith('https://')) {
+      siteUrl = `https://${siteUrl}`;
+    }
+
+    try {
+      const outcome = await checkSitemap(siteUrl);
+      return outcome;
+    } catch (err: any) {
+      fastify.log.error(err);
+      return reply.status(500).send({
+        error: 'Failed to validate sitemap',
+        message: err.message || 'Unknown validation error',
+      });
+    }
   });
 
   const port = Number(process.env.BACKEND_PORT || (process.env.PORT && process.env.PORT !== '5600' ? process.env.PORT : 5601));

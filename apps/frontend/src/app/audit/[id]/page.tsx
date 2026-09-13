@@ -17,6 +17,8 @@ import {
   Globe,
   Layers,
   Link2,
+  Map,
+  FileText,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -33,7 +35,7 @@ export default function AuditDetailPage() {
   const [audit, setAudit] = useState<FullAuditResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'metrics' | 'aeo' | 'meta' | 'diff' | 'links'>('metrics');
+  const [activeTab, setActiveTab] = useState<'metrics' | 'aeo' | 'meta' | 'diff' | 'links' | 'sitemap'>('metrics');
   const [metricFilter, setMetricFilter] = useState<'all' | 'critical' | 'warning' | 'good'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
@@ -379,6 +381,18 @@ export default function AuditDetailPage() {
           >
             <Link2 className="w-3.5 h-3.5" />
             <span>内部/外部リンク ({audit.links.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('sitemap')}
+            className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center gap-2 ${
+              activeTab === 'sitemap'
+                ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Map className="w-3.5 h-3.5" />
+            <span>XMLサイトマップ {audit.sitemap ? `(${audit.sitemap.totalUrls})` : ''}</span>
           </button>
         </div>
 
@@ -731,6 +745,204 @@ export const metadata: Metadata = {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Tab 6: XML Sitemap Inspector */}
+        {activeTab === 'sitemap' && (
+          <div className="space-y-6">
+            {audit.sitemap ? (
+              <>
+                {/* Sitemap Top Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-5 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
+                    <span className="text-[11px] font-mono text-slate-400">サイトマップ状態</span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full border uppercase ${
+                          audit.sitemap.status === 'found'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : audit.sitemap.status === 'not_found'
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                            : 'bg-red-500/10 text-red-400 border-red-500/20'
+                        }`}
+                      >
+                        {audit.sitemap.status === 'found'
+                          ? '✅ 有効 (200 OK)'
+                          : audit.sitemap.status === 'not_found'
+                          ? '⚠️ 未検出 (404)'
+                          : '🚨 エラー'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono truncate">
+                      {audit.sitemap.sitemapUrl || 'sitemap.xml 不在'}
+                    </span>
+                  </div>
+
+                  <div className="p-5 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
+                    <span className="text-[11px] font-mono text-slate-400">登録URL総数</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold font-mono text-sky-400">
+                        {audit.sitemap.totalUrls.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-slate-500">件</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {audit.sitemap.isSitemapIndex ? 'Sitemap Index 形式' : '標準 urlset 形式'} (上限: 50,000件)
+                    </span>
+                  </div>
+
+                  <div className="p-5 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
+                    <span className="text-[11px] font-mono text-slate-400">robots.txt 連携</span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full border uppercase ${
+                          audit.sitemap.hasRobotsTxtSitemap
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        }`}
+                      >
+                        {audit.sitemap.hasRobotsTxtSitemap ? '連携済み (Sitemap記載あり)' : '未記載 (警告)'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">クローラー自動巡回</span>
+                  </div>
+
+                  <div className="p-5 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
+                    <span className="text-[11px] font-mono text-slate-400">ファイル容量 & 応答</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xl font-bold font-mono text-white">
+                        {audit.sitemap.xmlSizeKb} KB
+                      </span>
+                      <span className="text-xs font-mono text-slate-400">
+                        ({audit.sitemap.responseTimeMs}ms)
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">上限: 50 MB</span>
+                  </div>
+                </div>
+
+                {/* Sitemap Issues / Alerts */}
+                {audit.sitemap.issues.length > 0 && (
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#0B0F17] overflow-hidden">
+                    <div className="px-5 py-3.5 border-b border-white/[0.08] bg-black/30 flex items-center justify-between">
+                      <h3 className="text-xs font-mono font-bold text-white flex items-center gap-2">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                        <span>サイトマップ検出課題・警告 ({audit.sitemap.issues.length}件)</span>
+                      </h3>
+                    </div>
+                    <div className="p-5 space-y-3">
+                      {audit.sitemap.issues.map((issue, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-4 rounded-xl border flex items-start gap-3 text-xs ${
+                            issue.severity === 'critical'
+                              ? 'bg-red-500/10 border-red-500/20 text-red-300'
+                              : issue.severity === 'warning'
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                              : 'bg-sky-500/10 border-sky-500/20 text-sky-300'
+                          }`}
+                        >
+                          <span className="shrink-0 font-mono uppercase font-bold text-[10px] px-2 py-0.5 rounded bg-black/40">
+                            {issue.severity}
+                          </span>
+                          <div className="space-y-1">
+                            <p className="font-semibold text-white">{issue.message}</p>
+                            {issue.proposal && (
+                              <p className="text-[11px] opacity-80 font-mono">💡 推奨: {issue.proposal}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sitemap URL List */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#0B0F17] overflow-hidden">
+                  <div className="px-5 py-3.5 border-b border-white/[0.08] bg-black/30 flex items-center justify-between">
+                    <h3 className="text-xs font-mono font-bold text-white">
+                      サイトマップ登録URL一覧 (最大先頭100件 / 全 {audit.sitemap.totalUrls}件)
+                    </h3>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      Format: {audit.sitemap.isSitemapIndex ? 'Sitemap Index' : 'URLset'}
+                    </span>
+                  </div>
+
+                  <div className="divide-y divide-white/[0.06] max-h-[440px] overflow-y-auto">
+                    {audit.sitemap.urls.length > 0 ? (
+                      audit.sitemap.urls.map((entry, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3.5 hover:bg-white/[0.02] flex items-center justify-between gap-4 text-xs font-mono"
+                        >
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            <span className="text-slate-500 text-[10px] w-6 text-right shrink-0">
+                              {idx + 1}.
+                            </span>
+                            <span className="text-slate-200 truncate">{entry.loc}</span>
+                          </div>
+                          <div className="flex items-center gap-4 shrink-0 text-[11px] text-slate-400">
+                            {entry.lastmod && <span>更新: {entry.lastmod.split('T')[0]}</span>}
+                            {entry.changefreq && <span>頻度: {entry.changefreq}</span>}
+                            {entry.priority && <span>優先度: {entry.priority}</span>}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-slate-500 text-xs font-mono">
+                        有効なURLエントリがサイトマップ内に見つかりませんでした。
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Next.js App Router Recommended Code */}
+                {audit.sitemap.generatedNextjsCode && (
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#0B0F17] overflow-hidden">
+                    <div className="px-5 py-3.5 border-b border-white/[0.08] bg-black/30 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Code2 className="w-3.5 h-3.5 text-sky-400" />
+                        <h3 className="text-xs font-mono font-bold text-white">
+                          Next.js App Router 推奨コード (app/sitemap.ts)
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => copyCode(audit.sitemap!.generatedNextjsCode!, 'sitemap_code')}
+                        className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono text-slate-300 flex items-center gap-1.5 transition-colors"
+                      >
+                        {copiedCodeId === 'sitemap_code' ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span className="text-emerald-400">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>コードをコピー</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <div className="p-4 bg-black/60 font-mono text-xs text-sky-300 overflow-x-auto">
+                      <pre>{audit.sitemap.generatedNextjsCode}</pre>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0B0F17] p-12 text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                  <Map className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-white">サイトマップ検証データがありません</h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    この診断が実行された時点ではサイトマップ情報が保存されていません。ヘッダーの「再読み込み」または再診断を実行してください。
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
