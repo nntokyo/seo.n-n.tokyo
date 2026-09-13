@@ -1,6 +1,6 @@
-# SEO Analyzer (次世代SEO & AI表示診断・技術監査プラットフォーム)
+# SEO Analyzer (次世代SEO & AEO / AIO / LLMO / GEO 技術監査プラットフォーム)
 
-> **最高峰の技術的SEO監査・Google公式API統合・AI表示（GEO/LLMO）最適化・メタ不具合自動検知プラットフォーム**  
+> **最高峰の技術的SEO監査・Google公式API統合・次世代AI対応（AEO / AIO / LLMO / GEO）・メタ不具合自動検知プラットフォーム**  
 > 
 > 公式UI/UXデザインリファレンス:
 > - [ShadcnAdmin](https://shadcnadmin.com/) — shadcn/ui, Tailwind CSS v4, OKLCH, Border Grids, Stat Cards, DataTables
@@ -12,15 +12,16 @@
 
 ## 🚀 コア機能・ハイライト
 
-1. **Google公式API完全統合 & 具体的修正案の自動生成**
+1. **次世代AI検索・回答エンジン完全最適化 (AEO / AIO / LLMO / GEO)**
+   - **AEO (Answer Engine Optimization)**: Google強調スニペット、Siri/Alexa等の音声検索、ダイレクトアンサー、Speakable/FAQPage構造化データの自動検証。
+   - **AIO (AI Overviews Optimization)**: Google AI Overviewsの要約・カルーセル引用再現シミュレータ、`max-snippet:-1` メタタグ監査。
+   - **LLMO (Large Language Model Optimization)**: ChatGPT Search、Claude、Geminiのインライン引用（Pill Citations）適性診断、主要AIクローラー（GPTBot, ClaudeBot等）のアクセス監査。
+   - **GEO (Generative Engine Optimization)**: Perplexityソースカード再現、`llms.txt` / `llms-full.txt` Web標準自動生成、`Accept: text/markdown` 配信コード提案。
+2. **Google公式API完全統合 & 具体的修正案の自動生成**
    - **PageSpeed Insights (v5)**: CrUX実測値 & LighthouseラボデータによるCore Web Vitals精密測定。
    - **Search Console URL Inspection**: Googlebot公式のインデックス状態（未登録/重複/canonical不備）照会。
    - **Safe Browsing (v4)** & **Google Indexing API (v3)**: セキュリティ脅威判定 & 即時巡回通知。
    - **Gemini 2.0 API**: 課題に対するBefore/After差分と、Next.js App Router向けコピペ用改善コードの動的生成。
-2. **SEO以外の次世代「AI表示対応」 (GEO / LLMO / Agent-Ready Web)**
-   - **AI表示プレビューシミュレーター**: Google AI Overviews、SearchGPT、Perplexityでの要約・引用カードを画面上で完全再現。
-   - **`llms.txt` / `llms-full.txt` 自動生成**: AIモデル向け公式マークダウン仕様のワンクリック合成。
-   - **AIスニペット最大表示タグ**: `max-snippet:-1` メタタグの自動検査とLLMクローラー制御。
 3. **メタ情報・タグ競合・文字化け 完全検知エンジン**
    - 複数Canonicalタグ重複、Robotsディレクティブの矛盾、文字コード（Mojibake）の検知。
    - 相対パスCanonical/OGP画像の検出、Hreflang多言語相互リンク欠落の検出。
@@ -82,7 +83,7 @@ flowchart TD
 | [`docs/03_DATABASE_DESIGN.md`](./docs/03_DATABASE_DESIGN.md) | **データベース詳細設計** | ER図、Prisma Schema、Google連携、AI表示、有向グラフテーブル |
 | [`docs/04_API_SPECIFICATION.md`](./docs/04_API_SPECIFICATION.md) | **API詳細仕様書** | バックエンド専用ポート5601、REST API、SSE、Webhook仕様 |
 | [`docs/05_UI_UX_DESIGN.md`](./docs/05_UI_UX_DESIGN.md) | **UI/UX・画面詳細設計書** | ShadcnAdminダッシュボード、Refero 16:10プレビュー、DOM差分 |
-| [`docs/06_AI_GEO_OPTIMIZATION.md`](./docs/06_AI_GEO_OPTIMIZATION.md) | **AI表示・GEO最適化詳細設計書** | AI Overviews/Perplexityシミュレータ、`llms.txt`、Bot制御 |
+| [`docs/06_AI_GEO_OPTIMIZATION.md`](./docs/06_AI_GEO_OPTIMIZATION.md) | **AEO/AIO/LLMO/GEO最適化詳細設計書** | 強調スニペット/音声検索(AEO)、AI Overviews(AIO)、ChatGPT(LLMO)、Perplexity(GEO) |
 | [`docs/07_GOOGLE_OFFICIAL_APIS.md`](./docs/07_GOOGLE_OFFICIAL_APIS.md) | **Google公式API連携仕様書** | PSI, GSC URL Inspection, Safe Browsing, Indexing, Gemini |
 | [`docs/08_OPERATIONS_AND_SECURITY.md`](./docs/08_OPERATIONS_AND_SECURITY.md) | **運用・インフラ・セキュリティ設計** | ゼロダウンタイムデプロイ、GitHub Webhook設定、PM2構成、Caddy |
 | [`docs/09_META_DEFECT_DETECTION.md`](./docs/09_META_DEFECT_DETECTION.md) | **メタ不具合・競合・文字化け仕様書**| タグ重複、Mojibake、Canonical不整合、SSR遅延注入、Hreflang |
