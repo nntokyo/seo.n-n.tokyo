@@ -1,7 +1,12 @@
 # SEO Analyzer (次世代SEO & AI表示診断・技術監査プラットフォーム)
 
 > **最高峰の技術的SEO監査・Google公式API統合・AI表示（GEO/LLMO）最適化・メタ不具合自動検知プラットフォーム**  
-> Linear、Stripe、Vercel級の洗練されたUI/UX（[`DESIGN.md`](./DESIGN.md) 準拠）と、150項目以上の精密診断エンジンを備えたエンタープライズSaaS設計です。
+> 
+> 公式UI/UXデザインリファレンス:
+> - [ShadcnAdmin](https://shadcnadmin.com/) — shadcn/ui, Tailwind CSS v4, OKLCH, Border Grids, Stat Cards, DataTables
+> - [Refero Styles](https://styles.refero.design/) — AI-Native DESIGN.md Standard, Obsidian Gallery Dark Aesthetic, 16:10 Media Containers, Pill Tabs
+>
+> 150項目以上の精密診断エンジンと、最高峰のプロフェッショナル・ダッシュボードを備えたエンタープライズSaaS設計です。
 
 ---
 
@@ -32,7 +37,7 @@
 
 ```mermaid
 graph TD
-    Client["Webクライアント (Next.js 15 / React 19 / Tailwind CSS)\n全25画面 & ダークTerminal UI (DESIGN.md準拠)"]
+    Client["Webクライアント (Next.js 15 / React 19 / Tailwind CSS v4)\nShadcnAdmin & Refero 準拠 ダークObsidian UI (DESIGN.md)"]
     Edge["Caddy v2 / Vercel Edge Proxy\nSSL終端 / Rate Limit / SSRF多層防御"]
     
     subgraph NextApp["Next.js 15 App Server"]
@@ -83,13 +88,13 @@ graph TD
 
 | ファイル | ドキュメント名 | 内容概要 |
 |---|---|---|
-| [`DESIGN.md`](./DESIGN.md) | **UI/UXデザインシステム規約** | Linear/Stripe級ダークUI、デザイントークン、カラーパレット、A11y |
+| [`DESIGN.md`](./DESIGN.md) | **UI/UXデザインシステム規約** | ShadcnAdmin & Refero統合トークン、OKLCH、Border Grid、ピル型タブ |
 | [`docs/00_OVERVIEW.md`](./docs/00_OVERVIEW.md) | **プロジェクト全体要件・KPI** | 背景、ターゲットユーザー、事業要件、成功KPI |
 | [`docs/01_BASIC_DESIGN.md`](./docs/01_BASIC_DESIGN.md) | **基本設計書 & 全25画面一覧** | アーキテクチャ、全25画面一覧、業務フロー、非機能要件 |
 | [`docs/02_SEO_ANALYSIS_ENGINE.md`](./docs/02_SEO_ANALYSIS_ENGINE.md) | **SEO評価エンジン・150+検査項目** | スコアリング数式、150+検査ルール、具体的修正案生成ロジック |
 | [`docs/03_DATABASE_DESIGN.md`](./docs/03_DATABASE_DESIGN.md) | **データベース詳細設計** | ER図、Prisma Schema、Google連携、AI表示、有向グラフテーブル |
 | [`docs/04_API_SPECIFICATION.md`](./docs/04_API_SPECIFICATION.md) | **API詳細仕様書** | 全エンドポイントマトリクス、TypeScript DTO型、SSEストリーム |
-| [`docs/05_UI_UX_DESIGN.md`](./docs/05_UI_UX_DESIGN.md) | **UI/UX・画面詳細設計書** | メタインスペクター、DOM差分ビュー、内部リンクグラフ、履歴差分 |
+| [`docs/05_UI_UX_DESIGN.md`](./docs/05_UI_UX_DESIGN.md) | **UI/UX・画面詳細設計書** | ShadcnAdminダッシュボード、Refero 16:10プレビュー、DOM差分 |
 | [`docs/06_AI_GEO_OPTIMIZATION.md`](./docs/06_AI_GEO_OPTIMIZATION.md) | **AI表示・GEO最適化詳細設計書** | AI Overviews/Perplexityシミュレータ、`llms.txt`、Bot制御 |
 | [`docs/07_GOOGLE_OFFICIAL_APIS.md`](./docs/07_GOOGLE_OFFICIAL_APIS.md) | **Google公式API連携仕様書** | PSI, GSC URL Inspection, Safe Browsing, Indexing, Gemini |
 | [`docs/08_OPERATIONS_AND_SECURITY.md`](./docs/08_OPERATIONS_AND_SECURITY.md) | **運用・インフラ・セキュリティ設計** | Caddyfile、SSRF多層防御、AES-256-GCM暗号化、日次バックアップ |
@@ -100,8 +105,8 @@ graph TD
 
 ## 🛠️ 技術スタック
 
-- **Frontend**: Next.js 15 (App Router), React 19, TypeScript 5.5, Tailwind CSS v3.4, shadcn/ui, Lucide React, Recharts, D3.js
+- **Frontend**: Next.js 15 (App Router), React 19, TypeScript 5.5, Tailwind CSS v4 (`@theme`, OKLCH), shadcn/ui, Lucide React, Recharts, D3.js
 - **Backend & Crawler**: Next.js Server Actions / Route Handlers, Node.js 22 LTS, Playwright, Cheerio, BullMQ
-- **Database & Cache**: PostgreSQL 16, Prisma ORM 5.22, Redis 7 (Upstash / Redis Cluster)
+- **Database & Cache**: PostgreSQL 16, Prisma ORM 5.22, Redis 7
 - **AI & Official APIs**: Google PageSpeed Insights v5, Google Search Console API, Google Safe Browsing v4, Google Indexing v3, Google Gemini 2.0 Flash / Pro
-- **Infrastructure**: Caddy v2, Docker, Cloud Run / VPS, S3 / Cloud Storage
+- **Infrastructure**: Caddy v2, Docker, Linux (PM2), Let's Encrypt SSL
