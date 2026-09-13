@@ -89,11 +89,11 @@ rm -rf "$BASE/apps/frontend/.next"
 # 3. Prisma DB スキーマ反映
 if [ -f "$BASE/prisma/schema.prisma" ]; then
   log "Step 2: Syncing database schema (prisma db push)..."
-  if ! pnpm exec prisma db push --accept-data-loss 2>&1; then
+  if ! pnpm exec prisma db push --schema="$BASE/prisma/schema.prisma" --accept-data-loss 2>&1; then
     log "prisma db push failed"
     rollback
   fi
-  pnpm exec prisma generate 2>&1 || true
+  pnpm exec prisma generate --schema="$BASE/prisma/schema.prisma" 2>&1 || true
 fi
 
 # 4. 事前ビルド
