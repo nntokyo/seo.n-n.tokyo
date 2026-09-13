@@ -134,8 +134,10 @@ else
   PORT="5600" pm2 start "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" 2>&1
 fi
 
-# Webhook サーバーの起動確認
-if ! pm2 describe "seo-webhook" >/dev/null 2>&1; then
+# Webhook サーバーのリロード / 起動 (Port 9104)
+if pm2 describe "seo-webhook" >/dev/null 2>&1; then
+  pm2 reload "seo-webhook" --update-env 2>&1 || pm2 restart "seo-webhook" --update-env 2>&1
+else
   pm2 start "$BASE/ecosystem.config.cjs" --only "seo-webhook" 2>&1
 fi
 
