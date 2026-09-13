@@ -212,95 +212,125 @@ async function getFreshAccessToken(session: GoogleSessionRecord): Promise<string
   return session.accessToken;
 }
 
+// PageSpeed キャッシュ (URL単位・1時間有効)
+interface PsiCacheEntry {
+  data: PsiCruxData;
+  cachedAt: number;
+}
+const psiMemoryCache = new Map<string, PsiCacheEntry>();
+
 // 1. PageSpeed Insights API (PSI v5)
 export async function fetchPsiData(targetUrl: string): Promise<PsiCruxData> {
+  const normUrl = targetUrl.trim();
+  const cached = psiMemoryCache.get(normUrl);
+  if (cached && Date.now() - cached.cachedAt < 3600 * 1000) {
+    return cached.data;
+  }
+
   const apiKey = process.env.GOOGLE_PAGESPEED_API_KEY || process.env.GOOGLE_API_KEY;
   const urlParams = new URLSearchParams({
-    url: targetUrl,
+    url: normUrl,
     strategy: 'mobile',
     category: 'performance',
   });
   if (apiKey) urlParams.set('key', apiKey);
 
   const endpoint = `https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed?${urlParams.toString()}`;
-  const res = await fetch(endpoint, { signal: AbortSignal.timeout(18000) });
 
-  if (!res.ok) {
-    const errJson = await res.json().catch(() => ({}));
-    throw new Error(`PageSpeed APIエラー (${res.status}): ${errJson.error?.message || '診断に失敗しました'}`);
+  // 最大2回試行 (タイムアウトは28秒)
+  let lastError: any = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(endpoint, { signal: AbortSignal.timeout(28000) });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(`PageSpeed APIエラー (${res.status}): ${errJson.error?.message || '診断に失敗しました'}`);
+      }
+
+      const data = await res.json();
+      const lighthouse = data.lighthouseResult;
+      const perfScore = Math.round((lighthouse?.categories?.performance?.score || 0) * 100);
+
+      const audits = lighthouse?.audits || {};
+      const fcpMs = Math.round(audits['first-contentful-paint']?.numericValue || 0);
+      const lcpMs = Math.round(audits['largest-contentful-paint']?.numericValue || 0);
+      const clsVal = Number((audits['cumulative-layout-shift']?.numericValue || 0).toFixed(3));
+      const ttfbMs = Math.round(audits['server-response-time']?.numericValue || 0);
+      const inpMs = Math.round(audits['interaction-to-next-paint']?.numericValue || 0);
+
+      // 改善機会 (Opportunities)
+      const opps = [
+        'render-blocking-resources',
+        'unused-javascript',
+        'unused-css-rules',
+        'modern-image-formats',
+        'offscreen-images',
+        'unminified-javascript',
+      ];
+
+      const opportunities = opps
+        .map((id) => audits[id])
+        .filter((a) => a && a.score !== null && a.score < 0.9)
+        .map((a) => ({
+          id: a.id,
+          title: a.title,
+          description: a.description?.split('[')[0] || a.title,
+          savingsBytes: a.details?.overallSavingsBytes,
+          savingsMs: a.details?.overallSavingsMs,
+        }));
+
+      const psiResult: PsiCruxData = {
+        performanceScore: perfScore,
+        accessibilityScore: lighthouse?.categories?.accessibility ? Math.round(lighthouse.categories.accessibility.score * 100) : undefined,
+        seoScore: lighthouse?.categories?.seo ? Math.round(lighthouse.categories.seo.score * 100) : undefined,
+        fcp: {
+          value: fcpMs,
+          unit: 'ms',
+          status: fcpMs <= 1800 ? 'good' : fcpMs <= 3000 ? 'needs_improvement' : 'poor',
+          label: 'FCP (First Contentful Paint)',
+        },
+        lcp: {
+          value: lcpMs,
+          unit: 'ms',
+          status: lcpMs <= 2500 ? 'good' : lcpMs <= 4000 ? 'needs_improvement' : 'poor',
+          label: 'LCP (Largest Contentful Paint)',
+        },
+        cls: {
+          value: clsVal,
+          unit: '',
+          status: clsVal <= 0.1 ? 'good' : clsVal <= 0.25 ? 'needs_improvement' : 'poor',
+          label: 'CLS (Cumulative Layout Shift)',
+        },
+        inp: {
+          value: inpMs || 45,
+          unit: 'ms',
+          status: inpMs <= 200 ? 'good' : inpMs <= 500 ? 'needs_improvement' : 'poor',
+          label: 'INP (Interaction to Next Paint)',
+        },
+        ttfb: {
+          value: ttfbMs,
+          unit: 'ms',
+          status: ttfbMs <= 800 ? 'good' : ttfbMs <= 1800 ? 'needs_improvement' : 'poor',
+          label: 'TTFB (Time to First Byte)',
+        },
+        opportunities,
+        testedUrl: normUrl,
+        strategy: 'mobile',
+        fetchedAt: new Date().toISOString(),
+      };
+
+      psiMemoryCache.set(normUrl, { data: psiResult, cachedAt: Date.now() });
+      return psiResult;
+    } catch (err: any) {
+      lastError = err;
+      if (attempt === 1) {
+        // 短い待機後に再試行
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
   }
 
-  const data = await res.json();
-  const lighthouse = data.lighthouseResult;
-  const perfScore = Math.round((lighthouse?.categories?.performance?.score || 0) * 100);
-
-  const audits = lighthouse?.audits || {};
-  const fcpMs = Math.round(audits['first-contentful-paint']?.numericValue || 0);
-  const lcpMs = Math.round(audits['largest-contentful-paint']?.numericValue || 0);
-  const clsVal = Number((audits['cumulative-layout-shift']?.numericValue || 0).toFixed(3));
-  const ttfbMs = Math.round(audits['server-response-time']?.numericValue || 0);
-  const inpMs = Math.round(audits['interaction-to-next-paint']?.numericValue || 0);
-
-  // 改善機会 (Opportunities)
-  const opps = [
-    'render-blocking-resources',
-    'unused-javascript',
-    'unused-css-rules',
-    'modern-image-formats',
-    'offscreen-images',
-    'unminified-javascript',
-  ];
-
-  const opportunities = opps
-    .map((id) => audits[id])
-    .filter((a) => a && a.score !== null && a.score < 0.9)
-    .map((a) => ({
-      id: a.id,
-      title: a.title,
-      description: a.description?.split('[')[0] || a.title,
-      savingsBytes: a.details?.overallSavingsBytes,
-      savingsMs: a.details?.overallSavingsMs,
-    }));
-
-  return {
-    performanceScore: perfScore,
-    accessibilityScore: lighthouse?.categories?.accessibility ? Math.round(lighthouse.categories.accessibility.score * 100) : undefined,
-    seoScore: lighthouse?.categories?.seo ? Math.round(lighthouse.categories.seo.score * 100) : undefined,
-    fcp: {
-      value: fcpMs,
-      unit: 'ms',
-      status: fcpMs <= 1800 ? 'good' : fcpMs <= 3000 ? 'needs_improvement' : 'poor',
-      label: 'FCP (First Contentful Paint)',
-    },
-    lcp: {
-      value: lcpMs,
-      unit: 'ms',
-      status: lcpMs <= 2500 ? 'good' : lcpMs <= 4000 ? 'needs_improvement' : 'poor',
-      label: 'LCP (Largest Contentful Paint)',
-    },
-    cls: {
-      value: clsVal,
-      unit: '',
-      status: clsVal <= 0.1 ? 'good' : clsVal <= 0.25 ? 'needs_improvement' : 'poor',
-      label: 'CLS (Cumulative Layout Shift)',
-    },
-    inp: {
-      value: inpMs || 45,
-      unit: 'ms',
-      status: inpMs <= 200 ? 'good' : inpMs <= 500 ? 'needs_improvement' : 'poor',
-      label: 'INP (Interaction to Next Paint)',
-    },
-    ttfb: {
-      value: ttfbMs,
-      unit: 'ms',
-      status: ttfbMs <= 800 ? 'good' : ttfbMs <= 1800 ? 'needs_improvement' : 'poor',
-      label: 'TTFB (Time to First Byte)',
-    },
-    opportunities,
-    testedUrl: targetUrl,
-    strategy: 'mobile',
-    fetchedAt: new Date().toISOString(),
-  };
+  throw lastError || new Error('PageSpeed API診断タイムアウト (Googleサーバーの応答が遅延しています)');
 }
 
 // 2. Google Search Console API (Analytics & Inspection)
@@ -430,7 +460,13 @@ export async function fetchGa4Data(session: GoogleSessionRecord): Promise<Ga4Met
   });
 
   if (!accountsRes.ok) {
-    throw new Error('Google Analyticsのアカウント一覧を取得できませんでした。権限をご確認ください。');
+    const errJson = await accountsRes.json().catch(() => ({}));
+    if (accountsRes.status === 403 && errJson.error?.message?.includes('Google Analytics Admin API')) {
+      throw new Error(
+        'Google Cloud Consoleで「Google Analytics Admin API」が有効化されていません。GCPコンソール (https://console.developers.google.com/apis/api/analyticsadmin.googleapis.com/overview) でAPIを「有効にする」をクリックしてください。'
+      );
+    }
+    throw new Error(`Google Analyticsのアカウント一覧を取得できませんでした (${accountsRes.status}): ${errJson.error?.message || '権限をご確認ください。'}`);
   }
 
   const accountsJson = await accountsRes.json();

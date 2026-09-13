@@ -652,9 +652,23 @@ function GoogleHubContent() {
             ) : (
               <div className="p-8 rounded-2xl border border-white/10 bg-[#0F1623] text-center space-y-3">
                 <div className="text-xs font-mono text-amber-400">⚠️ GA4 データ: 未取得</div>
-                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                <div className="text-xs text-slate-400 max-w-lg mx-auto leading-relaxed whitespace-pre-line">
                   {hubData?.errors.ga4 || 'Google Analytics 4プロパティが未設定か、アカウント連携が行われていません。'}
-                </p>
+                </div>
+                {hubData?.errors.ga4?.includes('console.developers.google.com') && (
+                  <div className="pt-2">
+                    <a
+                      href="https://console.developers.google.com/apis/api/analyticsadmin.googleapis.com/overview?project=205539062628"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 text-xs font-mono text-violet-300 inline-flex items-center gap-1.5 transition-colors"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>Google Cloud Console で API を有効化</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
                 {!sessionStatus.isConnected && (
                   <button
                     type="button"
