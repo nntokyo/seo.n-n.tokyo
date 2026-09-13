@@ -3,6 +3,9 @@ import { GoogleAnalytics } from '@next/third-parties/google';
 import './globals.css';
 
 export const metadata: Metadata = {
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION,
+  },
   title: 'SEO Analyzer — 次世代SEO & AEO/AIO/LLMO/GEO 技術監査プラットフォーム',
   description: '100項目以上の技術的SEO、Core Web Vitals、Google公式API統合、およびGoogle AI Overviews / SearchGPT / Perplexity引用適性を自動診断するエンジニア向けプラットフォーム。',
   robots: {
