@@ -173,3 +173,122 @@ export interface LlmsTxtResult {
   recommendedPath: string;
 }
 
+// Google公式API連携 & ブラウザー分離セッション関連型定義
+export interface GoogleSessionStatus {
+  isConnected: boolean;
+  userEmail?: string;
+  userName?: string;
+  userPicture?: string;
+  connectedAt?: string;
+  scopes?: string[];
+}
+
+export interface PsiCruxMetricItem {
+  value: number | string;
+  status: 'good' | 'needs_improvement' | 'poor' | 'unknown';
+  label: string;
+  unit: string;
+}
+
+export interface PsiOpportunityItem {
+  id: string;
+  title: string;
+  description: string;
+  savingsBytes?: number;
+  savingsMs?: number;
+}
+
+export interface PsiCruxData {
+  performanceScore: number;
+  accessibilityScore?: number;
+  seoScore?: number;
+  fcp: PsiCruxMetricItem;
+  lcp: PsiCruxMetricItem;
+  cls: PsiCruxMetricItem;
+  inp: PsiCruxMetricItem;
+  ttfb: PsiCruxMetricItem;
+  opportunities: PsiOpportunityItem[];
+  testedUrl: string;
+  strategy: 'mobile' | 'desktop';
+  fetchedAt: string;
+}
+
+export interface GscQueryRow {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface GscPageRow {
+  page: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface GscAnalyticsData {
+  siteUrl: string;
+  totalClicks: number;
+  totalImpressions: number;
+  averageCtr: number;
+  averagePosition: number;
+  topQueries: GscQueryRow[];
+  topPages: GscPageRow[];
+  indexStatus?: {
+    verdict: 'PASS' | 'NEUTRAL' | 'FAIL';
+    coverageState: string;
+    robotsTxtState: 'ALLOWED' | 'DISALLOWED';
+    indexingState: string;
+    lastCrawlTime?: string;
+  };
+  startDate: string;
+  endDate: string;
+}
+
+export interface Ga4MetricsData {
+  propertyId: string;
+  propertyName?: string;
+  activeUsers: number;
+  sessions: number;
+  screenPageViews: number;
+  engagementRate: number; // 0 - 100%
+  bounceRate: number; // 0 - 100%
+  averageSessionDurationSec: number;
+  period: string; // e.g. "直近28日間"
+}
+
+export interface GeminiProposalData {
+  summary: string;
+  strengths: string[];
+  actionItems: Array<{
+    title: string;
+    priority: 'high' | 'medium' | 'low';
+    impact: string;
+    suggestion: string;
+    codeSnippet?: string;
+  }>;
+  titleProposals: string[];
+  metaDescriptionProposal?: string;
+  generatedAt: string;
+}
+
+export interface GoogleHubDataResponse {
+  url: string;
+  session: GoogleSessionStatus;
+  psi: PsiCruxData | null;
+  gsc: GscAnalyticsData | null;
+  ga4: Ga4MetricsData | null;
+  gemini: GeminiProposalData | null;
+  errors: {
+    psi?: string;
+    gsc?: string;
+    ga4?: string;
+    gemini?: string;
+  };
+  fetchedAt: string;
+}
+
+

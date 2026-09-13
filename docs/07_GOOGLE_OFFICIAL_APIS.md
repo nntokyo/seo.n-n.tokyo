@@ -112,7 +112,22 @@ Googleが管理する悪意のあるURLブラックリストに抵触してい�
 
 ---
 
-### 2.6 Google Gemini API (修正案自動生成エンジン)
+### 2.6 Google Analytics 4 (GA4) Data API (v1beta)
+検索トラフィックの受け皿となる実際のWebトラフィック（ユーザー数、セッション、エンゲージメント）をGoogle公式データとして照会・統合します。
+
+- **エンドポイント**: `POST https://analyticsdata.googleapis.com/v1beta/properties/{propertyId}:runReport`
+- **認証**: OAuth 2.0 (`https://www.googleapis.com/auth/analytics.readonly`)
+- **集計指標 (Metrics)**:
+  - `activeUsers` (アクティブユーザー数)
+  - `sessions` (セッション数)
+  - `screenPageViews` (ページビュー数)
+  - `engagementRate` (エンゲージメント率)
+  - `bounceRate` (直帰率)
+- **期間**: 直近28日間（`28daysAgo` 〜 `today`）
+
+---
+
+### 2.7 Google Gemini API (修正案自動生成エンジン)
 Googleの最新LLM（Gemini 2.0 Flash / Pro）を活用し、検出された課題を解決するための**「自然で検索意図に沿った日本語修正テキスト」**および**「Next.js等の実装コード」**をオンデマンドで生成します。
 
 - **役割**:
@@ -120,6 +135,17 @@ Googleの最新LLM（Gemini 2.0 Flash / Pro）を活用し、検出された課�
   2. メタディスクリプションの要約生成（全角100文字前後の魅力的なリード文）
   3. GEO向け結論ファースト定義文の自動生成（H2見出し直下に挿入するアンサーブロック）
   4. ページ内容に応じたSchema.org JSON-LDコードの即時合成
+
+---
+
+### 2.8 ブラウザー分離型OAuthセッション管理規約
+本システムはオープン利用を想定しており、全体ユーザーのログインDBを持たないため、OAuthトークンは以下のセキュア設計で保護されます：
+
+1. **完全なブラウザー分離**: 各ブラウザ（ユーザー環境）ごとに暗号化Cookieまたはヘッダー（`x-google-session`）でUUIDセッションIDを発行。
+2. **トークン秘匿とメモリ管理**: OAuth Access/Refresh Token はバックエンドのブラウザ別セッションストアに隔離保持され、他の利用者のリクエストからは一切参照できません。
+3. **即時破棄機能**: 画面上の「連携解除」ボタンを押下することで、ブラウザに紐付くセッション・トークン・キャッシュを即座に完全破棄します。
+4. **未取得（Graceful Fallback）ポリシー**: GSC・GA4・PSI・Gemini の各API呼び出しは独立しており、権限のないデータや未接続の項目はシステム全体をエラーとせず、各カードに「**未取得**（権限なし / 未設定）」と表示します。
+
 
 ---
 

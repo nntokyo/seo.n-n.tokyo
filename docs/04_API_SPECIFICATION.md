@@ -58,11 +58,14 @@ flowchart LR
 ### ④ Google公式API連携 (Google Official Integrations)
 | メソッド | パス | 説明 | 認証 |
 |---|---|---|---|
-| `GET` | `/api/v1/integrations/google/auth-url` | Google OAuth2 認証開始URL取得 | 必須 |
-| `GET` | `/api/v1/integrations/google/callback` | OAuth2 コールバック処理 & トークン保存 | 必須 |
+| `GET` | `/api/v1/integrations/google/auth-url` | Google OAuth2 認証開始URL取得（ブラウザ別セッション開始） | 不要 |
+| `GET` | `/api/v1/integrations/google/callback` | OAuth2 コールバック処理 & 暗号化セッショントークン発行 | 不要 |
+| `GET` | `/api/v1/integrations/google/session` | 現在のブラウザのGoogle連携ステータス照会 | セッションID |
+| `POST` | `/api/v1/integrations/google/disconnect`| 現在のブラウザのGoogle連携解除 & トークン完全破棄 | セッションID |
+| `POST` | `/api/v1/google/hub-data` | **PSI・CrUX・GSC・GA4・Gemini 統合データ一括照会** | 任意 (未連携時は未取得表示) |
 | `POST` | `/api/v1/integrations/google/service-account` | サービスアカウントJSONキーの登録 | 必須 |
-| `POST` | `/api/v1/google/inspect` | **GSC URL Inspection API 即時照会** | 必須 |
-| `POST` | `/api/v1/google/index-publish` | **Google Indexing API 即時巡回通知** | 必須 |
+| `POST` | `/api/v1/google/inspect` | **GSC URL Inspection API 即時照会** | セッションID |
+| `POST` | `/api/v1/google/index-publish` | **Google Indexing API 即時巡回通知** | セッションID |
 
 ### ⑤ ツール & エクスポート (Tools & Reports)
 | メソッド | パス | 説明 | 認証 |

@@ -260,6 +260,13 @@ export default function AuditDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Link
+              href={`/google/hub?url=${encodeURIComponent(audit.url)}`}
+              className="px-3 py-1.5 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-xs font-mono text-violet-300 flex items-center gap-1.5 transition-colors"
+            >
+              <ShieldCheck className="w-3 h-3 text-violet-400" />
+              <span className="hidden sm:inline">Google公式連携</span>
+            </Link>
             <button
               type="button"
               disabled={isReloading}

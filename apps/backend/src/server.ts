@@ -2,6 +2,13 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { analyzeHtml } from './analyzer.js';
 import { checkSitemap } from './sitemap.js';
+import {
+  createOAuthAuthUrl,
+  exchangeOAuthCode,
+  getSessionStatus,
+  deleteSession,
+  getGoogleHubData,
+} from './google.js';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -276,6 +283,96 @@ ${linksSection}
       return reply.status(500).send({
         error: 'Failed to validate sitemap',
         message: err.message || 'Unknown validation error',
+      });
+    }
+  });
+
+  // ==============================================================================
+  // Google公式API連携 & ブラウザー分離セッションエンドポイント群
+  // ==============================================================================
+
+  // 1. Google OAuth2 認証開始URL取得
+  fastify.get('/api/v1/integrations/google/auth-url', async (request, reply) => {
+    try {
+      const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://seo.n-n.tokyo/api/v1/integrations/google/callback';
+      const url = createOAuthAuthUrl(redirectUri);
+      return { url };
+    } catch (err: any) {
+      fastify.log.error(err);
+      return reply.status(500).send({ error: 'Failed to generate OAuth URL', message: err.message });
+    }
+  });
+
+  // 2. Google OAuth2 コールバック処理
+  fastify.get('/api/v1/integrations/google/callback', async (request, reply) => {
+    const query = request.query as { code?: string; error?: string };
+    if (query.error) {
+      return reply.redirect(`/google/hub?error=${encodeURIComponent(query.error)}`);
+    }
+    if (!query.code) {
+      return reply.redirect('/google/hub?error=missing_code');
+    }
+
+    try {
+      const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://seo.n-n.tokyo/api/v1/integrations/google/callback';
+      const session = await exchangeOAuthCode(query.code, redirectUri);
+      // セッションIDをクエリとCookieに載せて /google/hub にリダイレクト
+      return reply
+        .header('Set-Cookie', `google_session_id=${session.sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`)
+        .redirect(`/google/hub?session_id=${session.sessionId}`);
+    } catch (err: any) {
+      fastify.log.error(err);
+      return reply.redirect(`/google/hub?error=${encodeURIComponent(err.message || 'auth_failed')}`);
+    }
+  });
+
+  // 3. 現在のブラウザのGoogle連携ステータス照会
+  fastify.get('/api/v1/integrations/google/session', async (request, reply) => {
+    const query = request.query as { session_id?: string };
+    const cookieHeader = request.headers.cookie || '';
+    const cookieMatch = cookieHeader.match(/google_session_id=([^;]+)/);
+    const sessionId = (request.headers['x-google-session'] as string) || query.session_id || (cookieMatch ? cookieMatch[1] : undefined);
+
+    const status = getSessionStatus(sessionId);
+    return status;
+  });
+
+  // 4. 現在のブラウザのGoogle連携解除
+  fastify.post('/api/v1/integrations/google/disconnect', async (request, reply) => {
+    const body = (request.body || {}) as { session_id?: string };
+    const cookieHeader = request.headers.cookie || '';
+    const cookieMatch = cookieHeader.match(/google_session_id=([^;]+)/);
+    const sessionId = (request.headers['x-google-session'] as string) || body.session_id || (cookieMatch ? cookieMatch[1] : undefined);
+
+    if (sessionId) {
+      deleteSession(sessionId);
+    }
+
+    return reply
+      .header('Set-Cookie', `google_session_id=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`)
+      .send({ success: true, message: 'Google連携を解除しました' });
+  });
+
+  // 5. Google統合ハブデータ取得 (PSI + GSC + GA4 + Gemini)
+  fastify.post('/api/v1/google/hub-data', async (request, reply) => {
+    const body = request.body as { url?: string; session_id?: string };
+    let targetUrl = (body?.url || 'https://seo.n-n.tokyo').trim();
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = `https://${targetUrl}`;
+    }
+
+    const cookieHeader = request.headers.cookie || '';
+    const cookieMatch = cookieHeader.match(/google_session_id=([^;]+)/);
+    const sessionId = (request.headers['x-google-session'] as string) || body?.session_id || (cookieMatch ? cookieMatch[1] : undefined);
+
+    try {
+      const hubData = await getGoogleHubData(sessionId, targetUrl);
+      return hubData;
+    } catch (err: any) {
+      fastify.log.error(err);
+      return reply.status(500).send({
+        error: 'Failed to fetch Google Hub data',
+        message: err.message || 'Unknown error',
       });
     }
   });

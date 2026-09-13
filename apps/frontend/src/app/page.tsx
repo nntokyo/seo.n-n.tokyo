@@ -130,7 +130,10 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center gap-6 text-sm text-slate-400">
             <a href="#features" className="hover:text-white transition-colors">機能</a>
             <a href="#aeo-llmo" className="hover:text-white transition-colors">AEO / AIO / LLMO / GEO</a>
-            <a href="#google-api" className="hover:text-white transition-colors">Google公式API</a>
+            <Link href="/google/hub" className="hover:text-violet-400 transition-colors flex items-center gap-1.5 font-mono text-xs text-violet-300">
+              <ShieldCheck className="w-3.5 h-3.5 text-violet-400" />
+              <span>Google公式統合</span>
+            </Link>
             <a href="#simulator" className="hover:text-white transition-colors">AI表示シミュレータ</a>
             <Link href="/tools/llms-txt" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5 font-mono text-xs">
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
@@ -539,8 +542,8 @@ export default function LandingPage() {
             </a>
 
             {/* Feature 2 */}
-            <a 
-              href="#google-api"
+            <Link 
+              href="/google/hub"
               className="p-8 rounded-3xl border border-white/[0.08] bg-[#0F1623] hover:border-violet-500/40 hover:bg-[#121927] transition-all group block text-left"
             >
               <div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-6 text-violet-400 group-hover:scale-105 transition-transform">
@@ -551,10 +554,10 @@ export default function LandingPage() {
                 PageSpeed Insights (v5) によるCore Web Vitals実測値、およびSearch Console URL InspectionによるGooglebot公式インデックス状態を直接照会。
               </p>
               <div className="text-xs font-mono text-violet-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                <span>CrUX & GSC連携仕様</span>
+                <span>Google公式統合ハブを開く</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </div>
-            </a>
+            </Link>
 
             {/* Feature 3 */}
             <Link 
@@ -717,6 +720,17 @@ export default function LandingPage() {
                 Googlebotが前回クロールした日時、レンダリング成功可否、検出されたCanonicalとGoogleが選択したCanonicalの差異をリアルタイム照会します。
               </p>
             </div>
+          </div>
+
+          <div className="mt-12 text-center">
+            <Link
+              href="/google/hub"
+              className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-white bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 px-6 py-3 rounded-full transition-all shadow-lg shadow-violet-500/10"
+            >
+              <ShieldCheck className="w-4 h-4 text-violet-400" />
+              <span>Google公式統合ハブを開く（PageSpeed / Search Console / GA4 / Gemini）</span>
+              <ArrowRight className="w-3.5 h-3.5 text-violet-300" />
+            </Link>
           </div>
         </div>
       </section>
