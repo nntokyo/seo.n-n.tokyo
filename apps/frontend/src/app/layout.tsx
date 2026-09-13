@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { GoogleAnalytics } from '@next/third-parties/google';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -27,6 +28,9 @@ export default function RootLayout({
       <body className="min-h-screen obsidian-grid antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
         {children}
       </body>
+      {process.env.NODE_ENV === 'production' && (
+        <GoogleAnalytics gaId="G-XTL61CKW3Y" />
+      )}
     </html>
   );
 }
