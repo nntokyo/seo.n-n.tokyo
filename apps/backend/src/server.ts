@@ -49,6 +49,8 @@ import {
   loginOrCreateWithGoogle,
   verifySessionToken,
   logoutSession,
+  updateUserProfile,
+  changeUserPassword,
 } from './auth.js';
 
 import fs from 'node:fs';
@@ -899,6 +901,48 @@ ${linksSection}
       return reply.status(401).send({ error: '未ログインまたはセッションが有効期限切れです' });
     }
     return { user };
+  });
+
+  // プロファイル（表示名）更新
+  fastify.put('/api/v1/auth/profile', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: 'ログインが必要です' });
+    }
+
+    const body = (request.body || {}) as { name?: string };
+    if (!body.name || !body.name.trim()) {
+      return reply.status(400).send({ error: '名前を入力してください' });
+    }
+
+    try {
+      const updatedUser = updateUserProfile(user.id, { name: body.name.trim() });
+      return { success: true, user: updatedUser };
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  });
+
+  // パスワード変更
+  fastify.put('/api/v1/auth/password', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const user = verifySessionToken(authHeader);
+    if (!user) {
+      return reply.status(401).send({ error: 'ログインが必要です' });
+    }
+
+    const body = (request.body || {}) as { currentPassword?: string; newPassword?: string };
+    if (!body.currentPassword || !body.newPassword) {
+      return reply.status(400).send({ error: '現在のパスワードと新しいパスワードを入力してください' });
+    }
+
+    try {
+      changeUserPassword(user.id, body.currentPassword, body.newPassword);
+      return { success: true, message: 'パスワードを変更しました' };
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
   });
 
   // ログアウト

@@ -192,10 +192,13 @@ export default function ProjectsPage() {
 
           <div className="flex items-center gap-3">
             {currentUser ? (
-              <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
+              <Link
+                href="/account"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-cyan-500/10 border border-white/10 hover:border-cyan-500/30 text-xs font-mono text-slate-300 hover:text-cyan-300 transition-colors"
+              >
                 <User className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{currentUser.name}</span>
-              </div>
+                <span>{currentUser.name} (マイページ)</span>
+              </Link>
             ) : (
               <Link
                 href="/login"

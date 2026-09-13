@@ -86,6 +86,8 @@ flowchart LR
 | `GET` | `/api/v1/auth/google/url` | Googleログイン用OAuth認証URL発行 | 不要 |
 | `POST` | `/api/v1/auth/google/callback` | Googleログイン認証コード検証 & ログイン完了 | 不要 |
 | `GET` | `/api/v1/auth/me` | 現在のログインユーザー情報（所属・権限）取得 | 必須 (Bearer/Cookie) |
+| `PUT` | `/api/v1/auth/profile` | アカウントプロファイル（表示名）更新 | **必須 (Bearer)** |
+| `PUT` | `/api/v1/auth/password` | パスワード変更（旧パスワード照合 & 暗号化保存） | **必須 (Bearer)** |
 | `POST` | `/api/v1/auth/logout` | セッショントークンの破棄・ログアウト | 必須 |
 
 ### ⑦ インフラ・自動デプロイ (Webhook)

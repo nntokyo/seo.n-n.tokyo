@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Sparkles, 
@@ -23,8 +23,10 @@ import {
   Copy,
   Check,
   Network,
-  FolderKanban
+  FolderKanban,
+  User
 } from 'lucide-react';
+import { AuthUser } from '@seo/shared';
 
 interface AuditResponse {
   id: string;
@@ -73,6 +75,16 @@ export default function LandingPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'aeo' | 'meta' | 'dom'>('overview');
   const [copied, setCopied] = useState(false);
   const [llmsCopied, setLlmsCopied] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('seo_auth_user');
+      if (stored) {
+        setCurrentUser(JSON.parse(stored));
+      }
+    } catch {}
+  }, []);
 
   const handleAudit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,13 +168,23 @@ export default function LandingPage() {
             >
               サイトマップ分析
             </Link>
-            <Link
-              href="/login"
-              className="text-xs font-mono px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/30 bg-white/5 hover:bg-cyan-500/10 text-slate-200 hover:text-cyan-300 transition-colors flex items-center gap-1.5"
-            >
-              <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-              <span>ログイン</span>
-            </Link>
+            {currentUser ? (
+              <Link
+                href="/account"
+                className="text-xs font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-colors flex items-center gap-1.5"
+              >
+                <User className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{currentUser.name} (マイページ)</span>
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="text-xs font-mono px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/30 bg-white/5 hover:bg-cyan-500/10 text-slate-200 hover:text-cyan-300 transition-colors flex items-center gap-1.5"
+              >
+                <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+                <span>ログイン</span>
+              </Link>
+            )}
             <a 
               href="#audit-input" 
               className="text-xs font-semibold text-black bg-gradient-to-r from-cyan-400 to-cyan-300 hover:brightness-110 px-4 py-2 rounded-full transition-all shadow-md shadow-cyan-500/20"

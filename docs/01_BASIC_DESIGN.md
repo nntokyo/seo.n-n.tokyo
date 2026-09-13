@@ -54,7 +54,7 @@ graph TD
 
 ---
 
-## 3. 全27画面一覧マトリクス & インタラクティブUI設計規約
+## 3. 全28画面一覧マトリクス & インタラクティブUI設計規約
 
 すべての画面において、表示されるボタン、タブ、リンク、アクションカードは単なる装飾（ダミーUI）であってはならず、クリック時に即座に状態変更・画面遷移・コピー・モーダル表示などのフィードバックを提供する完全なインタラクティブ性を備えます。
 
@@ -88,6 +88,7 @@ graph TD
 | **SCR-26** | サイトマップ&ハブ・カノニカル分析 | `/tools/sitemap-analyzer` | `POST /api/v1/tools/validate-sitemap` |
 | **SCR-27** | Google公式統合ハブ (PSI/GSC/GA4/Gemini) | `/google/hub` | `POST /api/v1/google/hub-data` |
 | **SCR-28** | ユーザー認証 (ログイン・新規登録) | `/login` | `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, `POST /api/v1/auth/google/callback` |
+| **SCR-29** | マイページ (アカウント・プロファイル管理) | `/account` | `GET /api/v1/auth/me`, `PUT /api/v1/auth/profile`, `PUT /api/v1/auth/password`, `POST /api/v1/auth/logout` |
 
 ---
 

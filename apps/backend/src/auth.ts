@@ -240,3 +240,63 @@ export function logoutSession(token?: string): boolean {
   if (deleted) saveSessions();
   return deleted;
 }
+
+// 6. ユーザープロファイル更新 (名前変更)
+export function updateUserProfile(userId: string, updates: { name?: string }): AuthUser {
+  const user = usersMap.get(userId);
+  if (!user) {
+    throw new Error('ユーザーが見つかりません');
+  }
+
+  if (updates.name && updates.name.trim()) {
+    user.name = updates.name.trim();
+  }
+
+  usersMap.set(userId, user);
+  saveUsers();
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    provider: user.provider,
+    role: user.role,
+    avatarUrl: user.avatarUrl,
+    createdAt: user.createdAt,
+  };
+}
+
+// 7. パスワード変更
+export function changeUserPassword(userId: string, currentPass: string, newPass: string): boolean {
+  const user = usersMap.get(userId);
+  if (!user) {
+    throw new Error('ユーザーが見つかりません');
+  }
+
+  if (user.provider !== 'LOCAL') {
+    throw new Error('Google連携アカウントのパスワードは変更できません');
+  }
+
+  if (!user.passwordSalt || !user.passwordHash) {
+    throw new Error('パスワード情報が設定されていません');
+  }
+
+  if (!newPass || newPass.length < 6) {
+    throw new Error('新しいパスワードは6文字以上で指定してください');
+  }
+
+  const currentHash = hashPassword(currentPass, user.passwordSalt);
+  if (currentHash !== user.passwordHash) {
+    throw new Error('現在のパスワードが正しくありません');
+  }
+
+  const newSalt = crypto.randomBytes(16).toString('hex');
+  const newHash = hashPassword(newPass, newSalt);
+
+  user.passwordSalt = newSalt;
+  user.passwordHash = newHash;
+  usersMap.set(userId, user);
+  saveUsers();
+
+  return true;
+}

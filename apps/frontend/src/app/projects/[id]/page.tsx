@@ -29,6 +29,7 @@ import {
   Key,
   CheckCircle2,
   X,
+  User,
 } from 'lucide-react';
 import { ProjectRecord, ProjectHistoryItem, ProjectGoogleSettings } from '@seo/shared';
 
@@ -181,6 +182,14 @@ export default function ProjectDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Link
+              href="/account"
+              className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-cyan-500/10 border border-white/10 hover:border-cyan-500/30 text-slate-300 hover:text-cyan-300 text-xs font-mono flex items-center gap-1.5 transition-colors"
+            >
+              <User className="w-3.5 h-3.5 text-cyan-400" />
+              <span>マイページ</span>
+            </Link>
+
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
