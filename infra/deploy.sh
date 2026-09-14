@@ -50,7 +50,14 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
-CURRENT_LOCAL_SHA="${DEPLOY_PREVIOUS_SHA:-$(git rev-parse HEAD 2>/dev/null || echo "initial")}"
+REEXEC_MODE=false
+if [ "${1:-}" = "--reexec" ]; then
+  REEXEC_MODE=true
+  CURRENT_LOCAL_SHA="${2:-initial}"
+  shift 2
+else
+  CURRENT_LOCAL_SHA=$(git rev-parse HEAD 2>/dev/null || echo "initial")
+fi
 SERVICES_RELOADED=false
 
 # リモート最新コミットを取得
@@ -103,10 +110,8 @@ fi
 chmod +x "$BASE/infra/deploy.sh" 2>/dev/null || true
 
 # 新スクリプトが更新された場合の再読み込み実行
-if [ "${REEXECED:-0}" != "1" ]; then
-  export REEXECED=1
-  export DEPLOY_PREVIOUS_SHA="$CURRENT_LOCAL_SHA"
-  exec bash "$BASE/infra/deploy.sh" "$@"
+if [ "$REEXEC_MODE" != "true" ]; then
+  exec bash "$BASE/infra/deploy.sh" --reexec "$CURRENT_LOCAL_SHA" "$@"
 fi
 
 # 2. 依存パッケージのインストール
@@ -171,12 +176,8 @@ else
   PORT="5600" pm2 start "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" 2>&1
 fi
 
-# Webhook サーバーのリロード / 起動 (Port 9104)
-if pm2 describe "seo-webhook" >/dev/null 2>&1; then
-  pm2 reload "seo-webhook" --update-env 2>&1 || pm2 restart "seo-webhook" --update-env 2>&1
-else
-  pm2 start "$BASE/ecosystem.config.cjs" --only "seo-webhook" 2>&1
-fi
+# Webhookはこのスクリプトの親プロセスなので、実行中には再起動しない。
+# 自己再起動するとヘルスチェックと成功SHAの記録前にデプロイ自体が終了する。
 
 # バックエンドヘルスチェック
 log "Verifying backend health on http://127.0.0.1:$BACKEND_PORT/api/health..."
