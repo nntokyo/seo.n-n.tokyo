@@ -79,6 +79,10 @@ Caddyはバックエンドやフロントエンドへの接続をヘルス監視
 | **状態管理ファイル** | `/Datas/www/seo.n-n.tokyo/.state/deployed.sha` | 前回デプロイ成功Commit SHA |
 | **ログ配置先** | `/Datas/www/seo.n-n.tokyo/logs/` | デプロイログ、PM2標準出力/エラーログ |
 
+### PageSpeed APIの日次上限対応
+
+PageSpeed Insights APIの成功結果は `.data/google-cache` に24時間保存します。このディレクトリは公開領域およびGit管理の対象外とし、APIキーは保存しません。429発生時に自動再試行は行わず、期限切れキャッシュが存在する場合だけ暫定データとして返します。運用者はエラーに含まれる `project_number` と、Google Cloud Consoleで選択しているプロジェクトが一致することを確認し、必要に応じて `Queries per day` の上限変更を申請します。
+
 ---
 
 ## 4. GitHub Webhook の設定手順
