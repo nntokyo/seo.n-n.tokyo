@@ -94,8 +94,8 @@ rollback() {
   fi
   git reset --hard "$CURRENT_LOCAL_SHA" 2>&1 || true
   if [ "$SERVICES_RELOADED" = "true" ]; then
-    pm2 reload "$BACKEND_NAME" --update-env >/dev/null 2>&1 || true
-    pm2 reload "$FRONTEND_NAME" --update-env >/dev/null 2>&1 || true
+    PORT="5601" BACKEND_PORT="5601" pm2 startOrReload "$BASE/ecosystem.config.cjs" --only "$BACKEND_NAME" --update-env >/dev/null 2>&1 || true
+    PORT="5600" pm2 startOrReload "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" --update-env >/dev/null 2>&1 || true
   fi
   log "Rollback completed. Existing PM2 processes remain active without disruption."
   exit 1
@@ -162,18 +162,14 @@ fi
 log "Step 4: Reloading PM2 processes with updated bundle..."
 SERVICES_RELOADED=true
 
-# バックエンドのリロード / 起動 (Port 5601)
-if pm2 describe "$BACKEND_NAME" >/dev/null 2>&1; then
-  PORT="5601" BACKEND_PORT="5601" pm2 reload "$BACKEND_NAME" --update-env 2>&1 || PORT="5601" BACKEND_PORT="5601" pm2 restart "$BACKEND_NAME" --update-env 2>&1
-else
-  PORT="5601" BACKEND_PORT="5601" pm2 start "$BASE/ecosystem.config.cjs" --only "$BACKEND_NAME" 2>&1
+# ecosystem設定を毎回適用し、ポートやメモリ上限が古いPM2定義へ戻らないようにする。
+if ! PORT="5601" BACKEND_PORT="5601" pm2 startOrReload "$BASE/ecosystem.config.cjs" --only "$BACKEND_NAME" --update-env 2>&1; then
+  log "backend reload failed"
+  rollback
 fi
-
-# フロントエンドのリロード / 起動 (Port 5600)
-if pm2 describe "$FRONTEND_NAME" >/dev/null 2>&1; then
-  PORT="5600" pm2 reload "$FRONTEND_NAME" --update-env 2>&1 || PORT="5600" pm2 restart "$FRONTEND_NAME" --update-env 2>&1
-else
-  PORT="5600" pm2 start "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" 2>&1
+if ! PORT="5600" pm2 startOrReload "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" --update-env 2>&1; then
+  log "frontend reload failed"
+  rollback
 fi
 
 # Webhookはこのスクリプトの親プロセスなので、実行中には再起動しない。
