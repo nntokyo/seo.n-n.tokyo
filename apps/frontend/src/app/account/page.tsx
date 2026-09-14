@@ -167,9 +167,7 @@ export default function AccountPage() {
 
       const result = await res.json();
       setEmailSuccess(result.message || 'メールアドレスを変更しました。認証コードを入力してください。');
-      if (result.verificationCode) {
-        setVerificationNotice(`認証コードを発行しました: ${result.verificationCode}`);
-      }
+      setVerificationNotice('新しいメールアドレスへ認証コードを送信しました。');
       setNewEmailInput('');
       await fetchUserData();
     } catch (err: any) {
@@ -236,11 +234,7 @@ export default function AccountPage() {
       }
 
       const result = await res.json();
-      if (result.verificationCode) {
-        setVerificationNotice(`新しい認証コードを発行しました: ${result.verificationCode}`);
-      } else {
-        setVerificationNotice('新しい認証コードを送信しました。');
-      }
+      setVerificationNotice(result.message || '認証コードをメールで再送信しました。');
     } catch (err: any) {
       setVerificationError(err.message || '再送信に失敗しました');
     } finally {

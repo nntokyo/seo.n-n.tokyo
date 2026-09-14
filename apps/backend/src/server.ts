@@ -4,6 +4,7 @@ import { analyzeHtml } from './analyzer.js';
 import { checkSitemap } from './sitemap.js';
 import {
   createOAuthAuthUrl,
+  consumeOAuthState,
   exchangeOAuthCode,
   getSessionStatus,
   deleteSession,
@@ -34,6 +35,7 @@ import {
   updateProjectGoogleSettings,
   listAllProjectsAdmin,
   countUserProjects,
+  publicProject,
 } from './projects.js';
 import {
   getAlertSettings,
@@ -44,6 +46,8 @@ import {
   listApiKeys,
   createApiKey,
   revokeApiKey,
+  verifyApiKey,
+  listEnabledAlertOwners,
 } from './settings.js';
 import {
   registerWithPassword,
@@ -58,18 +62,29 @@ import {
   resendVerificationCode,
   listAllUsers,
   updateUserRole,
+  rollbackRegistration,
+  restoreUserEmail,
 } from './auth.js';
 
 import fs from 'node:fs';
 import path from 'node:path';
+import dns from 'node:dns/promises';
+import net from 'node:net';
+import { sendAlertEmail, sendTeamInvitationEmail, sendVerificationEmail } from './mailer.js';
+import { createAuditPdf } from './pdf-report.js';
 
 async function main() {
   const fastify = Fastify({
     logger: true,
   });
 
+  const allowedOrigins = new Set([
+    process.env.NEXT_PUBLIC_APP_URL || 'https://seo.n-n.tokyo',
+    ...(process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000']),
+  ]);
   await fastify.register(cors, {
-    origin: true,
+    origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin)),
+    credentials: true,
   });
 
   // 永続化ディレクトリ設定 (.data/audits)
@@ -80,6 +95,33 @@ async function main() {
 
   // インメモリ診断結果キャッシュ (直近500件)
   const auditCache = new Map<string, any>();
+
+  const readCookie = (request: any, name: string): string | undefined => {
+    const raw = request.headers.cookie || '';
+    const item = raw.split(';').map((part: string) => part.trim()).find((part: string) => part.startsWith(`${name}=`));
+    return item ? decodeURIComponent(item.slice(name.length + 1)) : undefined;
+  };
+  const authToken = (request: any): string | undefined =>
+    request.headers.authorization || readCookie(request, 'seo_auth_token');
+  const currentUser = (request: any) => verifySessionToken(authToken(request));
+  const googleSessionId = (request: any): string | undefined => readCookie(request, 'google_session_id');
+  const secureCookie = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  const assertPublicWebhook = async (rawUrl: string) => {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'https:') throw new Error('Webhook URLはHTTPSで指定してください');
+    const addresses = await dns.lookup(parsed.hostname, { all: true });
+    const privateIp = (address: string) => {
+      if (net.isIPv4(address)) {
+        const [a, b] = address.split('.').map(Number);
+        return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+      }
+      const value = address.toLowerCase();
+      return value === '::1' || value.startsWith('fc') || value.startsWith('fd') || value.startsWith('fe80:');
+    };
+    if (!addresses.length || addresses.some(({ address }) => privateIp(address))) {
+      throw new Error('内部ネットワーク宛てのWebhook URLは使用できません');
+    }
+  };
 
   // 起動時にディスク上の既存レポートを復元
   try {
@@ -149,8 +191,7 @@ async function main() {
 
       // ログイン中のユーザーの場合のみ、プロジェクトへ自動記録（未ログイン時はパブリック汚染防止）
       try {
-        const authHeader = request.headers.authorization;
-        const user = verifySessionToken(authHeader);
+        const user = currentUser(request);
         if (user) {
           const proj = createProject(new URL(targetUrl).hostname, targetUrl, user.id);
           recordAuditToProject(proj.id, result);
@@ -169,6 +210,35 @@ async function main() {
         error: 'Failed to fetch target URL', 
         message: err.message || 'Unknown network error' 
       });
+    }
+  });
+
+  // 外部連携向けAPIキー認証付き即時診断
+  fastify.post('/api/v1/api/audit/quick', async (request, reply) => {
+    const rawKey = request.headers['x-api-key'];
+    const verified = typeof rawKey === 'string' ? verifyApiKey(rawKey, 'write') : null;
+    if (!verified) return reply.status(401).send({ error: '有効な書き込み権限付きAPIキーが必要です' });
+    const body = (request.body || {}) as { url?: string };
+    if (!body.url) return reply.status(400).send({ error: 'URL is required' });
+    let targetUrl = body.url.trim();
+    if (!/^https?:\/\//i.test(targetUrl)) targetUrl = `https://${targetUrl}`;
+    try {
+      const startedAt = Date.now();
+      const [response, sitemapOutcome] = await Promise.all([
+        fetch(targetUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)' },
+          signal: AbortSignal.timeout(12_000),
+        }),
+        checkSitemap(targetUrl).catch(() => undefined),
+      ]);
+      const result = analyzeHtml(targetUrl, await response.text(), Date.now() - startedAt, response.status, undefined, sitemapOutcome);
+      auditCache.set(result.id, result);
+      fs.writeFileSync(path.join(baseDataDir, `${result.id}.json`), JSON.stringify(result), 'utf8');
+      const project = createProject(new URL(targetUrl).hostname, targetUrl, verified.ownerId);
+      recordAuditToProject(project.id, result);
+      return result;
+    } catch (err: any) {
+      return reply.status(502).send({ error: 'Failed to fetch target URL', message: err.message });
     }
   });
 
@@ -229,6 +299,20 @@ async function main() {
       return reply.status(404).send({ error: 'Audit result not found or expired' });
     }
     return cached;
+  });
+
+  fastify.get('/api/v1/audit/results/:id/pdf', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    let audit = auditCache.get(id);
+    if (!audit) {
+      try { audit = JSON.parse(fs.readFileSync(path.join(baseDataDir, `${id}.json`), 'utf8')); } catch {}
+    }
+    if (!audit) return reply.status(404).send({ error: 'Audit result not found' });
+    const pdf = await createAuditPdf(audit);
+    return reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `attachment; filename="seo-report-${id.replace(/[^a-zA-Z0-9_-]/g, '')}.pdf"`)
+      .send(pdf);
   });
 
   // 内部/外部リンク一覧取得エンドポイント
@@ -355,8 +439,10 @@ ${linksSection}
   fastify.get('/api/v1/integrations/google/auth-url', async (request, reply) => {
     try {
       const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://seo.n-n.tokyo/api/v1/integrations/google/callback';
-      const url = createOAuthAuthUrl(redirectUri);
-      return { url };
+      const { url, state } = createOAuthAuthUrl(redirectUri, 'integration');
+      return reply
+        .header('Set-Cookie', `google_oauth_state=${encodeURIComponent(state)}; Path=/api/v1/integrations/google/callback; HttpOnly; SameSite=Lax${secureCookie}; Max-Age=600`)
+        .send({ url });
     } catch (err: any) {
       fastify.log.error(err);
       return reply.status(500).send({ error: 'Failed to generate OAuth URL', message: err.message });
@@ -365,51 +451,62 @@ ${linksSection}
 
   // 2. Google OAuth2 コールバック処理
   fastify.get('/api/v1/integrations/google/callback', async (request, reply) => {
-    const query = request.query as { code?: string; error?: string };
+    const query = request.query as { code?: string; error?: string; state?: string };
+    const purpose = consumeOAuthState(query.state, readCookie(request, 'google_oauth_state'));
+    const failurePath = purpose === 'login' ? '/login' : '/google/hub';
+    if (!purpose) {
+      return reply.redirect('/login?error=invalid_state');
+    }
     if (query.error) {
-      return reply.redirect(`/google/hub?error=${encodeURIComponent(query.error)}`);
+      return reply.redirect(`${failurePath}?error=${encodeURIComponent(query.error)}`);
     }
     if (!query.code) {
-      return reply.redirect('/google/hub?error=missing_code');
+      return reply.redirect(`${failurePath}?error=missing_code`);
     }
 
     try {
       const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://seo.n-n.tokyo/api/v1/integrations/google/callback';
       const session = await exchangeOAuthCode(query.code, redirectUri);
-      // セッションIDをクエリとCookieに載せて /google/hub にリダイレクト
+      if (purpose === 'login') {
+        if (!session.email || !session.googleId) {
+          return reply.redirect('/login?error=google_profile_missing');
+        }
+        const authRes = loginOrCreateWithGoogle({
+          googleId: session.googleId,
+          email: session.email,
+          name: session.name || session.email.split('@')[0],
+          picture: session.picture,
+        });
+        deleteSession(session.sessionId);
+        return reply
+          .header('Set-Cookie', `seo_auth_token=${encodeURIComponent(authRes.token)}; Path=/; HttpOnly; SameSite=Lax${secureCookie}; Max-Age=${30 * 24 * 3600}`)
+          .redirect('/login?google_login=success');
+      }
       return reply
-        .header('Set-Cookie', `google_session_id=${session.sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`)
-        .redirect(`/google/hub?session_id=${session.sessionId}`);
+        .header('Set-Cookie', `google_session_id=${encodeURIComponent(session.sessionId)}; Path=/; HttpOnly; SameSite=Lax${secureCookie}; Max-Age=${7 * 24 * 3600}`)
+        .redirect('/google/hub?connected=1');
     } catch (err: any) {
       fastify.log.error(err);
-      return reply.redirect(`/google/hub?error=${encodeURIComponent(err.message || 'auth_failed')}`);
+      return reply.redirect(`${failurePath}?error=${encodeURIComponent(err.message || 'auth_failed')}`);
     }
   });
 
   // 3. 現在のブラウザのGoogle連携ステータス照会
   fastify.get('/api/v1/integrations/google/session', async (request, reply) => {
-    const query = request.query as { session_id?: string };
-    const cookieHeader = request.headers.cookie || '';
-    const cookieMatch = cookieHeader.match(/google_session_id=([^;]+)/);
-    const sessionId = (request.headers['x-google-session'] as string) || query.session_id || (cookieMatch ? cookieMatch[1] : undefined);
-
-    const status = getSessionStatus(sessionId);
+    const status = getSessionStatus(googleSessionId(request));
     return status;
   });
 
   // 4. 現在のブラウザのGoogle連携解除
   fastify.post('/api/v1/integrations/google/disconnect', async (request, reply) => {
-    const body = (request.body || {}) as { session_id?: string };
-    const cookieHeader = request.headers.cookie || '';
-    const cookieMatch = cookieHeader.match(/google_session_id=([^;]+)/);
-    const sessionId = (request.headers['x-google-session'] as string) || body.session_id || (cookieMatch ? cookieMatch[1] : undefined);
+    const sessionId = googleSessionId(request);
 
     if (sessionId) {
       deleteSession(sessionId);
     }
 
     return reply
-      .header('Set-Cookie', `google_session_id=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`)
+      .header('Set-Cookie', `google_session_id=; Path=/; HttpOnly; SameSite=Lax${secureCookie}; Max-Age=0`)
       .send({ success: true, message: 'Google連携を解除しました' });
   });
 
@@ -421,19 +518,22 @@ ${linksSection}
       targetUrl = `https://${targetUrl}`;
     }
 
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     const isSuperAdmin = user?.role === 'ADMIN';
 
     // プロジェクト設定の読み込み
     let projectGoogleApiKey: string | undefined;
     let projectGeminiApiKey: string | undefined;
+    let gscSiteUrl: string | undefined;
+    let ga4PropertyId: string | undefined;
 
     if (body?.projectId) {
       const p = getProject(body.projectId, user?.id);
       if (p?.googleSettings) {
         projectGoogleApiKey = p.googleSettings.googleApiKey;
         projectGeminiApiKey = p.googleSettings.geminiApiKey;
+        gscSiteUrl = p.googleSettings.gscSiteUrl;
+        ga4PropertyId = p.googleSettings.ga4PropertyId;
       }
     } else {
       // URLから該当プロジェクトを検索
@@ -443,17 +543,19 @@ ${linksSection}
       if (matched?.googleSettings) {
         projectGoogleApiKey = matched.googleSettings.googleApiKey;
         projectGeminiApiKey = matched.googleSettings.geminiApiKey;
+        gscSiteUrl = matched.googleSettings.gscSiteUrl;
+        ga4PropertyId = matched.googleSettings.ga4PropertyId;
       }
     }
 
-    const cookieHeader = request.headers.cookie || '';
-    const cookieMatch = cookieHeader.match(/google_session_id=([^;]+)/);
-    const sessionId = (request.headers['x-google-session'] as string) || body?.session_id || (cookieMatch ? cookieMatch[1] : undefined);
+    const sessionId = googleSessionId(request);
 
     try {
       const hubData = await getGoogleHubData(sessionId, targetUrl, {
         customGoogleApiKey: projectGoogleApiKey,
         customGeminiKey: projectGeminiApiKey,
+        gscSiteUrl,
+        ga4PropertyId,
         isSuperAdmin,
       });
       return hubData;
@@ -554,8 +656,7 @@ ${linksSection}
 
   // プロジェクト一覧 (SCR-15: ログインユーザー紐付け & メール認証チェック)
   fastify.get('/api/v1/projects', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return { projects: [] };
     }
@@ -565,13 +666,12 @@ ${linksSection}
         emailVerified: false,
       });
     }
-    return { projects: listProjects(user.id) };
+    return { projects: listProjects(user.id).map(publicProject) };
   });
 
   // プロジェクト作成 (SCR-15: ログインユーザー必須 & メール認証必須)
   fastify.post('/api/v1/projects', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: 'プロジェクト作成にはログインが必要です' });
     }
@@ -586,13 +686,12 @@ ${linksSection}
     if (!body.url) return reply.status(400).send({ error: 'url is required' });
 
     const p = createProject(body.name || '', body.url, user.id);
-    return p;
+    return publicProject(p);
   });
 
   // プロジェクト編集 (SCR-15: 所有者ログイン必須 & メール認証必須)
   fastify.put('/api/v1/projects/:id', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: 'プロジェクト編集にはログインが必要です' });
     }
@@ -608,7 +707,7 @@ ${linksSection}
 
     try {
       const updated = updateProject(id, body, user.id);
-      return updated;
+      return publicProject(updated);
     } catch (err: any) {
       return reply.status(403).send({ error: err.message });
     }
@@ -616,8 +715,7 @@ ${linksSection}
 
   // プロジェクト削除 (SCR-15: 所有者ログイン必須 & メール認証必須)
   fastify.delete('/api/v1/projects/:id', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: 'プロジェクト削除にはログインが必要です' });
     }
@@ -641,8 +739,7 @@ ${linksSection}
   // プロジェクト詳細 & 履歴 (SCR-16: 所有者認可 & メール認証必須)
   fastify.get('/api/v1/projects/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (user && !user.emailVerified) {
       return reply.status(403).send({
         error: 'メールアドレスが未認証です。マイページからメール認証を完了してください。',
@@ -653,14 +750,13 @@ ${linksSection}
     const project = getProject(id, user?.id);
     if (!project) return reply.status(404).send({ error: 'Project not found or access denied' });
     const history = getProjectHistory(id);
-    return { project, history };
+    return { project: publicProject(project), history };
   });
 
   // プロジェクト個別Google API設定取得
   fastify.get('/api/v1/projects/:id/google-settings', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
 
     const settings = getProjectGoogleSettings(id, user?.id);
     if (!settings) {
@@ -676,7 +772,9 @@ ${linksSection}
 
     return {
       settings: {
-        ...settings,
+        gscSiteUrl: settings.gscSiteUrl,
+        ga4PropertyId: settings.ga4PropertyId,
+        updatedAt: settings.updatedAt,
         googleApiKeyMasked: maskKey(settings.googleApiKey),
         geminiApiKeyMasked: maskKey(settings.geminiApiKey),
         hasGoogleApiKey: Boolean(settings.googleApiKey),
@@ -689,8 +787,7 @@ ${linksSection}
   // プロジェクト個別Google API設定保存
   fastify.post('/api/v1/projects/:id/google-settings', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: '設定を保存するにはログインが必要です' });
     }
@@ -705,7 +802,17 @@ ${linksSection}
 
     try {
       const updated = updateProjectGoogleSettings(id, body, user.id);
-      return { success: true, settings: updated };
+      return {
+        success: true,
+        settings: {
+          gscSiteUrl: updated.gscSiteUrl,
+          ga4PropertyId: updated.ga4PropertyId,
+          updatedAt: updated.updatedAt,
+          hasGoogleApiKey: Boolean(updated.googleApiKey),
+          hasGeminiApiKey: Boolean(updated.geminiApiKey),
+          hasServiceAccountJson: Boolean(updated.serviceAccountJson),
+        },
+      };
     } catch (err: any) {
       return reply.status(403).send({ error: err.message });
     }
@@ -714,8 +821,7 @@ ${linksSection}
   // Time-Travel 履歴差分比較 (SCR-17: 所有者認可)
   fastify.get('/api/v1/projects/:id/diff', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
 
     const project = getProject(id, user?.id);
     if (!project) return reply.status(404).send({ error: 'Project not found or access denied' });
@@ -758,20 +864,25 @@ ${linksSection}
 
   // SCR-18: GSC URL Inspection
   fastify.post('/api/v1/google/inspect', async (request, reply) => {
-    const body = (request.body || {}) as { url?: string; siteUrl?: string; sessionId?: string };
+    const body = (request.body || {}) as { url?: string; siteUrl?: string };
     if (!body.url) return reply.status(400).send({ error: 'url is required' });
 
-    const session = getSession(body.sessionId);
-    const result = await inspectUrlInGsc(session, body.url.trim(), body.siteUrl);
-    return result;
+    const session = getSession(googleSessionId(request));
+    if (!session) return reply.status(401).send({ error: 'Googleアカウント連携が必要です' });
+    try {
+      return await inspectUrlInGsc(session, body.url.trim(), body.siteUrl);
+    } catch (err: any) {
+      return reply.status(502).send({ error: err.message || 'URL検査に失敗しました' });
+    }
   });
 
   // SCR-19: Google Indexing API 即時通知
   fastify.post('/api/v1/google/index-publish', async (request, reply) => {
-    const body = (request.body || {}) as { url?: string; type?: 'URL_UPDATED' | 'URL_DELETED'; sessionId?: string };
+    const body = (request.body || {}) as { url?: string; type?: 'URL_UPDATED' | 'URL_DELETED' };
     if (!body.url) return reply.status(400).send({ error: 'url is required' });
 
-    const session = getSession(body.sessionId);
+    const session = getSession(googleSessionId(request));
+    if (!session) return reply.status(401).send({ error: 'Googleアカウント連携が必要です' });
     const type = body.type || 'URL_UPDATED';
     const result = await publishUrlToIndexingApi(session, body.url.trim(), type);
     return result;
@@ -782,27 +893,35 @@ ${linksSection}
   // ==============================================================================
 
   // SCR-22: アラート設定取得
-  fastify.get('/api/v1/settings/alerts', async () => {
-    return getAlertSettings();
+  fastify.get('/api/v1/settings/alerts', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
+    return getAlertSettings(user.id);
   });
 
   // SCR-22: アラート設定保存
-  fastify.post('/api/v1/settings/alerts', async (request) => {
+  fastify.post('/api/v1/settings/alerts', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
     const body = request.body || {};
-    return saveAlertSettings(body);
+    return saveAlertSettings(user.id, body);
   });
 
   // SCR-22: Webhook テスト送信 (SCR-22)
   fastify.post('/api/v1/projects/:id/notify/test', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
+    if (!getProject(id, user.id)) return reply.status(404).send({ error: 'プロジェクトが見つかりません' });
     const body = (request.body || {}) as { webhookUrl?: string };
-    const webhookUrl = body.webhookUrl || getAlertSettings().webhookUrl;
+    const webhookUrl = body.webhookUrl || getAlertSettings(user.id).webhookUrl;
 
     if (!webhookUrl) {
       return reply.status(400).send({ error: 'Webhook URLが設定されていません' });
     }
 
     try {
+      await assertPublicWebhook(webhookUrl);
       const payload = {
         text: `🚨 [SEO Analyzer] 監視アラートテスト通知 (プロジェクトID: ${id})\n本番スコア監視システムのテスト配信です。正常にWebhookを受信しました。`,
         project: id,
@@ -821,42 +940,64 @@ ${linksSection}
   });
 
   // SCR-24: チームメンバー一覧
-  fastify.get('/api/v1/team/members', async () => {
-    return { members: listTeamMembers() };
+  fastify.get('/api/v1/team/members', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
+    return { members: listTeamMembers(user.id, user) };
   });
 
   // SCR-24: チームメンバー追加
   fastify.post('/api/v1/team/members', async (request, reply) => {
     const body = (request.body || {}) as { name?: string; email?: string; role?: any };
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
     if (!body.name || !body.email) return reply.status(400).send({ error: 'name and email are required' });
-    const member = addTeamMember(body.name, body.email, body.role || 'viewer');
-    return member;
+    try {
+      const member = addTeamMember(user.id, body.name, body.email, body.role || 'viewer', user);
+      try {
+        await sendTeamInvitationEmail(member.email, user.name);
+      } catch (error) {
+        removeTeamMember(user.id, member.id);
+        throw error;
+      }
+      return member;
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
   });
 
   // SCR-24: チームメンバー削除
-  fastify.delete('/api/v1/team/members/:id', async (request) => {
+  fastify.delete('/api/v1/team/members/:id', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
     const { id } = request.params as { id: string };
-    const ok = removeTeamMember(id);
+    const ok = removeTeamMember(user.id, id);
     return { success: ok };
   });
 
   // SCR-25: APIキー一覧
-  fastify.get('/api/v1/settings/api-keys', async () => {
-    return { keys: listApiKeys() };
+  fastify.get('/api/v1/settings/api-keys', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
+    return { keys: listApiKeys(user.id) };
   });
 
   // SCR-25: APIキー新規発行
   fastify.post('/api/v1/settings/api-keys', async (request, reply) => {
     const body = (request.body || {}) as { name?: string; scopes?: any };
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
     if (!body.name) return reply.status(400).send({ error: 'name is required' });
-    const key = createApiKey(body.name, body.scopes || ['read']);
+    const key = createApiKey(user.id, body.name, body.scopes || ['read']);
     return key;
   });
 
   // SCR-25: APIキー失効
-  fastify.delete('/api/v1/settings/api-keys/:id', async (request) => {
+  fastify.delete('/api/v1/settings/api-keys/:id', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
     const { id } = request.params as { id: string };
-    const ok = revokeApiKey(id);
+    const ok = revokeApiKey(user.id, id);
     return { success: ok };
   });
 
@@ -876,7 +1017,18 @@ ${linksSection}
         password: body.password,
         name: body.name,
       });
-      return authRes;
+      if (authRes.verificationCode) {
+        try {
+          await sendVerificationEmail(authRes.user.email, authRes.verificationCode);
+        } catch (error) {
+          rollbackRegistration(authRes.user.id, authRes.token);
+          throw error;
+        }
+      }
+      const { verificationCode: _verificationCode, ...publicAuthRes } = authRes;
+      return reply
+        .header('Set-Cookie', `seo_auth_token=${encodeURIComponent(authRes.token)}; Path=/; HttpOnly; SameSite=Lax${secureCookie}; Max-Age=${30 * 24 * 3600}`)
+        .send(publicAuthRes);
     } catch (err: any) {
       return reply.status(400).send({ error: err.message });
     }
@@ -893,50 +1045,31 @@ ${linksSection}
         email: body.email,
         password: body.password,
       });
-      return authRes;
+      return reply
+        .header('Set-Cookie', `seo_auth_token=${encodeURIComponent(authRes.token)}; Path=/; HttpOnly; SameSite=Lax${secureCookie}; Max-Age=${30 * 24 * 3600}`)
+        .send(authRes);
     } catch (err: any) {
       return reply.status(401).send({ error: err.message });
     }
   });
 
   // Googleログイン認証URL発行
-  fastify.get('/api/v1/auth/google/url', async (request) => {
-    const query = request.query as { redirectUri?: string };
-    const redirectUri = query.redirectUri || 'https://seo.n-n.tokyo/login?provider=google';
-    const authUrl = createOAuthAuthUrl(redirectUri);
-    return { authUrl };
+  fastify.get('/api/v1/auth/google/url', async (_request, reply) => {
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://seo.n-n.tokyo/api/v1/integrations/google/callback';
+    const { url: authUrl, state } = createOAuthAuthUrl(redirectUri, 'login');
+    return reply
+      .header('Set-Cookie', `google_oauth_state=${encodeURIComponent(state)}; Path=/api/v1/integrations/google/callback; HttpOnly; SameSite=Lax${secureCookie}; Max-Age=600`)
+      .send({ authUrl });
   });
 
   // Googleログイン コールバック検証
-  fastify.post('/api/v1/auth/google/callback', async (request, reply) => {
-    const body = (request.body || {}) as { code?: string; redirectUri?: string };
-    if (!body.code) {
-      return reply.status(400).send({ error: 'OAuth code is required' });
-    }
-    const redirectUri = body.redirectUri || 'https://seo.n-n.tokyo/login?provider=google';
-    try {
-      const session = await exchangeOAuthCode(body.code, redirectUri);
-      if (!session.email) {
-        return reply.status(400).send({ error: 'Googleアカウントのメールアドレスを取得できませんでした' });
-      }
-
-      const authRes = loginOrCreateWithGoogle({
-        googleId: session.sessionId,
-        email: session.email,
-        name: session.name || session.email.split('@')[0],
-        picture: session.picture,
-      });
-
-      return authRes;
-    } catch (err: any) {
-      return reply.status(400).send({ error: `Googleログインに失敗しました: ${err.message}` });
-    }
+  fastify.post('/api/v1/auth/google/callback', async (_request, reply) => {
+    return reply.status(410).send({ error: 'Google OAuthコールバックは共通の安全なエンドポイントへ移行しました' });
   });
 
   // ログイン中ユーザー情報照会
   fastify.get('/api/v1/auth/me', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: '未ログインまたはセッションが有効期限切れです' });
     }
@@ -945,8 +1078,7 @@ ${linksSection}
 
   // プロファイル（表示名）更新
   fastify.put('/api/v1/auth/profile', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: 'ログインが必要です' });
     }
@@ -966,8 +1098,7 @@ ${linksSection}
 
   // パスワード変更
   fastify.put('/api/v1/auth/password', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: 'ログインが必要です' });
     }
@@ -987,8 +1118,7 @@ ${linksSection}
 
   // メールアドレス変更 (SCR-29)
   fastify.put('/api/v1/auth/email', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: 'ログインが必要です' });
     }
@@ -1000,10 +1130,15 @@ ${linksSection}
 
     try {
       const result = changeUserEmail(user.id, body.newEmail.trim());
+      try {
+        await sendVerificationEmail(result.user.email, result.verificationCode);
+      } catch (error) {
+        restoreUserEmail(user.id, user.email, Boolean(user.emailVerified));
+        throw error;
+      }
       return {
         success: true,
         message: '確認コードを送信しました。認証を完了してください。',
-        verificationCode: result.verificationCode, // テスト・開発環境用
       };
     } catch (err: any) {
       return reply.status(400).send({ error: err.message });
@@ -1012,8 +1147,7 @@ ${linksSection}
 
   // メール認証コード検証 (SCR-29)
   fastify.post('/api/v1/auth/verify-email', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: 'ログインが必要です' });
     }
@@ -1033,18 +1167,17 @@ ${linksSection}
 
   // メール認証コード再送信 (SCR-29)
   fastify.post('/api/v1/auth/resend-verification', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user) {
       return reply.status(401).send({ error: 'ログインが必要です' });
     }
 
     try {
       const result = resendVerificationCode(user.id);
+      await sendVerificationEmail(user.email, result.verificationCode);
       return {
         success: true,
-        message: '認証コードを再発行しました',
-        verificationCode: result.verificationCode,
+        message: '認証コードを再送信しました',
       };
     } catch (err: any) {
       return reply.status(400).send({ error: err.message });
@@ -1052,10 +1185,11 @@ ${linksSection}
   });
 
   // ログアウト
-  fastify.post('/api/v1/auth/logout', async (request) => {
-    const authHeader = request.headers.authorization;
-    logoutSession(authHeader);
-    return { success: true };
+  fastify.post('/api/v1/auth/logout', async (request, reply) => {
+    logoutSession(authToken(request));
+    return reply
+      .header('Set-Cookie', `seo_auth_token=; Path=/; HttpOnly; SameSite=Lax${secureCookie}; Max-Age=0`)
+      .send({ success: true });
   });
 
   // ==============================================================================
@@ -1064,15 +1198,14 @@ ${linksSection}
 
   // プラットフォーム統計情報取得
   fastify.get('/api/v1/admin/stats', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user || user.role !== 'ADMIN') {
       return reply.status(403).send({ error: '管理者権限(ADMIN)が必要です' });
     }
 
     const users = listAllUsers();
     const verifiedUsers = users.filter((u) => u.emailVerified).length;
-    const allProjects = listAllProjectsAdmin();
+    const allProjects = listAllProjectsAdmin().map(publicProject);
 
     // 診断キャッシュ/ディスクから全診断数をカウント
     let totalAudits = auditCache.size;
@@ -1097,8 +1230,7 @@ ${linksSection}
 
   // プラットフォーム全ユーザー一覧取得
   fastify.get('/api/v1/admin/users', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user || user.role !== 'ADMIN') {
       return reply.status(403).send({ error: '管理者権限(ADMIN)が必要です' });
     }
@@ -1114,8 +1246,7 @@ ${linksSection}
 
   // ユーザー権限変更 (ADMIN / MEMBER)
   fastify.put('/api/v1/admin/users/:id/role', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user || user.role !== 'ADMIN') {
       return reply.status(403).send({ error: '管理者権限(ADMIN)が必要です' });
     }
@@ -1136,15 +1267,57 @@ ${linksSection}
 
   // プラットフォーム全プロジェクト一覧取得
   fastify.get('/api/v1/admin/projects', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const user = verifySessionToken(authHeader);
+    const user = currentUser(request);
     if (!user || user.role !== 'ADMIN') {
       return reply.status(403).send({ error: '管理者権限(ADMIN)が必要です' });
     }
 
-    const projects = listAllProjectsAdmin();
+    const projects = listAllProjectsAdmin().map(publicProject);
     return { projects };
   });
+
+  let alertMonitorRunning = false;
+  const runAlertMonitor = async () => {
+    if (alertMonitorRunning) return;
+    alertMonitorRunning = true;
+    try {
+      for (const ownerId of listEnabledAlertOwners()) {
+        const settings = getAlertSettings(ownerId);
+        for (const project of listProjects(ownerId)) {
+          try {
+            const startedAt = Date.now();
+            const response = await fetch(project.rootUrl, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerMonitor/1.0; +https://seo.n-n.tokyo/bot)' },
+              signal: AbortSignal.timeout(12_000),
+            });
+            const result = analyzeHtml(project.rootUrl, await response.text(), Date.now() - startedAt, response.status);
+            const shouldNotify = result.overallScore < settings.scoreThreshold &&
+              (project.auditCount === 0 || project.lastScore >= settings.scoreThreshold);
+            recordAuditToProject(project.id, result);
+            if (!shouldNotify) continue;
+            if (settings.webhookUrl) {
+              await assertPublicWebhook(settings.webhookUrl);
+              await fetch(settings.webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: `[SEO Analyzer] ${project.name}: ${result.overallScore}/100\n${project.rootUrl}`, projectId: project.id, score: result.overallScore }),
+                signal: AbortSignal.timeout(5_000),
+              });
+            }
+            if (settings.emailNotifications && settings.notificationEmail) {
+              await sendAlertEmail(settings.notificationEmail, project.name, result.overallScore, project.rootUrl);
+            }
+          } catch (error) {
+            fastify.log.warn({ error, projectId: project.id }, 'Alert monitor check failed');
+          }
+        }
+      }
+    } finally {
+      alertMonitorRunning = false;
+    }
+  };
+  const alertTimer = setInterval(runAlertMonitor, Number(process.env.ALERT_MONITOR_INTERVAL_MS || 15 * 60 * 1000));
+  alertTimer.unref();
 
   const port = Number(process.env.BACKEND_PORT || (process.env.PORT && process.env.PORT !== '5600' ? process.env.PORT : 5601));
   const host = process.env.HOST || '127.0.0.1';

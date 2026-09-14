@@ -43,7 +43,6 @@ import {
 function GoogleHubContent() {
   const searchParams = useSearchParams();
   const [targetUrl, setTargetUrl] = useState('https://seo.n-n.tokyo');
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<GoogleSessionStatus>({ isConnected: false });
   const [hubData, setHubData] = useState<GoogleHubDataResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,40 +51,23 @@ function GoogleHubContent() {
   const [activeTab, setActiveTab] = useState<'all' | 'psi' | 'gsc' | 'ga4' | 'gemini'>('all');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  // 初期化: URLクエリまたはCookie/localStorageからsessionIdを取得
+  // GoogleセッションIDはHttpOnly Cookie内に保持し、JavaScriptへ公開しない。
   useEffect(() => {
-    let currentSession = searchParams.get('session_id');
     const err = searchParams.get('error');
     if (err) {
       setErrorMsg(`Google認証エラー: ${decodeURIComponent(err)}`);
     }
 
-    if (!currentSession && typeof window !== 'undefined') {
-      currentSession = localStorage.getItem('seo_google_session_id');
-      if (!currentSession) {
-        const match = document.cookie.match(/google_session_id=([^;]+)/);
-        if (match) currentSession = match[1];
-      }
-    }
-
-    if (currentSession) {
-      setSessionId(currentSession);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('seo_google_session_id', currentSession);
-      }
-      checkSessionStatus(currentSession);
-    }
+    checkSessionStatus();
 
     // 初回自動データ取得 (デフォルトURL)
-    fetchHubData('https://seo.n-n.tokyo', currentSession || undefined);
+    fetchHubData('https://seo.n-n.tokyo');
   }, [searchParams]);
 
   // セッション状態照会
-  const checkSessionStatus = async (sid: string) => {
+  const checkSessionStatus = async () => {
     try {
-      const res = await fetch(`/api/v1/integrations/google/session?session_id=${encodeURIComponent(sid)}`, {
-        headers: { 'x-google-session': sid },
-      });
+      const res = await fetch('/api/v1/integrations/google/session', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setSessionStatus(data);
@@ -116,21 +98,16 @@ function GoogleHubContent() {
       await fetch('/api/v1/integrations/google/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId }),
+        credentials: 'include',
       });
     } catch {}
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('seo_google_session_id');
-      document.cookie = 'google_session_id=; Path=/; Max-Age=0';
-    }
-    setSessionId(null);
     setSessionStatus({ isConnected: false });
     // データ再取得 (未連携状態)
-    fetchHubData(targetUrl, undefined);
+    fetchHubData(targetUrl);
   };
 
   // 統合データ取得
-  const fetchHubData = async (urlToFetch: string, sid?: string) => {
+  const fetchHubData = async (urlToFetch: string) => {
     setIsLoading(true);
     setErrorMsg(null);
 
@@ -140,16 +117,12 @@ function GoogleHubContent() {
     }
 
     try {
-      const activeSid = sid || sessionId || undefined;
       const res = await fetch('/api/v1/google/hub-data', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(activeSid ? { 'x-google-session': activeSid } : {}),
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: norm,
-          session_id: activeSid,
         }),
       });
 
@@ -171,7 +144,7 @@ function GoogleHubContent() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchHubData(targetUrl, sessionId || undefined);
+    fetchHubData(targetUrl);
   };
 
   const copyCode = (code: string, idx: number) => {
@@ -184,6 +157,7 @@ function GoogleHubContent() {
   const gsc = hubData?.gsc;
   const ga4 = hubData?.ga4;
   const gemini = hubData?.gemini;
+  const webRisk = hubData?.webRisk;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#080B11] text-slate-100 selection:bg-cyan-500/30">
@@ -309,6 +283,25 @@ function GoogleHubContent() {
           </div>
         )}
 
+        {(webRisk || hubData?.errors.webRisk) && (
+          <div className={`p-4 rounded-xl border text-xs flex items-center gap-2 ${
+            webRisk?.isThreat
+              ? 'bg-red-950/40 border-red-500/30 text-red-300'
+              : webRisk
+                ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+                : 'bg-slate-900/50 border-white/10 text-slate-400'
+          }`}>
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            <span>
+              {webRisk
+                ? webRisk.isThreat
+                  ? `Google Web Riskで脅威を検出: ${webRisk.threatTypes.join(', ')}`
+                  : 'Google Web Riskでは、このURLの既知の脅威は検出されませんでした。'
+                : hubData?.errors.webRisk}
+            </span>
+          </div>
+        )}
+
         {/* 4連 KPI Strip (Border Grid - ShadcnAdmin) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/[0.08] rounded-3xl overflow-hidden border border-white/[0.08] bg-[#080B11]">
           {/* PSI Performance */}
@@ -369,13 +362,13 @@ function GoogleHubContent() {
           <div className="bg-[#0F1623] p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 font-mono">Gemini AI提案</span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">2.0 Flash</span>
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">2.5 Flash</span>
             </div>
             <div className="font-mono text-3xl font-extrabold text-white mb-1">
-              {gemini ? gemini.actionItems.length : 3}<span className="text-slate-500 text-base font-normal"> 件の改善案</span>
+              {gemini ? gemini.actionItems.length : '--'}<span className="text-slate-500 text-base font-normal"> 件の改善案</span>
             </div>
             <p className="text-xs text-emerald-400 font-mono truncate">
-              {gemini ? '公式実測値に基づく提案生成済' : '改善コード生成中'}
+              {gemini ? '公式実測値に基づく提案生成済' : '未取得'}
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Search,
@@ -25,12 +25,6 @@ export default function GoogleInspectPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<(GscInspectResult & { isSimulated?: boolean; siteUrl?: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string>('');
-
-  useEffect(() => {
-    const sid = localStorage.getItem('seo_google_session_id') || '';
-    setSessionId(sid);
-  }, []);
 
   const handleInspect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +35,9 @@ export default function GoogleInspectPage() {
     try {
       const res = await fetch(`${API_BASE}/api/v1/google/inspect`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim(), sessionId }),
+        body: JSON.stringify({ url: url.trim() }),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
@@ -115,12 +110,7 @@ export default function GoogleInspectPage() {
                 <span>{loading ? 'Google検証中...' : 'URLを検査する'}</span>
               </button>
             </div>
-            {!sessionId && (
-              <p className="text-[11px] text-amber-400/80 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>Googleアカウント未連携のため、HTTPステータスとRobots/Metaタグによるローカル高精度検査を実行します。公式GSC APIデータと照合する場合は「Google公式統合ハブ」で連携してください。</span>
-              </p>
-            )}
+            <p className="text-[11px] text-slate-400">Google公式統合ハブで連携したアカウントのSearch Consoleデータを使用します。</p>
           </form>
         </section>
 

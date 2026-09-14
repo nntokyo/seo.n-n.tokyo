@@ -33,22 +33,14 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Google OAuth コールバック検出 (?code=xxx&provider=google)
+  // Google OAuth完了後はHttpOnly Cookieからユーザー情報だけを取得する。
   useEffect(() => {
-    const code = searchParams.get('code');
-    const provider = searchParams.get('provider');
-
-    if (code && provider === 'google') {
+    const oauthError = searchParams.get('error');
+    if (oauthError) setError(`Googleログインに失敗しました: ${oauthError}`);
+    if (searchParams.get('google_login') === 'success') {
       setGoogleLoading(true);
       setError(null);
-
-      const redirectUri = window.location.origin + '/login?provider=google';
-
-      fetch(`${API_BASE}/api/v1/auth/google/callback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, redirectUri }),
-      })
+      fetch(`${API_BASE}/api/v1/auth/me`, { credentials: 'include' })
         .then(async (res) => {
           if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
@@ -56,8 +48,7 @@ function LoginForm() {
           }
           return res.json();
         })
-        .then((data: AuthTokenResponse) => {
-          localStorage.setItem('seo_auth_token', data.token);
+        .then((data: { user: AuthUser }) => {
           localStorage.setItem('seo_auth_user', JSON.stringify(data.user));
           setSuccessMsg(`ようこそ、${data.user.name}さん！ログインしました。`);
           setTimeout(() => {
@@ -122,8 +113,7 @@ function LoginForm() {
     setGoogleLoading(true);
     setError(null);
     try {
-      const redirectUri = window.location.origin + '/login?provider=google';
-      const res = await fetch(`${API_BASE}/api/v1/auth/google/url?redirectUri=${encodeURIComponent(redirectUri)}`);
+      const res = await fetch(`${API_BASE}/api/v1/auth/google/url`, { credentials: 'include' });
       const data = await res.json();
       if (data.authUrl) {
         window.location.href = data.authUrl;

@@ -20,36 +20,28 @@ import {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function IntegrationsSettingsPage() {
-  const [sessionId, setSessionId] = useState('');
   const [sessionData, setSessionData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const sid = localStorage.getItem('seo_google_session_id') || '';
-    setSessionId(sid);
-    if (sid) {
-      fetch(`${API_BASE}/api/v1/integrations/google/session?sessionId=${sid}`)
+    fetch(`${API_BASE}/api/v1/integrations/google/session`, { credentials: 'include' })
         .then((res) => res.json())
         .then((data) => {
           setSessionData(data);
           setLoading(false);
         })
         .catch(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
   }, []);
 
   const handleConnect = async () => {
     setAuthLoading(true);
     try {
-      const redirectUri = window.location.origin + '/google/hub';
-      const res = await fetch(`${API_BASE}/api/v1/integrations/google/auth-url?redirectUri=${encodeURIComponent(redirectUri)}`);
+      const res = await fetch(`${API_BASE}/api/v1/integrations/google/auth-url`, { credentials: 'include' });
       const data = await res.json();
-      if (data.authUrl) {
-        window.location.href = data.authUrl;
+      if (data.url) {
+        window.location.href = data.url;
       }
     } catch {
       setAuthLoading(false);
@@ -57,15 +49,11 @@ export default function IntegrationsSettingsPage() {
   };
 
   const handleDisconnect = async () => {
-    if (!sessionId) return;
     try {
       await fetch(`${API_BASE}/api/v1/integrations/google/disconnect`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId }),
+        credentials: 'include',
       });
-      localStorage.removeItem('seo_google_session_id');
-      setSessionId('');
       setSessionData(null);
       setMessage('Google連携を解除しました');
     } catch {}

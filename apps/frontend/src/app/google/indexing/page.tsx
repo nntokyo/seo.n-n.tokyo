@@ -24,11 +24,8 @@ export default function GoogleIndexingPage() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<IndexingPublishResult[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string>('');
 
   useEffect(() => {
-    const sid = localStorage.getItem('seo_google_session_id') || '';
-    setSessionId(sid);
     const saved = localStorage.getItem('seo_indexing_history');
     if (saved) {
       try {
@@ -46,11 +43,11 @@ export default function GoogleIndexingPage() {
     try {
       const res = await fetch(`${API_BASE}/api/v1/google/index-publish`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: url.trim(),
           type: actionType,
-          sessionId,
         }),
       });
 
@@ -164,12 +161,10 @@ export default function GoogleIndexingPage() {
               </button>
             </div>
 
-            {!sessionId && (
-              <p className="text-[11px] text-amber-400/80 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>Googleアカウント未連携のため、テスト送信（シミュレーションモード）として処理されます。公式アカウントへの本番送信を行う場合は「Google公式統合ハブ」でログイン連携してください。</span>
-              </p>
-            )}
+            <p className="text-[11px] text-amber-400/80 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>このAPIは JobPosting または BroadcastEvent を含むページ専用です。対象外のURLは送信できません。</span>
+            </p>
           </form>
         </section>
 
@@ -216,8 +211,6 @@ export default function GoogleIndexingPage() {
                       <span className={`px-2 py-0.5 rounded text-[10px] font-mono ${
                         item.status === 'SUBMITTED'
                           ? 'bg-emerald-500/20 text-emerald-400'
-                          : item.status === 'SIMULATED_SUCCESS'
-                          ? 'bg-blue-500/20 text-blue-400'
                           : 'bg-rose-500/20 text-rose-400'
                       }`}>
                         {item.status}

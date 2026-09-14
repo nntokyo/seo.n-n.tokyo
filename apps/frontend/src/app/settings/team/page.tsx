@@ -29,7 +29,7 @@ export default function TeamSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fetchMembers = () => {
-    fetch(`${API_BASE}/api/v1/team/members`)
+    fetch(`${API_BASE}/api/v1/team/members`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
         setMembers(data.members || []);
@@ -51,6 +51,7 @@ export default function TeamSettingsPage() {
     try {
       const res = await fetch(`${API_BASE}/api/v1/team/members`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: inviteName, email: inviteEmail, role: inviteRole }),
       });
@@ -71,7 +72,7 @@ export default function TeamSettingsPage() {
   const handleRemove = async (id: string) => {
     if (!confirm('このメンバーを削除してもよろしいですか？')) return;
     try {
-      const res = await fetch(`${API_BASE}/api/v1/team/members/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/v1/team/members/${id}`, { method: 'DELETE', credentials: 'include' });
       if (res.ok) {
         setMembers(members.filter((m) => m.id !== id));
         setMessage({ type: 'success', text: 'メンバーを削除しました' });

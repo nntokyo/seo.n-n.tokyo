@@ -37,7 +37,7 @@ export default function AlertsSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/v1/settings/alerts`)
+    fetch(`${API_BASE}/api/v1/settings/alerts`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
         setSettings(data);
@@ -53,6 +53,7 @@ export default function AlertsSettingsPage() {
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/alerts`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       });
@@ -77,6 +78,7 @@ export default function AlertsSettingsPage() {
     try {
       const res = await fetch(`${API_BASE}/api/v1/projects/global/notify/test`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ webhookUrl: settings.webhookUrl }),
       });

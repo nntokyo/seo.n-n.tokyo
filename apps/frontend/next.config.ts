@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // standalone 出力を一時的にオフにして標準ビルドに
   reactStrictMode: true,
+  // 本番デプロイでは別ディレクトリへ完成させてから原子的に切り替える。
+  distDir: process.env.NEXT_DIST_DIR || '.next',
 };
 
 export default nextConfig;

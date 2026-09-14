@@ -29,10 +29,6 @@ export default function AuditReportPrintPage() {
       .then((data) => setAudit(data));
   }, [id]);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   if (!audit) {
     return (
       <div className="min-h-screen bg-[#080B11] flex items-center justify-center text-slate-400 font-mono text-xs">
@@ -56,14 +52,13 @@ export default function AuditReportPrintPage() {
           <span>監査画面に戻る</span>
         </Link>
 
-        <button
-          type="button"
-          onClick={handlePrint}
+        <a
+          href={`/api/v1/audit/results/${encodeURIComponent(id)}/pdf`}
           className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold font-mono text-xs flex items-center gap-1.5 transition-colors shadow-lg shadow-cyan-500/20"
         >
           <Printer className="w-3.5 h-3.5" />
           <span>PDFとして保存 / 印刷する</span>
-        </button>
+        </a>
       </div>
 
       {/* Printable Report Sheet */}
@@ -175,7 +170,7 @@ export default function AuditReportPrintPage() {
 
         {/* Footer */}
         <div className="pt-8 border-t border-slate-200 text-center text-xs text-slate-500 font-mono">
-          © 2026 合同会社NN (seo.n-n.tokyo) - Generated via SEO Analyzer Platform
+          © 2026 seo.n-n.tokyo - 個人運営のSEO Analyzerで生成
         </div>
       </div>
     </div>
