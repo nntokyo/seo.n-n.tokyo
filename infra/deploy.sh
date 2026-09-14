@@ -17,6 +17,10 @@ STATE_DIR="$BASE/.state"
 STATE_FILE="$STATE_DIR/deployed.sha"
 LOG_DIR="$BASE/logs"
 DATA_DIR="$BASE/.data"
+FRONTEND_DIR="$BASE/apps/frontend"
+FRONTEND_BUILD_DIR="$FRONTEND_DIR/.next-build"
+FRONTEND_PREVIOUS_DIR="$FRONTEND_DIR/.next-previous"
+BACKEND_DIST_BACKUP="$STATE_DIR/backend-dist.previous"
 LOCK="/tmp/seo-n-n-tokyo-deploy.lock"
 
 mkdir -p "$STATE_DIR" "$LOG_DIR" "$DATA_DIR"
@@ -46,7 +50,8 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
-CURRENT_LOCAL_SHA=$(git rev-parse HEAD 2>/dev/null || echo "initial")
+CURRENT_LOCAL_SHA="${DEPLOY_PREVIOUS_SHA:-$(git rev-parse HEAD 2>/dev/null || echo "initial")}"
+SERVICES_RELOADED=false
 
 # リモート最新コミットを取得
 if ! git fetch origin "$BRANCH" --quiet 2>&1; then
@@ -71,7 +76,20 @@ log "===== zero-downtime deploy start: $BRANCH @ $SHORT (from $PREV_SHORT) — $
 
 rollback() {
   log "🚨 DEPLOYMENT FAILED! Initiating zero-downtime rollback to $CURRENT_LOCAL_SHA..."
+  rm -rf "$FRONTEND_BUILD_DIR"
+  if [ -d "$FRONTEND_PREVIOUS_DIR" ]; then
+    rm -rf "$FRONTEND_DIR/.next"
+    mv "$FRONTEND_PREVIOUS_DIR" "$FRONTEND_DIR/.next"
+  fi
+  if [ -d "$BACKEND_DIST_BACKUP" ]; then
+    rm -rf "$BASE/apps/backend/dist"
+    cp -a "$BACKEND_DIST_BACKUP" "$BASE/apps/backend/dist"
+  fi
   git reset --hard "$CURRENT_LOCAL_SHA" 2>&1 || true
+  if [ "$SERVICES_RELOADED" = "true" ]; then
+    pm2 reload "$BACKEND_NAME" --update-env >/dev/null 2>&1 || true
+    pm2 reload "$FRONTEND_NAME" --update-env >/dev/null 2>&1 || true
+  fi
   log "Rollback completed. Existing PM2 processes remain active without disruption."
   exit 1
 }
@@ -87,6 +105,7 @@ chmod +x "$BASE/infra/deploy.sh" 2>/dev/null || true
 # 新スクリプトが更新された場合の再読み込み実行
 if [ "${REEXECED:-0}" != "1" ]; then
   export REEXECED=1
+  export DEPLOY_PREVIOUS_SHA="$CURRENT_LOCAL_SHA"
   exec bash "$BASE/infra/deploy.sh" "$@"
 fi
 
@@ -97,8 +116,11 @@ if ! pnpm install 2>&1; then
   rollback
 fi
 
-# 前回の .next キャッシュが壊れている場合の対策
-rm -rf "$BASE/apps/frontend/.next"
+# 現在稼働中の成果物は残し、ビルド用ディレクトリだけを初期化する。
+rm -rf "$FRONTEND_BUILD_DIR" "$BACKEND_DIST_BACKUP"
+if [ -d "$BASE/apps/backend/dist" ]; then
+  cp -a "$BASE/apps/backend/dist" "$BACKEND_DIST_BACKUP"
+fi
 
 # 3. Prisma DB スキーマ反映
 if [ -f "$BASE/prisma/schema.prisma" ]; then
@@ -111,14 +133,29 @@ if [ -f "$BASE/prisma/schema.prisma" ]; then
 fi
 
 # 4. 事前ビルド
-log "Step 3: Building apps (shared, backend, frontend)..."
-if ! pnpm build 2>&1; then
+log "Step 3: Building apps (shared, backend, frontend staging)..."
+if ! NEXT_DIST_DIR=".next-build" pnpm build 2>&1; then
   log "pnpm build failed"
+  rollback
+fi
+if [ ! -s "$FRONTEND_BUILD_DIR/BUILD_ID" ] || [ ! -s "$FRONTEND_BUILD_DIR/prerender-manifest.json" ]; then
+  log "frontend build artifacts are incomplete"
+  rollback
+fi
+
+# 完成したフロントエンド成果物を短時間で切り替える。
+rm -rf "$FRONTEND_PREVIOUS_DIR"
+if [ -d "$FRONTEND_DIR/.next" ]; then
+  mv "$FRONTEND_DIR/.next" "$FRONTEND_PREVIOUS_DIR"
+fi
+if ! mv "$FRONTEND_BUILD_DIR" "$FRONTEND_DIR/.next"; then
+  log "failed to activate frontend build artifacts"
   rollback
 fi
 
 # 5. リロード & ヘルスチェック
 log "Step 4: Reloading PM2 processes with updated bundle..."
+SERVICES_RELOADED=true
 
 # バックエンドのリロード / 起動 (Port 5601)
 if pm2 describe "$BACKEND_NAME" >/dev/null 2>&1; then
@@ -179,5 +216,6 @@ fi
 
 # 6. デプロイ成功の記録
 echo "$REMOTE_SHA" > "$STATE_FILE"
+rm -rf "$FRONTEND_PREVIOUS_DIR" "$BACKEND_DIST_BACKUP"
 log "===== 🎉 ZERO-DOWNTIME DEPLOY SUCCESSFUL: $SHORT ====="
 exit 0

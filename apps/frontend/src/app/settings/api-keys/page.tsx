@@ -31,7 +31,7 @@ export default function ApiKeysSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fetchKeys = () => {
-    fetch(`${API_BASE}/api/v1/settings/api-keys`)
+    fetch(`${API_BASE}/api/v1/settings/api-keys`, { credentials: 'include' })
       .then((res) => res.json())
       .then((data) => {
         setKeys(data.keys || []);
@@ -53,6 +53,7 @@ export default function ApiKeysSettingsPage() {
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/api-keys`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: keyName, scopes: ['read', 'write'] }),
       });
@@ -74,7 +75,7 @@ export default function ApiKeysSettingsPage() {
   const handleRevoke = async (id: string) => {
     if (!confirm('このAPIキーを失効させますか？このキーを使用した外部スクリプトやCI/CDは即座に停止します。')) return;
     try {
-      const res = await fetch(`${API_BASE}/api/v1/settings/api-keys/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/v1/settings/api-keys/${id}`, { method: 'DELETE', credentials: 'include' });
       if (res.ok) {
         setKeys(keys.filter((k) => k.id !== id));
         setMessage({ type: 'success', text: 'APIキーを失効させました' });

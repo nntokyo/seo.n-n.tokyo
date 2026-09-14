@@ -84,20 +84,17 @@ Googlebotが実際にどのようにページをインデックスしている�
 
 ---
 
-### 2.4 Google Safe Browsing API (v4)
-Googleが管理する悪意のあるURLブラックリストに抵触していないかを検査します。抵触した場合、検索順位の急落やブラウザでの赤画面警告が発生します。
+### 2.4 Google Web Risk API (v1)
+広告収益を含む用途は Safe Browsing API の非商用条件に該当しないため、商用向けの Web Risk Lookup API でURLを検査します。
 
-- **エンドポイント**: `POST https://safebrowsing.googleapis.com/v4/threatMatches:find`
-- **脅威タイプ**:
-  - `MALWARE` (マルウェア配信)
-  - `SOCIAL_ENGINEERING` (フィッシング・なりすまし)
-  - `UNWANTED_SOFTWARE` (不要なソフトウェア)
-  - `POTENTIALLY_HARMFUL_APPLICATION` (有害アプリ)
+- **エンドポイント**: `GET https://webrisk.googleapis.com/v1/uris:search`
+- **環境変数**: `GOOGLE_WEB_RISK_API_KEY`
+- **脅威タイプ**: `MALWARE`, `SOCIAL_ENGINEERING`
 
 ---
 
 ### 2.5 Google Indexing API (v3)
-新規記事の公開時、または緊急でメタタグ・404修正を反映させたい際に、Googlebotへ優先クロール通知を送信します。
+`JobPosting`、または `VideoObject` 内に `BroadcastEvent` を持つライブ配信ページの公開・削除時だけ、Googleへ更新通知を送信します。一般記事や通常ページには使用しません。
 
 - **エンドポイント**: `POST https://indexing.googleapis.com/v3/urlNotifications:publish`
 - **認証**: Service Account (JWT)

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { AuthUser, AuthTokenResponse, RegisterRequest, LoginRequest } from '@seo/shared';
+import { hashToken } from './security.js';
 
 const authDataDir = path.resolve(process.cwd(), '.data', 'auth');
 try {
@@ -49,7 +50,9 @@ function loadAuthData() {
       const now = Date.now();
       for (const s of list) {
         if (s.expiresAt > now) {
-          sessionsMap.set(s.token, s);
+          const storedToken = s.token.startsWith('seo_token_') ? hashToken(s.token) : s.token;
+          s.token = storedToken;
+          sessionsMap.set(storedToken, s);
         }
       }
     }
@@ -83,13 +86,13 @@ function createSessionForUser(user: StoredUser): AuthTokenResponse {
   const expiresAt = Date.now() + 30 * 24 * 3600 * 1000; // 30日有効
 
   const session: StoredSession = {
-    token,
+    token: hashToken(token),
     userId: user.id,
     expiresAt,
     createdAt: new Date().toISOString(),
   };
 
-  sessionsMap.set(token, session);
+  sessionsMap.set(session.token, session);
   saveSessions();
 
   return {
@@ -233,11 +236,12 @@ export function loginOrCreateWithGoogle(googleUser: {
 export function verifySessionToken(token?: string): AuthUser | null {
   if (!token) return null;
   const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
-  const session = sessionsMap.get(cleanToken);
+  const storedToken = hashToken(cleanToken);
+  const session = sessionsMap.get(storedToken);
   if (!session) return null;
 
   if (session.expiresAt < Date.now()) {
-    sessionsMap.delete(cleanToken);
+    sessionsMap.delete(storedToken);
     saveSessions();
     return null;
   }
@@ -261,9 +265,26 @@ export function verifySessionToken(token?: string): AuthUser | null {
 export function logoutSession(token?: string): boolean {
   if (!token) return false;
   const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
-  const deleted = sessionsMap.delete(cleanToken);
+  const deleted = sessionsMap.delete(hashToken(cleanToken));
   if (deleted) saveSessions();
   return deleted;
+}
+
+export function rollbackRegistration(userId: string, token: string): void {
+  usersMap.delete(userId);
+  sessionsMap.delete(hashToken(token));
+  saveUsers();
+  saveSessions();
+}
+
+export function restoreUserEmail(userId: string, email: string, wasVerified: boolean): void {
+  const user = usersMap.get(userId);
+  if (!user) return;
+  user.email = email;
+  user.emailVerified = wasVerified;
+  user.verificationCode = undefined;
+  user.verificationExpires = undefined;
+  saveUsers();
 }
 
 // 6. ユーザープロファイル更新 (名前変更)

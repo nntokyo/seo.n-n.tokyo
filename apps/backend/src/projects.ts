@@ -8,6 +8,7 @@ import {
   AuditDiffItem,
   FullAuditResult,
 } from '@seo/shared';
+import { decryptSecret, encryptSecret } from './security.js';
 
 const projectsDataDir = path.resolve(process.cwd(), '.data', 'projects');
 const projectHistoryDir = path.resolve(process.cwd(), '.data', 'project-history');
@@ -27,6 +28,11 @@ try {
         try {
           const raw = fs.readFileSync(path.join(projectsDataDir, f), 'utf8');
           const p: ProjectRecord = JSON.parse(raw);
+          if (p.googleSettings) {
+            p.googleSettings.googleApiKey = decryptSecret(p.googleSettings.googleApiKey);
+            p.googleSettings.geminiApiKey = decryptSecret(p.googleSettings.geminiApiKey);
+            p.googleSettings.serviceAccountJson = decryptSecret(p.googleSettings.serviceAccountJson);
+          }
           projectsStore.set(p.id, p);
         } catch {}
       }
@@ -37,9 +43,31 @@ try {
 function saveProjectToDisk(p: ProjectRecord) {
   projectsStore.set(p.id, p);
   try {
-    fs.writeFileSync(path.join(projectsDataDir, `${p.id}.json`), JSON.stringify(p), 'utf8');
-  } catch {}
+    const persisted: ProjectRecord = structuredClone(p);
+    if (persisted.googleSettings) {
+      if (persisted.googleSettings.googleApiKey) persisted.googleSettings.googleApiKey = encryptSecret(persisted.googleSettings.googleApiKey);
+      if (persisted.googleSettings.geminiApiKey) persisted.googleSettings.geminiApiKey = encryptSecret(persisted.googleSettings.geminiApiKey);
+      if (persisted.googleSettings.serviceAccountJson) persisted.googleSettings.serviceAccountJson = encryptSecret(persisted.googleSettings.serviceAccountJson);
+    }
+    fs.writeFileSync(path.join(projectsDataDir, `${p.id}.json`), JSON.stringify(persisted), { encoding: 'utf8', mode: 0o600 });
+  } catch (error) {
+    console.error('プロジェクトの保存に失敗しました', error);
+    throw error;
+  }
 }
+
+export function publicProject(p: ProjectRecord): ProjectRecord {
+  const safe = structuredClone(p);
+  if (safe.googleSettings) {
+    delete safe.googleSettings.googleApiKey;
+    delete safe.googleSettings.geminiApiKey;
+    delete safe.googleSettings.serviceAccountJson;
+  }
+  return safe;
+}
+
+// 既存の平文設定も起動時に暗号化形式へ移行する。
+for (const project of projectsStore.values()) saveProjectToDisk(project);
 
 export function listProjects(userId?: string): ProjectRecord[] {
   // 世界公開環境: ログインしていないユーザーにはプロジェクトを一切返却しない (情報漏洩防止)
@@ -73,7 +101,7 @@ export function getProject(id: string, userId?: string): ProjectRecord | null {
   const p = projectsStore.get(id);
   if (!p) return null;
   // 所有者チェック (プロジェクトにuserIdが紐付いており、アクセス者のuserIdと不一致の場合はアクセス不可)
-  if (p.userId && userId && p.userId !== userId) {
+  if (!userId || p.userId !== userId) {
     return null;
   }
   return p;
@@ -117,7 +145,7 @@ export function updateProject(id: string, updates: { name?: string; rootUrl?: st
   }
 
   // 権限チェック (所有者が存在し、かつリクエストユーザーと不一致の場合)
-  if (p.userId && userId && p.userId !== userId) {
+  if (!userId || p.userId !== userId) {
     throw new Error('このプロジェクトを変更する権限がありません');
   }
 
@@ -144,7 +172,7 @@ export function deleteProject(id: string, userId?: string): boolean {
   const p = projectsStore.get(id);
   if (!p) return false;
 
-  if (p.userId && userId && p.userId !== userId) {
+  if (!userId || p.userId !== userId) {
     throw new Error('このプロジェクトを削除する権限がありません');
   }
 
@@ -177,15 +205,14 @@ export function updateProjectGoogleSettings(
 ) {
   const p = projectsStore.get(id);
   if (!p) throw new Error('プロジェクトが見つかりません');
-  if (p.userId && userId && p.userId !== userId) {
+  if (!userId || p.userId !== userId) {
     throw new Error('このプロジェクトのGoogle設定を変更する権限がありません');
   }
 
-  p.googleSettings = {
-    ...(p.googleSettings || {}),
-    ...settings,
-    updatedAt: new Date().toISOString(),
-  };
+  const clean = Object.fromEntries(
+    Object.entries(settings).filter(([, value]) => typeof value === 'string' && value.trim() !== '')
+  );
+  p.googleSettings = { ...(p.googleSettings || {}), ...clean, updatedAt: new Date().toISOString() };
 
   p.updatedAt = new Date().toISOString();
   saveProjectToDisk(p);

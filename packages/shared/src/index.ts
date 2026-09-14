@@ -275,6 +275,13 @@ export interface GeminiProposalData {
   generatedAt: string;
 }
 
+export interface WebRiskData {
+  isThreat: boolean;
+  threatTypes: string[];
+  expireTime?: string;
+  checkedAt: string;
+}
+
 export interface GoogleHubDataResponse {
   url: string;
   session: GoogleSessionStatus;
@@ -282,11 +289,13 @@ export interface GoogleHubDataResponse {
   gsc: GscAnalyticsData | null;
   ga4: Ga4MetricsData | null;
   gemini: GeminiProposalData | null;
+  webRisk: WebRiskData | null;
   errors: {
     psi?: string;
     gsc?: string;
     ga4?: string;
     gemini?: string;
+    webRisk?: string;
   };
   fetchedAt: string;
 }
@@ -496,7 +505,7 @@ export interface IndexingPublishRequest {
 export interface IndexingPublishResult {
   url: string;
   type: 'URL_UPDATED' | 'URL_DELETED';
-  status: 'SUBMITTED' | 'SIMULATED_SUCCESS' | 'ERROR';
+  status: 'SUBMITTED' | 'ERROR';
   notifyTime: string;
   message: string;
 }
