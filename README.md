@@ -100,3 +100,9 @@ flowchart TD
 - **Database & Cache**: PostgreSQL 16 (Docker), Prisma ORM 5.22, Redis 7
 - **AI & Official APIs**: Google PageSpeed Insights v5, Chrome UX Report API, Google Search Console API, Google Web Risk v1, Google Indexing v3, Google Gemini 2.5 Flash
 - **Infrastructure**: Caddy v2 (Reverse Proxy & Auto SSL), PM2 (`ecosystem.config.cjs`), Linux (ssh home)
+
+---
+
+## License
+
+このプロジェクトは [MIT License](./LICENSE) で公開しています。
