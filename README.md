@@ -20,8 +20,8 @@
 2. **Google公式API完全統合 & 具体的修正案の自動生成**
    - **PageSpeed Insights (v5)**: CrUX実測値 & LighthouseラボデータによるCore Web Vitals精密測定。
    - **Search Console URL Inspection**: Googlebot公式のインデックス状態（未登録/重複/canonical不備）照会。
-   - **Safe Browsing (v4)** & **Google Indexing API (v3)**: セキュリティ脅威判定 & 即時巡回通知。
-   - **Gemini 2.0 API**: 課題に対するBefore/After差分と、Next.js App Router向けコピペ用改善コードの動的生成。
+   - **Web Risk (v1)** & **Google Indexing API (v3)**: 広告収益を含むサイト向けのセキュリティ脅威判定 & 対象構造化データの更新通知。
+   - **Gemini 2.5 Flash API**: 課題に対するBefore/After差分と、Next.js App Router向けコピペ用改善コードの動的生成。
 3. **メタ情報・タグ競合・文字化け 完全検知エンジン**
    - 複数Canonicalタグ重複、Robotsディレクティブの矛盾、文字コード（Mojibake）の検知。
    - 相対パスCanonical/OGP画像の検出、Hreflang多言語相互リンク欠落の検出。
@@ -72,7 +72,7 @@ flowchart TD
 
 ## 📚 設計書一覧 (Complete Documentation Suite)
 
-本プロジェクトは、以下の11件の詳細仕様書により完全設計されています。
+本プロジェクトは、以下の12件の詳細仕様書により設計・運用方針を公開しています。読みやすく整理した版は [GitHub Wiki](https://github.com/nntokyo/seo.n-n.tokyo/wiki) から参照できます。
 
 | ファイル | ドキュメント名 | 内容概要 |
 |---|---|---|
@@ -84,10 +84,11 @@ flowchart TD
 | [`docs/04_API_SPECIFICATION.md`](./docs/04_API_SPECIFICATION.md) | **API詳細仕様書** | バックエンド専用ポート5601、REST API、SSE、Webhook仕様 |
 | [`docs/05_UI_UX_DESIGN.md`](./docs/05_UI_UX_DESIGN.md) | **UI/UX・画面詳細設計書** | ShadcnAdminダッシュボード、Refero 16:10プレビュー、DOM差分 |
 | [`docs/06_AI_GEO_OPTIMIZATION.md`](./docs/06_AI_GEO_OPTIMIZATION.md) | **AEO/AIO/LLMO/GEO最適化詳細設計書** | 強調スニペット/音声検索(AEO)、AI Overviews(AIO)、ChatGPT(LLMO)、Perplexity(GEO) |
-| [`docs/07_GOOGLE_OFFICIAL_APIS.md`](./docs/07_GOOGLE_OFFICIAL_APIS.md) | **Google公式API連携仕様書** | PSI, GSC URL Inspection, Safe Browsing, Indexing, Gemini |
+| [`docs/07_GOOGLE_OFFICIAL_APIS.md`](./docs/07_GOOGLE_OFFICIAL_APIS.md) | **Google公式API連携仕様書** | PSI, GSC URL Inspection, Web Risk, Indexing, Gemini |
 | [`docs/08_OPERATIONS_AND_SECURITY.md`](./docs/08_OPERATIONS_AND_SECURITY.md) | **運用・インフラ・セキュリティ設計** | ゼロダウンタイムデプロイ、GitHub Webhook設定、PM2構成、Caddy |
 | [`docs/09_META_DEFECT_DETECTION.md`](./docs/09_META_DEFECT_DETECTION.md) | **メタ不具合・競合・文字化け仕様書**| タグ重複、Mojibake、Canonical不整合、SSR遅延注入、Hreflang |
 | [`docs/10_CRAWLER_AND_SCRAPING_ENGINE.md`](./docs/10_CRAWLER_AND_SCRAPING_ENGINE.md) | **クローラー・SPA描画判定仕様書** | WAF対策、ハイドレーション待機、CMPバナー無効化、チェックポイント再開 |
+| [`docs/11_OSS_SUPPORT_PROGRAMS.md`](./docs/11_OSS_SUPPORT_PROGRAMS.md) | **OSS支援制度と申請準備** | Codex for Open Source、Codex open source fund、Claude for Open Source、申請証拠の整備方針 |
 
 ---
 
@@ -97,5 +98,5 @@ flowchart TD
 - **Backend (`apps/backend` - Port 5601)**: Fastify / Node.js 22 LTS, TypeScript, Playwright (Chromium Cluster), Cheerio, BullMQ
 - **Webhook & Deploy (`infra` - Port 9104)**: Node.js Webhook Server (HMAC-SHA256署名検証), `infra/deploy.sh` (Zero-downtime & Auto-rollback)
 - **Database & Cache**: PostgreSQL 16 (Docker), Prisma ORM 5.22, Redis 7
-- **AI & Official APIs**: Google PageSpeed Insights v5, Google Search Console API, Google Safe Browsing v4, Google Indexing v3, Google Gemini 2.0 Flash / Pro
+- **AI & Official APIs**: Google PageSpeed Insights v5, Chrome UX Report API, Google Search Console API, Google Web Risk v1, Google Indexing v3, Google Gemini 2.5 Flash
 - **Infrastructure**: Caddy v2 (Reverse Proxy & Auto SSL), PM2 (`ecosystem.config.cjs`), Linux (ssh home)

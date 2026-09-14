@@ -27,7 +27,7 @@ $$
 
 > [!IMPORTANT]
 > **クリティカルペナルティ乗数 ($M_{\text{critical}}$)**:
-> もし「意図しないnoindex誤爆」「複数Canonical競合」「Google Safe Browsingブラックリスト該当」などの致命的欠陥が存在する場合、$M_{\text{critical}} = 0.5$（最大でも総合50点以下に強制制限）が適用されます。
+> もし「意図しないnoindex誤爆」「複数Canonical競合」「Google Web Riskでの脅威検出」などの致命的欠陥が存在する場合、$M_{\text{critical}} = 0.5$（最大でも総合50点以下に強制制限）が適用されます。
 
 ---
 
@@ -95,7 +95,7 @@ flowchart TD
     
     Analyzer --> RuleEngine{"静的ルール定義あり？"}
     RuleEngine -- あり (定型パターン) --> StaticTemplate["定型スニペット生成\n(Next.js Image / Metadata API / Caddy / Nginx)"]
-    RuleEngine -- なし (文脈・テキスト依存) --> Gemini["Google Gemini 2.0 API\n(文脈を考慮した自然な日本語リライト & コード生成)"]
+    RuleEngine -- なし (文脈・テキスト依存) --> Gemini["Google Gemini 2.5 Flash API\n(文脈を考慮した自然な日本語リライト & コード生成)"]
     
     StaticTemplate & Gemini --> DiffBuilder["Before / After 視覚差分ビルダー"]
     DiffBuilder --> ProposalCard["FixProposal Entity 構築\n(UIに即時表示 & クリップボードコピー)"]
