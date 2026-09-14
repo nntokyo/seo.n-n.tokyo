@@ -520,6 +520,11 @@ ${linksSection}
 
     const user = currentUser(request);
     const isSuperAdmin = user?.role === 'ADMIN';
+    const publicSiteUrl = process.env.PUBLIC_SITE_URL || 'https://seo.n-n.tokyo';
+    let isSystemSite = false;
+    try {
+      isSystemSite = new URL(targetUrl).origin === new URL(publicSiteUrl).origin;
+    } catch {}
 
     // プロジェクト設定の読み込み
     let projectGoogleApiKey: string | undefined;
@@ -557,6 +562,7 @@ ${linksSection}
         gscSiteUrl,
         ga4PropertyId,
         isSuperAdmin,
+        allowSystemApiKey: isSystemSite,
       });
       return hubData;
     } catch (err: any) {
