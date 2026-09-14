@@ -72,7 +72,7 @@ flowchart TD
 
 ## 📚 設計書一覧 (Complete Documentation Suite)
 
-本プロジェクトは、以下の12件の詳細仕様書により設計・運用方針を公開しています。読みやすく整理した版は [GitHub Wiki](https://github.com/nntokyo/seo.n-n.tokyo/wiki) から参照できます。
+本プロジェクトは、以下の13件の詳細仕様書により設計・運用方針を公開しています。読みやすく整理した版は [GitHub Wiki](https://github.com/nntokyo/seo.n-n.tokyo/wiki) から参照できます。
 
 | ファイル | ドキュメント名 | 内容概要 |
 |---|---|---|
@@ -89,6 +89,7 @@ flowchart TD
 | [`docs/09_META_DEFECT_DETECTION.md`](./docs/09_META_DEFECT_DETECTION.md) | **メタ不具合・競合・文字化け仕様書**| タグ重複、Mojibake、Canonical不整合、SSR遅延注入、Hreflang |
 | [`docs/10_CRAWLER_AND_SCRAPING_ENGINE.md`](./docs/10_CRAWLER_AND_SCRAPING_ENGINE.md) | **クローラー・SPA描画判定仕様書** | WAF対策、ハイドレーション待機、CMPバナー無効化、チェックポイント再開 |
 | [`docs/11_OSS_SUPPORT_PROGRAMS.md`](./docs/11_OSS_SUPPORT_PROGRAMS.md) | **OSS支援制度と申請準備** | Codex for Open Source、Codex open source fund、Claude for Open Source、申請証拠の整備方針 |
+| [`docs/12_ADSENSE_AND_PRIVACY.md`](./docs/12_ADSENSE_AND_PRIVACY.md) | **Google AdSense・広告表示・プライバシー運用** | 環境変数、ads.txt、自動広告、CMP、審査と障害対応 |
 
 ---
 
