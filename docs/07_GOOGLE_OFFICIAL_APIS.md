@@ -18,7 +18,7 @@ graph TD
         PSI["1. PageSpeed Insights API v5\n(Lighthouse & CrUX 実ユーザー体験)"]
         GSC_Inspect["2. Search Console URL Inspection API\n(Google公式インデックス状態・リッチリザルト)"]
         GSC_Search["3. Search Console Search Analytics API\n(クエリ・表示回数・順位・CTR分析)"]
-        SafeBrowse["4. Google Safe Browsing API v4\n(セキュリティ・マルウェア・フィッシング判定)"]
+        WebRisk["4. Google Web Risk API v1\n(広告収益を含む用途のマルウェア・フィッシング判定)"]
         Indexing["5. Google Indexing API v3\n(新規/更新URLの即時クロール通知)"]
         Gemini["6. Google Gemini API\n(文脈認識による修正案・日本語リライト自動生成)"]
     end
@@ -26,7 +26,7 @@ graph TD
     App -->|API Key| PSI
     App -->|OAuth2 / Service Account| GSC_Inspect
     App -->|OAuth2 / Service Account| GSC_Search
-    App -->|API Key| SafeBrowse
+    App -->|API Key| WebRisk
     App -->|Service Account (JWT)| Indexing
     App -->|API Key / Vertex AI| Gemini
 ```
@@ -134,7 +134,7 @@ Googlebotが実際にどのようにページをインデックスしている�
 ---
 
 ### 2.7 Google Gemini API (修正案自動生成エンジン)
-Googleの最新LLM（Gemini 2.0 Flash / Pro）を活用し、検出された課題を解決するための**「自然で検索意図に沿った日本語修正テキスト」**および**「Next.js等の実装コード」**をオンデマンドで生成します。
+Google Gemini 2.5 Flashを活用し、検出された課題を解決するための**「自然で検索意図に沿った日本語修正テキスト」**および**「Next.js等の実装コード」**をオンデマンドで生成します。
 
 - **役割**:
   1. タイトルタグの全角30文字リライト（キーワードを含みクリック率を高める文案を3パターン提示）
@@ -164,7 +164,7 @@ flowchart TD
 #### 仕様詳細
 1. **プロジェクト固有のGoogle API設定 (`ProjectGoogleSettings`)**:
    - 各プロジェクトごとに、以下の認証情報を独立して保存・管理：
-     - `googleApiKey`: プロジェクト専用のGoogle Cloud API Key (PageSpeed Insights, Safe Browsing等)
+     - `googleApiKey`: プロジェクト専用のGoogle Cloud API Key (PageSpeed Insights, Chrome UX Report等)
      - `geminiApiKey`: プロジェクト専用のGoogle Gemini API Key
      - `gscSiteUrl`: 対象Search Consoleプロパティ（例: `sc-domain:example.com`）
      - `ga4PropertyId`: 対象Google Analytics 4 プロパティID（例: `123456789`）
@@ -257,7 +257,7 @@ export default function RootLayout({ children }) {
 
 ---
 
-### 4.4 【安全対策課題】「Safe Browsing 警告 / セキュリティヘッダー欠落」の場合
+### 4.4 【安全対策課題】「Web Risk 脅威検出 / セキュリティヘッダー欠落」の場合
 - **修正案**: `next.config.mjs` に安全ヘッダーを追加する完全な設定スニペットを提示。
 
 ```javascript
