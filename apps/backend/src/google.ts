@@ -248,6 +248,38 @@ interface PsiCacheEntry {
   cachedAt: number;
 }
 const psiMemoryCache = new Map<string, PsiCacheEntry>();
+const psiInFlight = new Map<string, Promise<PsiCruxData>>();
+const PSI_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const psiCacheDir = path.resolve(process.cwd(), '.data', 'google-cache');
+
+function psiCachePath(targetUrl: string): string {
+  const key = crypto.createHash('sha256').update(targetUrl).digest('hex');
+  return path.join(psiCacheDir, `psi-${key}.json`);
+}
+
+function readPsiCache(targetUrl: string): PsiCacheEntry | null {
+  const memory = psiMemoryCache.get(targetUrl);
+  if (memory) return memory;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(psiCachePath(targetUrl), 'utf8')) as PsiCacheEntry;
+    if (!parsed?.data || !Number.isFinite(parsed.cachedAt)) return null;
+    psiMemoryCache.set(targetUrl, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePsiCache(targetUrl: string, entry: PsiCacheEntry): void {
+  psiMemoryCache.set(targetUrl, entry);
+  try {
+    fs.mkdirSync(psiCacheDir, { recursive: true });
+    const destination = psiCachePath(targetUrl);
+    const temporary = `${destination}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, JSON.stringify(entry), { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(temporary, destination);
+  } catch {}
+}
 
 function metric(value: number | undefined, label: string, unit: string, good: number, poor: number): PsiCruxData['lcp'] {
   if (value === undefined || !Number.isFinite(value)) {
@@ -296,10 +328,29 @@ export async function fetchPsiData(
   isSuperAdmin?: boolean
 ): Promise<PsiCruxData> {
   const normUrl = targetUrl.trim();
-  const cached = psiMemoryCache.get(normUrl);
-  if (cached && Date.now() - cached.cachedAt < 3600 * 1000) {
+  const cached = readPsiCache(normUrl);
+  if (cached && Date.now() - cached.cachedAt < PSI_CACHE_TTL_MS) {
     return cached.data;
   }
+
+  const running = psiInFlight.get(normUrl);
+  if (running) return running;
+
+  const request = fetchPsiDataUncached(normUrl, customApiKey, isSuperAdmin, cached);
+  psiInFlight.set(normUrl, request);
+  try {
+    return await request;
+  } finally {
+    psiInFlight.delete(normUrl);
+  }
+}
+
+async function fetchPsiDataUncached(
+  normUrl: string,
+  customApiKey?: string,
+  isSuperAdmin?: boolean,
+  staleCache?: PsiCacheEntry | null
+): Promise<PsiCruxData> {
 
   // スーパー管理者のみ環境変数のシステムキーを使用可能。一般ユーザーはプロジェクト独自キーが必要
   const apiKey = customApiKey || (isSuperAdmin ? (process.env.GOOGLE_PAGESPEED_API_KEY || process.env.GOOGLE_API_KEY) : undefined);
@@ -319,7 +370,9 @@ export async function fetchPsiData(
       const res = await fetch(endpoint, { signal: AbortSignal.timeout(28000) });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(`PageSpeed APIエラー (${res.status}): ${errJson.error?.message || '診断に失敗しました'}`);
+        const error = new Error(`PageSpeed APIエラー (${res.status}): ${errJson.error?.message || '診断に失敗しました'}`) as Error & { status?: number };
+        error.status = res.status;
+        throw error;
       }
 
       const data = await res.json();
@@ -371,13 +424,19 @@ export async function fetchPsiData(
         fetchedAt: new Date().toISOString(),
       };
 
-      psiMemoryCache.set(normUrl, { data: psiResult, cachedAt: Date.now() });
+      writePsiCache(normUrl, { data: psiResult, cachedAt: Date.now() });
       return psiResult;
     } catch (err: any) {
       lastError = err;
-      if (attempt === 1) {
+      if (err?.status === 429 && staleCache) {
+        return staleCache.data;
+      }
+      const retryable = !err?.status || err.status >= 500;
+      if (attempt === 1 && retryable) {
         // 短い待機後に再試行
         await new Promise((r) => setTimeout(r, 1000));
+      } else {
+        break;
       }
     }
   }
