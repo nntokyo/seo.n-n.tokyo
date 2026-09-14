@@ -792,8 +792,20 @@ export default function LandingPage() {
             <span>無料で診断を開始する</span>
             <ArrowRight className="w-4 h-4" />
           </a>
-          <div className="mt-12 text-xs text-slate-600">
-            © 2026 合同会社NN (seo.n-n.tokyo). All rights reserved.
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-slate-500">
+            <Link href="/about" className="hover:text-cyan-300 transition-colors">このサイトについて</Link>
+            <Link href="/privacy" className="hover:text-cyan-300 transition-colors">プライバシーポリシー</Link>
+            <a
+              href="https://github.com/nntokyo/seo.n-n.tokyo"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-cyan-300 transition-colors"
+            >
+              ソースコード
+            </a>
+          </div>
+          <div className="mt-5 text-xs text-slate-600">
+            © 2026 RYO MIURA / SEO Analyzer
           </div>
         </div>
       </footer>

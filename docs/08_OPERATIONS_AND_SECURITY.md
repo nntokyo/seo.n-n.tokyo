@@ -11,7 +11,7 @@
 
 ## 1. 本番サーバー環境概要 & ゼロダウンタイム構成
 
-合同会社NNの自社インフラ基準に準拠し、本番サーバー `home` 上でPM2、Docker PostgreSQL 16、Caddyリバースプロキシ、および **GitHub Webhook駆動のゼロダウンタイム自動デプロイパイプライン** により運用します。
+個人運営の本番サーバー `home` 上でPM2、Docker PostgreSQL 16、Caddyリバースプロキシ、および **GitHub Webhook駆動のゼロダウンタイム自動デプロイパイプライン** により運用します。
 
 ```mermaid
 flowchart TD
