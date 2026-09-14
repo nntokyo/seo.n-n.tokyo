@@ -325,7 +325,7 @@ async function fetchCruxMetrics(targetUrl: string, apiKey?: string) {
 export async function fetchPsiData(
   targetUrl: string,
   customApiKey?: string,
-  isSuperAdmin?: boolean
+  allowSystemApiKey?: boolean
 ): Promise<PsiCruxData> {
   const normUrl = targetUrl.trim();
   const cached = readPsiCache(normUrl);
@@ -336,7 +336,7 @@ export async function fetchPsiData(
   const running = psiInFlight.get(normUrl);
   if (running) return running;
 
-  const request = fetchPsiDataUncached(normUrl, customApiKey, isSuperAdmin, cached);
+  const request = fetchPsiDataUncached(normUrl, customApiKey, allowSystemApiKey, cached);
   psiInFlight.set(normUrl, request);
   try {
     return await request;
@@ -348,12 +348,15 @@ export async function fetchPsiData(
 async function fetchPsiDataUncached(
   normUrl: string,
   customApiKey?: string,
-  isSuperAdmin?: boolean,
+  allowSystemApiKey?: boolean,
   staleCache?: PsiCacheEntry | null
 ): Promise<PsiCruxData> {
 
   // スーパー管理者のみ環境変数のシステムキーを使用可能。一般ユーザーはプロジェクト独自キーが必要
-  const apiKey = customApiKey || (isSuperAdmin ? (process.env.GOOGLE_PAGESPEED_API_KEY || process.env.GOOGLE_API_KEY) : undefined);
+  const apiKey = customApiKey || (allowSystemApiKey ? (process.env.GOOGLE_PAGESPEED_API_KEY || process.env.GOOGLE_API_KEY) : undefined);
+  if (!apiKey) {
+    throw new Error('PageSpeed APIキーが利用できません。ログイン後にプロジェクト専用キーを設定してください');
+  }
   const urlParams = new URLSearchParams({
     url: normUrl,
     strategy: 'mobile',
@@ -760,6 +763,7 @@ export async function getGoogleHubData(
     gscSiteUrl?: string;
     ga4PropertyId?: string;
     isSuperAdmin?: boolean;
+    allowSystemApiKey?: boolean;
   }
 ): Promise<GoogleHubDataResponse> {
   const session = getSession(sessionId);
@@ -768,7 +772,7 @@ export async function getGoogleHubData(
 
   // 並列実行 (PSI, GSC, GA4, Gemini)
   const [psiResult, gscResult, ga4Result, webRiskResult] = await Promise.allSettled([
-    fetchPsiData(targetUrl, options?.customGoogleApiKey, options?.isSuperAdmin).catch((err) => {
+    fetchPsiData(targetUrl, options?.customGoogleApiKey, options?.isSuperAdmin || options?.allowSystemApiKey).catch((err) => {
       errors.psi = err.message || 'PageSpeedデータの取得に失敗しました';
       return null;
     }),
