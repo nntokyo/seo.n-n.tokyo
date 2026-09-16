@@ -38,8 +38,9 @@ module.exports = {
         NEXT_PUBLIC_APP_URL: "https://seo.n-n.tokyo",
         NEXT_PUBLIC_DOMAIN: "seo.n-n.tokyo",
         // .envから明示的に渡し、動的な/ads.txtでも参照できるようにする。
-        GOOGLE_ADSENSE_CLIENT_ID: process.env.GOOGLE_ADSENSE_CLIENT_ID,
+        NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID,
         GOOGLE_ADSENSE_PUBLISHER_ID: process.env.GOOGLE_ADSENSE_PUBLISHER_ID,
+        NEXT_PUBLIC_GOOGLE_ADSENSE_SLOT_ID: process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_SLOT_ID,
       },
       max_memory_restart: "512M",
     },

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import './globals.css';
 
@@ -34,20 +35,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-  const adsenseClientId = process.env.GOOGLE_ADSENSE_CLIENT_ID;
+  const adsenseClientId = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID;
   const isValidAdsenseClientId = /^ca-pub-\d+$/.test(adsenseClientId || '');
 
   return (
     <html lang="ja" className="dark">
-      <head>
-        {process.env.NODE_ENV === 'production' && isValidAdsenseClientId && (
-          <script
-            async
-            crossOrigin="anonymous"
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
-          />
-        )}
-      </head>
+      {process.env.NODE_ENV === 'production' && isValidAdsenseClientId && (
+        <Script
+          id="google-adsense"
+          async
+          crossOrigin="anonymous"
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
+          strategy="beforeInteractive"
+        />
+      )}
       <body className="min-h-screen obsidian-grid antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
         {children}
       </body>
