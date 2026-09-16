@@ -27,6 +27,7 @@ import {
   User
 } from 'lucide-react';
 import { AuthUser } from '@seo/shared';
+import { AdSenseUnit } from './_components/AdSenseUnit';
 
 interface AuditResponse {
   id: string;
@@ -552,6 +553,8 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <AdSenseUnit />
 
       {/* 4. Core Features Section (Grid with Refero Aesthetics) */}
       <section id="features" className="py-20 border-t border-white/[0.08] bg-[#080B11]">
