@@ -14,6 +14,8 @@ AdSenseのパブリッシャーIDは広告タグと`ads.txt`で一般公開さ�
 | `GOOGLE_ADSENSE_PUBLISHER_ID` | `pub-...` | `/ads.txt`の認定販売者行を生成 |
 | `NEXT_PUBLIC_GOOGLE_ADSENSE_SLOT_ID` | 数字 | SEO Analyzer専用のレスポンシブ広告枠を出力 |
 
+旧`GOOGLE_ADSENSE_CLIENT_ID`は環境変数名の移行中だけ広告スクリプトのフォールバックとして読み込みます。専用広告枠は公開用の2変数がそろった場合だけ出力します。
+
 クライアントシークレット、APIキー、支払い情報は広告タグに不要であり、ソースコード、Wiki、ブラウザへ出力しません。
 
 ## 3. 実装
