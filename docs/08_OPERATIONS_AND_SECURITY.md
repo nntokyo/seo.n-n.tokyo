@@ -28,7 +28,7 @@ flowchart TD
         WebhookService -->|非同期実行| DeployScript["ゼロダウンタイム・デプロイスクリプト\n(/Datas/www/seo.n-n.tokyo/infra/deploy.sh)"]
         
         DeployScript --> Step1["1. 依存関係インストール (pnpm install)"]
-        Step1 --> Step2["2. DBスキーマ安全同期 (prisma db push)"]
+        Step1 --> Step2["2. DBマイグレーション適用 (prisma migrate deploy)"]
         Step2 --> Step3["3. バックグラウンド並列ビルド (pnpm build)"]
         Step3 --> Step4["4. PM2 reload (旧プロセス稼働維持のまま新プロセス起動)"]
         Step4 --> Step5{"5. 内部ヘルスチェック (HTTP 200確認)"}
@@ -94,3 +94,16 @@ GitHubリポジトリ（`git@nntokyo:nntokyo/seo.n-n.tokyo.git`）の Settings >
 3. **Secret**: `.env` に定義した `DEPLOY_WEBHOOK_SECRET` と同一の文字列（HMAC-SHA256署名検証に使用）
 4. **Which events would you like to trigger this webhook?**: `Just the push event`
 5. **Active**: 有効 (Check)
+
+
+---
+
+## 5. Prisma Migration 運用
+
+本番デプロイでは `prisma db push` と `--accept-data-loss` を使用せず、リポジトリ管理されたmigrationだけを `prisma migrate deploy` で適用します。
+
+- 開発時: `pnpm db:migrate:dev -- --name <migration-name>`
+- 本番: `pnpm db:migrate:deploy`
+- Client再生成: `pnpm db:generate`
+
+既存の本番DBをMigrate管理へ初回移行する際は、現在のスキーマをbaseline migrationとして作成し、DBバックアップ取得後に `prisma migrate resolve --applied <baseline>` で既存DBへ適用済みとして登録してください。以後、破壊的変更はexpand/contract方式で段階的に行い、DB migrationのロールバックはアプリケーションのgit rollbackとは分離して扱います。
