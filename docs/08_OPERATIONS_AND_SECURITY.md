@@ -9,9 +9,9 @@
 
 ---
 
-## 1. 本番サーバー環境概要 & ゼロダウンタイム構成
+## 1. 本番サーバー環境概要 & ローリング構成
 
-個人運営の本番サーバー `home` 上でPM2、Docker PostgreSQL 16、Caddyリバースプロキシ、および **GitHub Webhook駆動のゼロダウンタイム自動デプロイパイプライン** により運用します。
+個人運営の本番サーバー `home` 上でPM2、Docker PostgreSQL 16、Caddyリバースプロキシ、および **GitHub Webhook駆動のローリング自動デプロイパイプライン** により運用します。
 
 ```mermaid
 flowchart TD
@@ -23,16 +23,16 @@ flowchart TD
         Caddy -->|/*| FrontendService["127.0.0.1:5600 (seo-frontend)"]
     end
 
-    subgraph ZeroDowntimePipeline["ゼロダウンタイム・デプロイ (/deploy.sh)"]
+    subgraph ZeroDowntimePipeline["ローリング・デプロイ (/deploy.sh)"]
         GitHub["GitHub Push Event\n(main branch)"] -->|HMAC-SHA256署名| WebhookService
-        WebhookService -->|非同期実行| DeployScript["ゼロダウンタイム・デプロイスクリプト\n(/Datas/www/seo.n-n.tokyo/infra/deploy.sh)"]
+        WebhookService -->|非同期実行| DeployScript["ローリング・デプロイスクリプト\n(/Datas/www/seo.n-n.tokyo/infra/deploy.sh)"]
         
         DeployScript --> Step1["1. 依存関係インストール (pnpm install)"]
         Step1 --> Step2["2. DBスキーマ安全同期 (prisma db push)"]
         Step2 --> Step3["3. バックグラウンド並列ビルド (pnpm build)"]
         Step3 --> Step4["4. PM2 reload (旧プロセス稼働維持のまま新プロセス起動)"]
         Step4 --> Step5{"5. 内部ヘルスチェック (HTTP 200確認)"}
-        Step5 -- 成功 --> StepOK["デプロイ完了 (ダウンタイム0秒)"]
+        Step5 -- 成功 --> StepOK["デプロイ完了"]
         Step5 -- 失敗 --> StepFail["🚨 自動ロールバック (旧バージョン継続稼働)"]
     end
 
@@ -44,16 +44,16 @@ flowchart TD
 
 ## 2. システムがダウンしない耐障害性・高可用性アーキテクチャ
 
-本システムでは、以下の5重の保護機構により**「アップデート中・デプロイ失敗時でも絶対にシステムがダウンしない」**構成を徹底しています。
+本システムでは、以下の5重の保護機構により旧成果物をビルド完了まで維持し、PM2 reloadとヘルスチェックで停止時間を最小化します。ただしfrontend/backendは各1インスタンスのfork modeであり、厳密な無瞬断は保証しません。
 
 ### ① 事前ビルドによる旧バージョン稼働維持（No Pre-kill）
 一般的なデプロイスクリプトでは「プロセス停止 ➔ ビルド ➔ 起動」を行ってしまい数分間のダウンタイム（502 Bad Gateway）が発生しますが、本システムでは **「旧プロセスがリクエストを処理し続けている間にバックグラウンドで新コードをビルド（pnpm build）」** します。
 
-### ② PM2 reload によるGraceful Zero-Downtime Reload
-ビルドが100%成功した後、PM2の `reload` コマンドを使用します。これにより、新プロセスが起動してリッスンを開始するまで旧プロセスがトラフィックを受け持ち、ダウンタイム0秒で世代交代が行われます。
+### ② PM2 reload によるGraceful Reload
+ビルドが100%成功した後、PM2の `reload` コマンドを使用します。これにより、新プロセスが起動してリッスンを開始するまで旧プロセスがトラフィックを受け持ち、切替時の停止時間を最小化します。単一forkプロセス構成のため、短い接続影響が発生する可能性があります。
 
 ### ③ 自動ヘルスチェック & 即時ロールバック機構
-新プロセスのリロード後、内部エンドポイント（`http://127.0.0.1:5601/api/health` および `http://127.0.0.1:5600/`）に対して最大20秒間のヘルスチェックを実行。もし起動失敗や例外が発生した場合は、**即座に直前の正常コミットへ `git reset --hard` し、旧バージョンを無瞬断で継続稼働** させます。
+新プロセスのリロード後、内部エンドポイント（`http://127.0.0.1:5601/api/health` および `http://127.0.0.1:5600/`）に対して最大20秒間のヘルスチェックを実行。もし起動失敗や例外が発生した場合は、**即座に直前の正常コミットへ `git reset --hard` し、旧バージョンへ復元** させます。
 
 ### ④ Caddyリバースプロキシの自動フォールバック & エラーハンドリング
 Caddyはバックエンドやフロントエンドへの接続をヘルス監視し、仮に通信エラーが発生した場合でも `flush_interval -1` と適切なタイムアウト制御によりクライアントへのパケットドロップを防止します。
