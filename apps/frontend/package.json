@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev -p 5600",
     "build": "next build",
-    "start": "next start -p 5600"
+    "start": "next start -p 5600",
+    "typecheck": "tsc --noEmit --pretty false"
   },
   "dependencies": {
     "@next/third-parties": "15.2.1",

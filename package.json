@@ -7,7 +7,10 @@
     "dev:backend": "pnpm --filter @seo/backend dev",
     "build": "pnpm --filter @seo/shared build && pnpm --filter @seo/backend build && pnpm --filter @seo/frontend build",
     "start:frontend": "pnpm --filter @seo/frontend start",
-    "start:backend": "pnpm --filter @seo/backend start"
+    "start:backend": "pnpm --filter @seo/backend start",
+    "lint": "pnpm typecheck",
+    "typecheck": "pnpm --filter @seo/shared typecheck && pnpm --filter @seo/shared build && pnpm --filter @seo/backend typecheck && pnpm --filter @seo/frontend typecheck",
+    "test": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
     "prisma": "6.19.3"
