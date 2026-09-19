@@ -1,0 +1,31 @@
+name: Cleanup SEO branch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.head_ref == 'maintenance/cleanup-seo-branch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Delete merged branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          branches=(
+            "seo/indexability-content-foundation"
+            "maintenance/cleanup-seo-branch"
+          )
+          for branch in "${branches[@]}"; do
+            if git ls-remote --exit-code --heads origin "refs/heads/${branch}" >/dev/null 2>&1; then
+              git push origin --delete "${branch}"
+            fi
+          done
