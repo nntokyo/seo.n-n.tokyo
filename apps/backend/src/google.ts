@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { decryptSecret, encryptSecret, safeEqual } from './security.js';
+import { safeFetchUrl } from './url-security.js';
 import {
   GoogleSessionStatus,
   PsiCruxData,
@@ -908,7 +909,7 @@ export async function publishUrlToIndexingApi(session: GoogleSessionRecord | nul
   if (!session) throw new Error('Googleアカウント連携が必要です');
 
   if (type === 'URL_UPDATED') {
-    const page = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    const page = await safeFetchUrl(url, { signal: AbortSignal.timeout(10_000) });
     if (!page.ok) throw new Error(`対象ページを確認できませんでした (HTTP ${page.status})`);
     const html = await page.text();
     const jsonLdBlocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
