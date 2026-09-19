@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { FullAuditResult } from '@seo/shared';
-import { evaluateAuditWithJev, type JevConfig } from './jev.js';
+import { evaluateAuditWithJev, validateGeminiProposalWithJev, type JevConfig } from './jev.js';
 
 function auditFixture(): FullAuditResult {
   return {
@@ -204,4 +204,98 @@ test('low-confidence Jev result never recommends Gemini generation', async () =>
   assert.equal(result.metrics[0].status, 'warning');
   assert.equal(result.jevShadow?.lowConfidenceCount, 1);
   assert.equal(result.jevShadow?.geminiCandidateCount, 0);
+});
+
+test('Gemini validation is fail-open when disabled', async () => {
+  const proposal = {
+    summary: 'summary',
+    strengths: [],
+    actionItems: [],
+    titleProposals: [],
+    generatedAt: new Date(0).toISOString(),
+  };
+
+  const result = await validateGeminiProposalWithJev(
+    { targetUrl: 'https://example.com' },
+    proposal,
+    {
+      config: enabledConfig,
+      enabled: false,
+      fetcher: (async () => {
+        throw new Error('should not run');
+      }) as typeof fetch,
+    },
+  );
+
+  assert.equal(result, undefined);
+});
+
+test('Gemini validation returns typed advisory metadata', async () => {
+  const proposal = {
+    summary: 'Improve metadata and performance.',
+    strengths: ['Fast response'],
+    actionItems: [{
+      title: 'Add canonical',
+      priority: 'high' as const,
+      impact: 'Reduce duplicate URL ambiguity',
+      suggestion: 'Add a canonical URL',
+    }],
+    titleProposals: ['Example title'],
+    generatedAt: new Date(0).toISOString(),
+  };
+
+  const result = await validateGeminiProposalWithJev(
+    { targetUrl: 'https://example.com', psiPerfScore: 80 },
+    proposal,
+    {
+      config: enabledConfig,
+      enabled: true,
+      fetcher: (async () => new Response(JSON.stringify({
+        model: 'jev-latest',
+        answers: {
+          addresses_input: { type: 'noul', noul: 0.9 },
+          seo_regression: { type: 'noul', noul: 0.2 },
+          action: {
+            type: 'choice',
+            choice: 'accept_with_warning',
+            probabilities: {
+              accept: 0.2,
+              accept_with_warning: 0.7,
+              needs_review: 0.09,
+              reject: 0.01,
+            },
+            confidence: 0.88,
+          },
+        },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as typeof fetch,
+    },
+  );
+
+  assert.equal(result?.action, 'accept_with_warning');
+  assert.equal(result?.addressesInputProbability, 0.9);
+  assert.equal(result?.seoRegressionProbability, 0.2);
+  assert.equal(result?.confidence, 0.6);
+  assert.ok((result?.latencyMs ?? -1) >= 0);
+});
+
+test('Gemini validation provider failure preserves Gemini output by returning undefined', async () => {
+  const proposal = {
+    summary: 'summary',
+    strengths: [],
+    actionItems: [],
+    titleProposals: [],
+    generatedAt: new Date(0).toISOString(),
+  };
+
+  const result = await validateGeminiProposalWithJev(
+    { targetUrl: 'https://example.com' },
+    proposal,
+    {
+      config: enabledConfig,
+      enabled: true,
+      fetcher: (async () => new Response('unavailable', { status: 503 })) as typeof fetch,
+    },
+  );
+
+  assert.equal(result, undefined);
 });
