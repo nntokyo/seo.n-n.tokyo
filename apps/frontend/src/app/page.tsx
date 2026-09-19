@@ -841,6 +841,39 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="border-t border-white/[0.08] bg-[#0B0F17] py-16" aria-labelledby="seo-guides-heading">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">SEO GUIDE</p>
+              <h2 id="seo-guides-heading" className="mt-2 text-2xl font-bold text-white sm:text-3xl">
+                SEO改善の手順を理解してから診断する
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">
+                ツールの点数だけでなく、インデックス、canonical、サイトマップ、内部リンクをどう確認するかを実務向けに解説しています。
+              </p>
+            </div>
+            <Link href="/guides" className="text-sm text-cyan-300 hover:text-cyan-200">
+              SEOガイド一覧 →
+            </Link>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Link href="/guides/seo-diagnosis" className="rounded-2xl border border-white/[0.08] bg-[#0F1623] p-5 hover:border-cyan-500/30">
+              <h3 className="font-semibold text-white">SEO診断のやり方</h3>
+              <p className="mt-2 text-xs leading-6 text-slate-400">何から確認し、どの順番で修正するかを整理します。</p>
+            </Link>
+            <Link href="/guides/llms-txt" className="rounded-2xl border border-white/[0.08] bg-[#0F1623] p-5 hover:border-cyan-500/30">
+              <h3 className="font-semibold text-white">llms.txtとは？</h3>
+              <p className="mt-2 text-xs leading-6 text-slate-400">役割、作り方、robots.txtやsitemapとの違いを解説します。</p>
+            </Link>
+            <Link href="/guides/xml-sitemap" className="rounded-2xl border border-white/[0.08] bg-[#0F1623] p-5 hover:border-cyan-500/30">
+              <h3 className="font-semibold text-white">XMLサイトマップの確認方法</h3>
+              <p className="mt-2 text-xs leading-6 text-slate-400">URL、lastmod、canonicalの整合を確認する方法をまとめます。</p>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* 6. CTA Footer */}
       <footer className="py-16 border-t border-white/[0.08] bg-[#080B11]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -884,6 +917,11 @@ export default function LandingPage() {
                 <li>
                   <Link href="/google/hub" className="hover:text-white transition-colors">
                     Google公式統合ハブ（PageSpeed / Search Console）
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/guides" className="hover:text-white transition-colors">
+                    SEOガイド（診断・llms.txt・XMLサイトマップ）
                   </Link>
                 </li>
               </ul>
