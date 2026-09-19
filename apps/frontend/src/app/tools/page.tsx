@@ -155,6 +155,20 @@ export default function ToolsPage() {
         </div>
       </main>
 
+      <section className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8" aria-labelledby="learn-seo">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0F1623] p-6">
+          <h2 id="learn-seo" className="text-lg font-semibold text-white">使い方を先に確認したい方へ</h2>
+          <p className="mt-2 text-xs leading-6 text-slate-400">
+            診断結果の読み方や、llms.txt・XMLサイトマップをどう運用するかはSEOガイドで解説しています。
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3 text-xs">
+            <Link href="/guides/seo-diagnosis" className="rounded-full border border-white/10 px-3 py-2 text-slate-300 hover:border-cyan-500/30 hover:text-cyan-300">SEO診断のやり方</Link>
+            <Link href="/guides/llms-txt" className="rounded-full border border-white/10 px-3 py-2 text-slate-300 hover:border-cyan-500/30 hover:text-cyan-300">llms.txtの作り方</Link>
+            <Link href="/guides/xml-sitemap" className="rounded-full border border-white/10 px-3 py-2 text-slate-300 hover:border-cyan-500/30 hover:text-cyan-300">XMLサイトマップ確認</Link>
+          </div>
+        </div>
+      </section>
+
       <AdSenseUnit placement="tools" className="mt-4" />
 
       <footer className="border-t border-white/[0.08] px-4 py-8 text-center text-xs text-slate-500">
