@@ -226,7 +226,7 @@ export async function evaluateAuditWithJev(
       const decision: AiDecisionMetadata = {
         provider: 'jev',
         priority: priority.choice as AiDecisionMetadata['priority'],
-        shouldGenerateWithGemini: noulProbability >= 0.5,
+        shouldGenerateWithGemini: noulProbability >= 0.5 && confidence >= config.minConfidence,
         regressionRisk: clampRisk(risk.score),
         confidence,
       };
