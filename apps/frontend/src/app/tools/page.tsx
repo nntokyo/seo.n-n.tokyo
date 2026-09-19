@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -12,6 +13,12 @@ import {
   Terminal,
 } from 'lucide-react';
 import { AdSenseUnit } from '../_components/AdSenseUnit';
+
+export const metadata: Metadata = {
+  title: 'SEO・AI検索ツール一覧',
+  description: 'SEO総合診断、サイトマップ分析、ディープクロール、llms.txt生成、Google公式API連携を目的別に選べるツール一覧です。',
+  alternates: { canonical: '/tools' },
+};
 
 const groups = [
   {
