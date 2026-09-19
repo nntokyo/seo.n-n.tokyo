@@ -250,6 +250,33 @@ export interface GscPageRow {
   position: number;
 }
 
+export interface GscOpportunity {
+  id: string;
+  type: 'ctr_opportunity' | 'striking_distance' | 'zero_click' | 'cannibalization' | 'indexing_issue';
+  priority: 'high' | 'medium' | 'low';
+  query?: string;
+  page?: string;
+  pages?: string[];
+  clicks?: number;
+  impressions?: number;
+  ctr?: number;
+  position?: number;
+  reason: string;
+  recommendedAction: string;
+}
+
+export interface GscOpportunitySummary {
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+  ctrOpportunities: number;
+  strikingDistance: number;
+  zeroClick: number;
+  cannibalization: number;
+  indexingIssues: number;
+}
+
 export interface GscAnalyticsData {
   siteUrl: string;
   totalClicks: number;
@@ -258,6 +285,8 @@ export interface GscAnalyticsData {
   averagePosition: number;
   topQueries: GscQueryRow[];
   topPages: GscPageRow[];
+  opportunities: GscOpportunity[];
+  opportunitySummary: GscOpportunitySummary;
   indexStatus?: {
     verdict: 'PASS' | 'NEUTRAL' | 'FAIL';
     coverageState: string;
