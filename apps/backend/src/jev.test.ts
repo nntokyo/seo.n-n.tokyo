@@ -145,6 +145,12 @@ test('Jev shadow response adds metadata without changing rule severity or score'
   });
   assert.equal(result.metrics[1].aiDecision, undefined);
   assert.equal(original.metrics[0].aiDecision, undefined);
+  assert.equal(result.jevShadow?.evaluatedCount, 1);
+  assert.equal(result.jevShadow?.geminiCandidateCount, 1);
+  assert.equal(result.jevShadow?.lowConfidenceCount, 0);
+  assert.equal(result.jevShadow?.averageConfidence, 0.8);
+  assert.equal(result.jevShadow?.model, 'jev-latest');
+  assert.ok((result.jevShadow?.latencyMs ?? -1) >= 0);
 });
 
 test('Jev HTTP failure fails open and preserves the audit', async () => {
@@ -196,4 +202,6 @@ test('low-confidence Jev result never recommends Gemini generation', async () =>
 
   assert.equal(result.metrics[0].aiDecision?.shouldGenerateWithGemini, false);
   assert.equal(result.metrics[0].status, 'warning');
+  assert.equal(result.jevShadow?.lowConfidenceCount, 1);
+  assert.equal(result.jevShadow?.geminiCandidateCount, 0);
 });
