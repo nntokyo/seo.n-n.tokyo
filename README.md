@@ -6,7 +6,7 @@
 > - [ShadcnAdmin](https://shadcnadmin.com/) — shadcn/ui, Tailwind CSS v4, OKLCH, Border Grids, Stat Cards, DataTables
 > - [Refero Styles](https://styles.refero.design/) — AI-Native DESIGN.md Standard, Obsidian Gallery Dark Aesthetic, 16:10 Media Containers, Pill Tabs
 >
-> 独立したバックエンド（API/Worker/Crawler）とフロントエンド（Next.js 15 UI）、およびGitHub Webhookによるゼロダウンタイム自動デプロイ機構を備えたエンタープライズSaaS設計です。
+> 独立したバックエンド（API/Worker/Crawler）とフロントエンド（Next.js 15 UI）、およびGitHub Webhookによるローリングデプロイ機構を備えたエンタープライズSaaS設計です。
 
 ---
 
@@ -52,19 +52,19 @@ flowchart TD
         GitHub["GitHub Push Event (main)"] -->|POST /webhook| Webhook
         Webhook -->|非同期実行| DeployScript["infra/deploy.sh"]
         DeployScript --> Build["1. バックグラウンド並列ビルド (旧プロセス稼働維持)"]
-        Build --> Reload["2. PM2 reload (ダウンタイム0秒でプロセス切替)"]
+        Build --> Reload["2. PM2 reload (短時間でプロセス切替)"]
         Reload --> Health{"3. 内部ヘルスチェック (200 OK)"}
         Health -- 成功 --> Success["✅ デプロイ完了"]
-        Health -- 失敗 --> Rollback["🚨 自動ロールバック (旧バージョンを無瞬断維持)"]
+        Health -- 失敗 --> Rollback["🚨 自動ロールバック (旧バージョンへロールバック)"]
     end
 
     Backend --> Postgres[("Docker PostgreSQL 16 (Port 5432)")]
     Backend --> Redis[("Redis 7 (Port 6379)")]
 ```
 
-### 🛡️ システムがダウンしない耐障害性保証
+### 🛡️ デプロイ時の可用性設計
 1. **No Pre-kill (稼働中ビルド)**: 新コードのビルド（pnpm build）が完全に成功するまで既存プロセスを一切停止しません。
-2. **Graceful Reload**: PM2の `reload` により、新プロセスがリッスンを開始した瞬間に入れ替えるため、瞬断が発生しません。
+2. **Graceful Reload**: PM2の `reload` により、PM2 reloadで停止時間を最小化します。現在は各サービス1インスタンスのfork modeのため、厳密な無瞬断は保証しません。
 3. **自動即時ロールバック**: ビルドやヘルスチェックが失敗した場合、直前の正常コミットへ即時ロールバックし旧バージョンを維持します。
 4. **二重デプロイ排他制御**: `flock` によるロックファイル管理で並列実行によるコード破損を防止します。
 
