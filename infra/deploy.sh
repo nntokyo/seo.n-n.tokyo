@@ -127,14 +127,17 @@ if [ -d "$BASE/apps/backend/dist" ]; then
   cp -a "$BASE/apps/backend/dist" "$BACKEND_DIST_BACKUP"
 fi
 
-# 3. Prisma DB スキーマ反映
+# 3. Prisma DB migration適用
 if [ -f "$BASE/prisma/schema.prisma" ]; then
-  log "Step 2: Syncing database schema (prisma db push)..."
-  if ! pnpm exec prisma db push --schema="$BASE/prisma/schema.prisma" --accept-data-loss 2>&1; then
-    log "prisma db push failed"
+  log "Step 2: Applying database migrations (prisma migrate deploy)..."
+  if ! pnpm exec prisma migrate deploy --schema="$BASE/prisma/schema.prisma" 2>&1; then
+    log "prisma migrate deploy failed"
     rollback
   fi
-  pnpm exec prisma generate --schema="$BASE/prisma/schema.prisma" 2>&1 || true
+  if ! pnpm exec prisma generate --schema="$BASE/prisma/schema.prisma" 2>&1; then
+    log "prisma generate failed"
+    rollback
+  fi
 fi
 
 # 4. 事前ビルド
