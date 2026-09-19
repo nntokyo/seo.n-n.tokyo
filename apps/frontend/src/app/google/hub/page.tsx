@@ -531,6 +531,77 @@ function GoogleHubContent() {
 
             {gsc ? (
               <div className="space-y-4">
+                {gsc.opportunitySummary && (
+                  <section className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5" aria-labelledby="gsc-opportunities-heading">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h4 id="gsc-opportunities-heading" className="text-sm font-bold text-white">SEO改善候補</h4>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Search Console実データから、次に改善する候補をルールベースで抽出しています。
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[10px] font-mono">
+                        <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-red-300">High {gsc.opportunitySummary.high}</span>
+                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-amber-300">Medium {gsc.opportunitySummary.medium}</span>
+                        <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-slate-300">Total {gsc.opportunitySummary.total}</span>
+                      </div>
+                    </div>
+
+                    {gsc.opportunities.length > 0 ? (
+                      <div className="mt-4 space-y-2">
+                        {gsc.opportunities.slice(0, 8).map((opportunity) => {
+                          const typeLabel = {
+                            ctr_opportunity: 'CTR改善',
+                            striking_distance: '順位押し上げ',
+                            zero_click: '表示あり・クリック0',
+                            cannibalization: 'カニバリゼーション',
+                            indexing_issue: 'インデックス',
+                          }[opportunity.type];
+                          return (
+                            <div key={opportunity.id} className="rounded-xl border border-white/[0.08] bg-[#0F1623] p-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                  opportunity.priority === 'high'
+                                    ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                                    : opportunity.priority === 'medium'
+                                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                                      : 'border-white/10 bg-white/5 text-slate-300'
+                                }`}>
+                                  {opportunity.priority}
+                                </span>
+                                <span className="text-[10px] font-mono text-cyan-300">{typeLabel}</span>
+                                {opportunity.query && <strong className="text-xs text-white">「{opportunity.query}」</strong>}
+                              </div>
+
+                              <p className="mt-2 text-xs leading-6 text-slate-300">{opportunity.reason}</p>
+                              {(opportunity.impressions !== undefined || opportunity.position !== undefined) && (
+                                <div className="mt-2 flex flex-wrap gap-3 text-[10px] font-mono text-slate-500">
+                                  {opportunity.impressions !== undefined && <span>表示 {opportunity.impressions.toLocaleString()}</span>}
+                                  {opportunity.clicks !== undefined && <span>クリック {opportunity.clicks.toLocaleString()}</span>}
+                                  {opportunity.ctr !== undefined && <span>CTR {opportunity.ctr}%</span>}
+                                  {opportunity.position !== undefined && <span>平均順位 {opportunity.position}</span>}
+                                </div>
+                              )}
+                              {opportunity.pages && opportunity.pages.length > 0 && (
+                                <div className="mt-2 space-y-1 text-[10px] font-mono text-slate-500">
+                                  {opportunity.pages.map((page) => <div key={page} className="truncate">{page}</div>)}
+                                </div>
+                              )}
+                              <p className="mt-3 rounded-lg bg-black/20 px-3 py-2 text-[11px] leading-5 text-slate-400">
+                                推奨: {opportunity.recommendedAction}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-xs text-slate-500">
+                        現在の28日データでは、閾値を満たす明確な改善候補はありません。表示回数が少ない場合はデータ蓄積を待って再確認してください。
+                      </p>
+                    )}
+                  </section>
+                )}
+
                 {/* インデックス判定ステータス */}
                 {gsc.indexStatus && (
                   <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0F1623] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">

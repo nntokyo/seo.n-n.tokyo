@@ -4,6 +4,7 @@ import path from 'node:path';
 import { decryptSecret, encryptSecret, safeEqual } from './security.js';
 import { safeFetchUrl } from './url-security.js';
 import { validateGeminiProposalWithJev } from './jev.js';
+import { buildGscOpportunities } from './gsc-opportunities.js';
 import {
   GoogleSessionStatus,
   PsiCruxData,
@@ -471,6 +472,7 @@ export async function fetchGscData(session: GoogleSessionRecord, targetUrl: stri
   let aggregateData: any = null;
   let queryData: any = null;
   let pageData: any = null;
+  let queryPageData: any = null;
   let matchedSiteUrl = siteUrlCandidates[0];
 
   // ユーザーが権限を持つプロパティを照合
@@ -488,11 +490,12 @@ export async function fetchGscData(session: GoogleSessionRecord, targetUrl: stri
       };
       const reports = await Promise.all([
         requestReport([], 1),
-        requestReport(['query'], 10),
-        requestReport(['page'], 10),
+        requestReport(['query'], 250),
+        requestReport(['page'], 100),
+        requestReport(['query', 'page'], 500),
       ]);
       if (reports[0]) {
-        [aggregateData, queryData, pageData] = reports;
+        [aggregateData, queryData, pageData, queryPageData] = reports;
         matchedSiteUrl = candidate;
         break;
       }
@@ -553,14 +556,32 @@ export async function fetchGscData(session: GoogleSessionRecord, targetUrl: stri
     }
   } catch {}
 
+  const queryPageRows = (queryPageData?.rows || []).map((r: any) => ({
+    query: r.keys[0],
+    page: r.keys[1],
+    clicks: Number(r.clicks || 0),
+    impressions: Number(r.impressions || 0),
+    ctr: Number((Number(r.ctr || 0) * 100).toFixed(2)),
+    position: Number(Number(r.position || 0).toFixed(1)),
+  }));
+
+  const { opportunities, summary: opportunitySummary } = buildGscOpportunities({
+    queries: topQueries,
+    queryPages: queryPageRows,
+    indexStatus,
+    targetUrl,
+  });
+
   return {
     siteUrl: matchedSiteUrl,
     totalClicks,
     totalImpressions,
     averageCtr,
     averagePosition,
-    topQueries,
-    topPages,
+    topQueries: topQueries.slice(0, 50),
+    topPages: topPages.slice(0, 50),
+    opportunities,
+    opportunitySummary,
     indexStatus,
     startDate,
     endDate,
