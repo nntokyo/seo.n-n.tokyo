@@ -102,3 +102,25 @@ Covered cases:
 - HTTP 429 fail-open
 - malformed response
 - low-confidence suppression
+
+
+## Observability
+
+The backend health endpoint exposes non-sensitive process-local Jev counters:
+
+- calls
+- successes
+- fallbacks
+- averageLatencyMs
+
+Each audit that receives valid Jev decisions also stores a `jevShadow` summary with:
+
+- evaluatedCount
+- geminiCandidateCount
+- lowConfidenceCount
+- averageConfidence
+- latencyMs
+- model
+- generatedAt
+
+These values are intended for shadow evaluation and rollout decisions, not SEO scoring.
