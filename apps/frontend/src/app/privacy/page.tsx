@@ -38,7 +38,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">第三者への送信と外部サービス</h2>
             <p className="mt-3">
-              診断機能の提供に必要な範囲で、入力URLや解析結果の一部をGoogleの各種APIへ送信することがあります。法令に基づく場合を除き、取得情報を目的外で販売しません。
+              診断機能の提供に必要な範囲で、入力URLや解析結果の一部をGoogleの各種APIへ送信することがあります。また、TypeSafe AI Jevの試験機能を有効にしている場合、HTML全文ではなく、URL、メタ情報、診断ルールの結果など必要最小限の抽出済みSEO情報をTypeSafe AIへ送信し、改善優先度等の参考判定を取得することがあります。パスワード、Cookie、認証トークン、APIキー、フォーム入力値はJevの評価対象へ含めません。法令に基づく場合を除き、取得情報を目的外で販売しません。
             </p>
           </section>
           <section>

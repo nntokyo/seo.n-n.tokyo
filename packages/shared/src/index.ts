@@ -1,3 +1,22 @@
+export interface AiDecisionMetadata {
+  provider: 'jev';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  shouldGenerateWithGemini: boolean;
+  regressionRisk: number;
+  confidence: number;
+}
+
+export interface JevShadowSummary {
+  provider: 'jev';
+  model: string;
+  evaluatedCount: number;
+  geminiCandidateCount: number;
+  lowConfidenceCount: number;
+  averageConfidence: number;
+  latencyMs: number;
+  generatedAt: string;
+}
+
 export interface AuditMetric {
   id: string;
   name: string;
@@ -10,6 +29,7 @@ export interface AuditMetric {
     before: string;
     after: string;
   };
+  aiDecision?: AiDecisionMetadata;
 }
 
 export interface CrawlLink {
@@ -137,6 +157,7 @@ export interface FullAuditResult {
     security: number;
   };
   metrics: AuditMetric[];
+  jevShadow?: JevShadowSummary;
   meta: PageMeta;
   links: CrawlLink[];
   cwv: CwvEstimates;
@@ -260,6 +281,15 @@ export interface Ga4MetricsData {
   period: string; // e.g. "直近28日間"
 }
 
+export interface JevGeminiValidation {
+  provider: 'jev';
+  action: 'accept' | 'accept_with_warning' | 'needs_review' | 'reject';
+  addressesInputProbability: number;
+  seoRegressionProbability: number;
+  confidence: number;
+  latencyMs: number;
+}
+
 export interface GeminiProposalData {
   summary: string;
   strengths: string[];
@@ -273,6 +303,7 @@ export interface GeminiProposalData {
   titleProposals: string[];
   metaDescriptionProposal?: string;
   generatedAt: string;
+  jevValidation?: JevGeminiValidation;
 }
 
 export interface WebRiskData {

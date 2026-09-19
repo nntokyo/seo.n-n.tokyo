@@ -692,6 +692,20 @@ function GoogleHubContent() {
 
             {gemini ? (
               <div className="space-y-4">
+                {gemini.jevValidation && (
+                  <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 text-xs">
+                    <div className="flex flex-wrap items-center gap-2 font-mono">
+                      <span className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-violet-300">Jev validation</span>
+                      <span className="text-slate-300">判定: <strong>{gemini.jevValidation.action}</strong></span>
+                      <span className="text-slate-400">Confidence: {Math.round(gemini.jevValidation.confidence * 100)}%</span>
+                      <span className="text-slate-400">SEO回帰確率: {Math.round(gemini.jevValidation.seoRegressionProbability * 100)}%</span>
+                    </div>
+                    <p className="mt-2 text-slate-400">
+                      生成結果の参考検証です。自動適用や既存のGoogle/Gemini結果の破棄には使用しません。
+                    </p>
+                  </div>
+                )}
+
                 {/* 要約・診断サマリー */}
                 <div className="p-5 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 space-y-3">
                   <p className="text-xs text-slate-200 leading-relaxed font-sans">
