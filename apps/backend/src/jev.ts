@@ -1,4 +1,4 @@
-import type { AiDecisionMetadata, FullAuditResult } from '@seo/shared';
+import type { AiDecisionMetadata, FullAuditResult, GeminiProposalData, JevGeminiValidation } from '@seo/shared';
 
 const JEV_API_URL = 'https://api.typesafe.ai/v1/systemone';
 const DEFAULT_MODEL = 'jev-latest';
@@ -294,5 +294,113 @@ export async function evaluateAuditWithJev(
   } catch {
     runtimeStats.fallbacks += 1;
     return result;
+  }
+}
+
+
+export async function validateGeminiProposalWithJev(
+  context: Record<string, unknown>,
+  proposal: GeminiProposalData,
+  options?: {
+    config?: JevConfig;
+    fetcher?: FetchLike;
+    enabled?: boolean;
+  },
+): Promise<JevGeminiValidation | undefined> {
+  const config = options?.config || getJevConfig();
+  const enabled = options?.enabled ?? process.env.JEV_VALIDATE_GEMINI_OUTPUT === 'true';
+  if (!enabled || !config.enabled || !config.apiKey) return undefined;
+
+  const fetcher = options?.fetcher || fetch;
+  runtimeStats.calls += 1;
+  const startedAt = Date.now();
+
+  try {
+    const response = await fetcher(JEV_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        state: JSON.stringify({
+          context,
+          proposal: {
+            summary: proposal.summary,
+            strengths: proposal.strengths,
+            actionItems: proposal.actionItems,
+            titleProposals: proposal.titleProposals,
+            metaDescriptionProposal: proposal.metaDescriptionProposal,
+          },
+          instruction:
+            'Validate the Gemini proposal conservatively. Do not rewrite it. Evaluate whether it addresses the supplied SEO/performance context and whether applying it could introduce SEO regressions.',
+        }),
+        questions: {
+          addresses_input: {
+            type: 'noul',
+            instructions: 'Does the proposed output materially address the supplied diagnostic context?',
+          },
+          seo_regression: {
+            type: 'noul',
+            instructions: 'Could applying this proposal plausibly introduce a material SEO, crawling, canonicalization, structured-data, rendering, or UX regression?',
+          },
+          action: {
+            type: 'choice',
+            instructions: 'Choose the safest presentation state for this generated proposal.',
+            criteria: {
+              accept: 'Proposal directly addresses the context and shows low regression risk.',
+              accept_with_warning: 'Proposal is useful but should be presented with a caution.',
+              needs_review: 'Proposal is plausible but requires human review before use.',
+              reject: 'Proposal does not address the context or presents substantial regression risk.',
+            },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(config.timeoutMs),
+    });
+
+    if (!response.ok) {
+      runtimeStats.fallbacks += 1;
+      return undefined;
+    }
+
+    const payload = await response.json() as JevResponse;
+    const addresses = payload?.answers?.addresses_input;
+    const regression = payload?.answers?.seo_regression;
+    const action = payload?.answers?.action;
+
+    if (!isNoulAnswer(addresses) || !isNoulAnswer(regression) || !isChoiceAnswer(action)) {
+      runtimeStats.fallbacks += 1;
+      return undefined;
+    }
+    if (!['accept', 'accept_with_warning', 'needs_review', 'reject'].includes(action.choice)) {
+      runtimeStats.fallbacks += 1;
+      return undefined;
+    }
+
+    const addressesProbability = clamp01(addresses.noul);
+    const regressionProbability = clamp01(regression.noul);
+    const confidence = Math.min(
+      clamp01(action.confidence),
+      clamp01(Math.abs(addressesProbability - 0.5) * 2),
+      clamp01(Math.abs(regressionProbability - 0.5) * 2),
+    );
+    const latencyMs = Date.now() - startedAt;
+
+    runtimeStats.successes += 1;
+    runtimeStats.totalLatencyMs += latencyMs;
+
+    return {
+      provider: 'jev',
+      action: action.choice as JevGeminiValidation['action'],
+      addressesInputProbability: addressesProbability,
+      seoRegressionProbability: regressionProbability,
+      confidence,
+      latencyMs,
+    };
+  } catch {
+    runtimeStats.fallbacks += 1;
+    return undefined;
   }
 }
