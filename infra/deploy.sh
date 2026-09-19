@@ -129,13 +129,10 @@ fi
 
 # 3. Prisma DB migration適用
 if [ -f "$BASE/prisma/schema.prisma" ]; then
-  log "Step 2: Applying database migrations (prisma migrate deploy)..."
-  if ! pnpm exec prisma migrate deploy --schema="$BASE/prisma/schema.prisma" 2>&1; then
-    log "prisma migrate deploy failed"
-    rollback
-  fi
-  if ! pnpm exec prisma generate --schema="$BASE/prisma/schema.prisma" 2>&1; then
-    log "prisma generate failed"
+  log "Step 2: Applying database migrations..."
+  chmod +x "$BASE/infra/prisma-migrate-deploy.sh" 2>/dev/null || true
+  if ! BASE="$BASE" STATE_DIR="$STATE_DIR" "$BASE/infra/prisma-migrate-deploy.sh" 2>&1; then
+    log "Prisma migration step failed"
     rollback
   fi
 fi
