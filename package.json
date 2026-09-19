@@ -17,12 +17,10 @@
     "db:migrate:baseline-existing": "PRISMA_BASELINE_EXISTING_DB=true bash infra/prisma-migrate-deploy.sh"
   },
   "devDependencies": {
+    "dotenv": "^16.4.7",
     "prisma": "6.19.3"
   },
   "dependencies": {
     "@prisma/client": "6.19.3"
-  },
-  "prisma": {
-    "schema": "prisma/schema.prisma"
   }
 }
