@@ -183,6 +183,7 @@ export async function evaluateAuditWithJev(
   const fetcher = options?.fetcher || fetch;
 
   try {
+    const startedAt = Date.now();
     const response = await fetcher(JEV_API_URL, {
       method: 'POST',
       headers: {
@@ -234,9 +235,27 @@ export async function evaluateAuditWithJev(
       nextMetrics[metricIndex].aiDecision = decision;
     });
 
+    const decisions = nextMetrics
+      .map((metric) => metric.aiDecision)
+      .filter((decision): decision is AiDecisionMetadata => Boolean(decision));
+    const evaluatedCount = decisions.length;
+    const averageConfidence = evaluatedCount
+      ? decisions.reduce((sum, decision) => sum + decision.confidence, 0) / evaluatedCount
+      : 0;
+
     return {
       ...result,
       metrics: nextMetrics,
+      jevShadow: {
+        provider: 'jev',
+        model: payload.model || config.model,
+        evaluatedCount,
+        geminiCandidateCount: decisions.filter((decision) => decision.shouldGenerateWithGemini).length,
+        lowConfidenceCount: decisions.filter((decision) => decision.confidence < config.minConfidence).length,
+        averageConfidence,
+        latencyMs: Date.now() - startedAt,
+        generatedAt: new Date().toISOString(),
+      },
     };
   } catch {
     return result;
