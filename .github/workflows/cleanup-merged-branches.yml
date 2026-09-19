@@ -1,0 +1,47 @@
+name: Cleanup merged branches
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.head_ref == 'maintenance/delete-merged-branches'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Delete completed remote branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          branches=(
+            "chore/prisma-config"
+            "ci/add-quality-gates"
+            "docs/sync-implemented-stack"
+            "fix/deploy-availability-docs"
+            "fix/gemini-3-8-flash"
+            "fix/issues-16-21-final"
+            "fix/prisma-migrate-deploy"
+            "fix/webhook-fail-closed"
+            "fix/webhook-fail-closed-v2"
+            "security/harden-auth"
+            "security/ssrf-safe-fetch"
+            "ui/mobile-a11y-polish"
+          )
+
+          for branch in "${branches[@]}"; do
+            if git ls-remote --exit-code --heads origin "refs/heads/${branch}" >/dev/null 2>&1; then
+              echo "Deleting ${branch}"
+              git push origin --delete "${branch}"
+            else
+              echo "Already absent: ${branch}"
+            fi
+          done
