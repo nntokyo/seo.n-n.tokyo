@@ -9,9 +9,9 @@
 
 ---
 
-## 1. 本番サーバー環境概要 & ゼロダウンタイム構成
+## 1. 本番サーバー環境概要 & ローリング構成
 
-個人運営の本番サーバー `home` 上でPM2、Docker PostgreSQL 16、Caddyリバースプロキシ、および **GitHub Webhook駆動のゼロダウンタイム自動デプロイパイプライン** により運用します。
+個人運営の本番サーバー `home` 上でPM2、Docker PostgreSQL 16、Caddyリバースプロキシ、および **GitHub Webhook駆動のローリング自動デプロイパイプライン** により運用します。
 
 ```mermaid
 flowchart TD
@@ -23,16 +23,16 @@ flowchart TD
         Caddy -->|/*| FrontendService["127.0.0.1:5600 (seo-frontend)"]
     end
 
-    subgraph ZeroDowntimePipeline["ゼロダウンタイム・デプロイ (/deploy.sh)"]
+    subgraph ZeroDowntimePipeline["ローリング・デプロイ (/deploy.sh)"]
         GitHub["GitHub Push Event\n(main branch)"] -->|HMAC-SHA256署名| WebhookService
-        WebhookService -->|非同期実行| DeployScript["ゼロダウンタイム・デプロイスクリプト\n(/Datas/www/seo.n-n.tokyo/infra/deploy.sh)"]
+        WebhookService -->|非同期実行| DeployScript["ローリング・デプロイスクリプト\n(/Datas/www/seo.n-n.tokyo/infra/deploy.sh)"]
         
         DeployScript --> Step1["1. 依存関係インストール (pnpm install)"]
-        Step1 --> Step2["2. DBスキーマ安全同期 (prisma db push)"]
+        Step1 --> Step2["2. DBマイグレーション適用 (prisma migrate deploy)"]
         Step2 --> Step3["3. バックグラウンド並列ビルド (pnpm build)"]
         Step3 --> Step4["4. PM2 reload (旧プロセス稼働維持のまま新プロセス起動)"]
         Step4 --> Step5{"5. 内部ヘルスチェック (HTTP 200確認)"}
-        Step5 -- 成功 --> StepOK["デプロイ完了 (ダウンタイム0秒)"]
+        Step5 -- 成功 --> StepOK["デプロイ完了"]
         Step5 -- 失敗 --> StepFail["🚨 自動ロールバック (旧バージョン継続稼働)"]
     end
 
@@ -44,16 +44,16 @@ flowchart TD
 
 ## 2. システムがダウンしない耐障害性・高可用性アーキテクチャ
 
-本システムでは、以下の5重の保護機構により**「アップデート中・デプロイ失敗時でも絶対にシステムがダウンしない」**構成を徹底しています。
+本システムでは、以下の5重の保護機構により旧成果物をビルド完了まで維持し、PM2 reloadとヘルスチェックで停止時間を最小化します。ただしfrontend/backendは各1インスタンスのfork modeであり、厳密な無瞬断は保証しません。
 
 ### ① 事前ビルドによる旧バージョン稼働維持（No Pre-kill）
 一般的なデプロイスクリプトでは「プロセス停止 ➔ ビルド ➔ 起動」を行ってしまい数分間のダウンタイム（502 Bad Gateway）が発生しますが、本システムでは **「旧プロセスがリクエストを処理し続けている間にバックグラウンドで新コードをビルド（pnpm build）」** します。
 
-### ② PM2 reload によるGraceful Zero-Downtime Reload
-ビルドが100%成功した後、PM2の `reload` コマンドを使用します。これにより、新プロセスが起動してリッスンを開始するまで旧プロセスがトラフィックを受け持ち、ダウンタイム0秒で世代交代が行われます。
+### ② PM2 reload によるGraceful Reload
+ビルドが100%成功した後、PM2の `reload` コマンドを使用します。これにより、新プロセスが起動してリッスンを開始するまで旧プロセスがトラフィックを受け持ち、切替時の停止時間を最小化します。単一forkプロセス構成のため、短い接続影響が発生する可能性があります。
 
 ### ③ 自動ヘルスチェック & 即時ロールバック機構
-新プロセスのリロード後、内部エンドポイント（`http://127.0.0.1:5601/api/health` および `http://127.0.0.1:5600/`）に対して最大20秒間のヘルスチェックを実行。もし起動失敗や例外が発生した場合は、**即座に直前の正常コミットへ `git reset --hard` し、旧バージョンを無瞬断で継続稼働** させます。
+新プロセスのリロード後、内部エンドポイント（`http://127.0.0.1:5601/api/health` および `http://127.0.0.1:5600/`）に対して最大20秒間のヘルスチェックを実行。もし起動失敗や例外が発生した場合は、**即座に直前の正常コミットへ `git reset --hard` し、旧バージョンへ復元** させます。
 
 ### ④ Caddyリバースプロキシの自動フォールバック & エラーハンドリング
 Caddyはバックエンドやフロントエンドへの接続をヘルス監視し、仮に通信エラーが発生した場合でも `flush_interval -1` と適切なタイムアウト制御によりクライアントへのパケットドロップを防止します。
@@ -91,6 +91,37 @@ GitHubリポジトリ（`git@nntokyo:nntokyo/seo.n-n.tokyo.git`）の Settings >
 
 1. **Payload URL**: `https://seo.n-n.tokyo/webhook`
 2. **Content type**: `application/json`
-3. **Secret**: `.env` に定義した `DEPLOY_WEBHOOK_SECRET` と同一の文字列（HMAC-SHA256署名検証に使用）
+3. **Secret**: `.env` に定義した `DEPLOY_WEBHOOK_SECRET` と同一の文字列（HMAC-SHA256署名検証に使用）。**本番環境では必須**で、未設定の場合Webhookプロセスは起動に失敗します。開発時のみ `ALLOW_UNSIGNED_DEPLOY_WEBHOOK=true` で署名なしモードを明示的に許可できますが、`NODE_ENV=production` では無効です。
 4. **Which events would you like to trigger this webhook?**: `Just the push event`
 5. **Active**: 有効 (Check)
+
+
+---
+
+## 5. Prisma Migration 運用
+
+本番デプロイでは `prisma db push` と `--accept-data-loss` を使用せず、リポジトリ管理されたmigrationだけを `prisma migrate deploy` で適用します。
+
+- 開発時: `pnpm db:migrate:dev -- --name <migration-name>`
+- 本番: `pnpm db:migrate:deploy`
+- Client再生成: `pnpm db:generate`
+
+初回導入用のbaseline migrationは `prisma/migrations/20260919000000_baseline/migration.sql` としてリポジトリ管理します。
+
+既に同等スキーマが存在する本番DBでは、**DBバックアップ取得後に一度だけ** `pnpm db:migrate:baseline-existing` を実行してください。このコマンドは `PRISMA_BASELINE_EXISTING_DB=true` を設定して `infra/prisma-migrate-deploy.sh` を起動し、baselineを `prisma migrate resolve --applied` で登録してから未適用migrationをdeployします。成功後は `.state/prisma-baseline-20260919000000_baseline.resolved` が作成され、同一サーバーでの再resolveを防止します。
+
+空の新規DBではbaselineフラグを使用せず通常の `pnpm db:migrate:deploy` / デプロイスクリプトを使用してください。baseline SQL自体が実行されて現在のスキーマを作成します。以後、破壊的変更はexpand/contract方式で段階的に行い、DB migrationのロールバックはアプリケーションのgit rollbackとは分離して扱います。
+
+---
+
+## 6. 認証セキュリティと永続化移行方針
+
+ローカルパスワードは新規作成・変更時にNode.jsのscryptでハッシュ化します。旧PBKDF2-SHA512（10,000 iterations）で保存された既存ユーザーは、ログイン成功時にscryptへ自動rehashされるため、一括パスワードリセットは不要です。
+
+- ログイン失敗: 同一メールアドレスで15分間に5回失敗すると15分ブロック
+- メール認証コード: `crypto.randomInt()` による6桁コード
+- 認証コード試行: 1コードあたり最大5回
+- 認証コード再送: 60秒のクールダウン
+- セッショントークン: 平文ではなくSHA-256ハッシュを保存
+
+現行のusers/sessionsは互換性維持のため `.data/auth/*.json` を継続利用します。次段階ではPrisma/PostgreSQLへ `AuthUser` / `AuthSession` / `EmailVerification` 相当のモデルを追加し、既存JSONを一度だけ読み込むmigrationスクリプトで移行します。移行完了まではJSONファイルをバックアップ対象とし、ファイル権限をサーバー実行ユーザーのみに制限します。

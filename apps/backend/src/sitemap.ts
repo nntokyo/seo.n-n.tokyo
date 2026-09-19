@@ -1,3 +1,4 @@
+import { safeFetchUrl } from './url-security.js';
 import * as cheerio from 'cheerio';
 import { SitemapValidationResult, SitemapUrlEntry, SitemapIssue, AuditMetric } from '@seo/shared';
 
@@ -18,7 +19,7 @@ export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOu
 
   // 1. robots.txt の取得と Sitemap ディレクティブの検証
   try {
-    const robotsRes = await fetch(robotsTxtUrl, {
+    const robotsRes = await safeFetchUrl(robotsTxtUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
         'Accept': 'text/plain,*/*',
@@ -64,7 +65,7 @@ export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOu
 
   try {
     const startTime = Date.now();
-    const sitemapRes = await fetch(primarySitemapUrl, {
+    const sitemapRes = await safeFetchUrl(primarySitemapUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
         'Accept': 'application/xml,text/xml,application/xhtml+xml,*/*',
