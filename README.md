@@ -101,7 +101,7 @@ flowchart TD
 - **Shared (`packages/shared`)**: TypeScript共通型・APIレスポンス型
 - **Webhook & Deploy (`infra` - Port 9104)**: Node.js Webhook Server (HMAC-SHA256), PM2, Caddy, `infra/deploy.sh`
 - **Database**: PostgreSQL 16, Prisma ORM / Client 6.19.3
-- **AI & Official APIs**: Google PageSpeed Insights v5, Search Console, GA4 Data API, Web Risk v1, Indexing API v3, Gemini 3.8 Flash
+- **AI & Official APIs**: Google PageSpeed Insights v5, Search Console, GA4 Data API, Web Risk v1, Indexing API v3, Gemini 3.8 Flash。TypeSafe AI Jevはfeature flag付きのshadow evaluationとして任意利用し、既存ルールのseverity/scoreは上書きしません。
 - **現時点で依存関係に含まれない設計/将来項目**: Playwright / Chromium Cluster、BullMQ、Redisクライアント、Recharts、D3.js。設計書に記載があっても、実装済み機能とは区別します。
 
 ---
