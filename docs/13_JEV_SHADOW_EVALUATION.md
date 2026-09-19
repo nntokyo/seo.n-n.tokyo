@@ -124,3 +124,25 @@ Each audit that receives valid Jev decisions also stores a `jevShadow` summary w
 - generatedAt
 
 These values are intended for shadow evaluation and rollout decisions, not SEO scoring.
+
+
+## Optional Gemini post-validation
+
+Set:
+
+```env
+JEV_VALIDATE_GEMINI_OUTPUT="true"
+```
+
+to validate a generated Gemini proposal after generation. This is independent from shadow audit scoring and remains fail-open.
+
+The validator asks Jev whether the proposal addresses the supplied Google/SEO context, whether it carries SEO regression risk, and whether the safest presentation state is:
+
+- accept
+- accept_with_warning
+- needs_review
+- reject
+
+The result is attached as `GeminiProposalData.jevValidation`.
+
+Important: validation never suppresses or deletes the Gemini result in the current implementation. If Jev is unavailable or returns malformed data, the Gemini result is returned unchanged without validation metadata.
