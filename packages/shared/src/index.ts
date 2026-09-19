@@ -393,6 +393,87 @@ export interface CrawlTreeResponse {
   totalNodes: number;
 }
 
+export interface TechnicalIssueItem {
+  url: string;
+  issue: string;
+  severity: 'Critical' | 'High' | 'Medium' | 'Low';
+  recommendedAction: string;
+}
+
+export interface PageClassificationItem {
+  url: string;
+  topic: string;
+  intent: string;
+  pageType: 'Pillar' | 'Support Content' | 'Money Page' | 'Category' | 'Comparison' | 'Case Study' | 'FAQ' | 'Utility' | 'Other';
+  cluster: string;
+  clickDepth: number;
+  inlinks: number;
+}
+
+export interface CannibalizationItem {
+  query: string;
+  urlA: string;
+  urlB: string;
+  evidence: string;
+  recommendation: string;
+}
+
+export interface PriorityPageItem {
+  priority: 'Priority A' | 'Priority B' | 'Priority C' | 'Priority D' | 'Priority E';
+  url: string;
+  query: string;
+  impressions: string;
+  ctr: string;
+  position: string;
+  inlinks: number;
+  reason: string;
+}
+
+export interface InternalLinkOpportunityItem {
+  score: number;
+  sourceUrl: string;
+  destinationUrl: string;
+  existingSentence: string;
+  proposedSentence: string;
+  anchorText: string;
+  reason: string;
+}
+
+export interface OrphanPageItem {
+  url: string;
+  seoValue: string;
+  suggestedSource: string;
+  action: string;
+}
+
+export interface RedirectInternalLinkItem {
+  sourceUrl: string;
+  currentDestination: string;
+  finalDestination: string;
+}
+
+export interface FooterNavigationItem {
+  url: string;
+  placement: string;
+  recommendation: string;
+  reason: string;
+}
+
+export interface InternalLinkOptimizationReport {
+  sessionId: string;
+  targetUrl: string;
+  generatedAt: string;
+  technicalIssues: TechnicalIssueItem[];
+  pageClassifications: PageClassificationItem[];
+  cannibalizations: CannibalizationItem[];
+  priorityPages: PriorityPageItem[];
+  internalLinkOpportunities: InternalLinkOpportunityItem[];
+  orphanPages: OrphanPageItem[];
+  redirectInternalLinks: RedirectInternalLinkItem[];
+  footerNavigation: FooterNavigationItem[];
+}
+
+
 // ==============================================================================
 // 2. プロジェクト管理 & 履歴差分型定義 (SCR-15 〜 SCR-17)
 // ==============================================================================

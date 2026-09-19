@@ -264,7 +264,54 @@ export default function LlmsTxtToolPage() {
             </div>
           </div>
         </div>
+
+        {/* Contextual Next Action / Money Page Link */}
+        <div className="mt-12 rounded-3xl border border-white/[0.08] bg-[#0F1623] p-8 max-w-7xl mx-auto w-full">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-2.5 py-1 rounded border border-cyan-500/20">
+                RECOMMENDED NEXT STEP
+              </span>
+              <h3 className="text-lg font-bold text-white">
+                llms.txtを配置した後は、サイト全体のSEO・AI引用適性を無料総合診断
+              </h3>
+              <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+                メタタグ競合、Core Web Vitals実測値、Google AI Overviewsでのカルーセル引用確率を100項目以上で自動監査します。
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/#audit-input"
+                className="inline-flex items-center gap-2 text-xs font-semibold text-black bg-cyan-400 hover:bg-cyan-300 px-5 py-3 rounded-full transition-all shadow-lg shadow-cyan-500/20"
+              >
+                <span>SEO Analyzer 総合診断を試す</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <Link
+                href="/tools/sitemap-analyzer"
+                className="inline-flex items-center gap-2 text-xs font-mono text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 px-4 py-3 rounded-full border border-white/10 transition-all"
+              >
+                <Layers className="w-3.5 h-3.5 text-sky-400" />
+                <span>サイトマップ検証へ</span>
+              </Link>
+            </div>
+          </div>
+        </div>
       </main>
+
+      {/* Footer */}
+      <footer className="mt-auto py-10 border-t border-white/[0.08] bg-[#080B11]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="hover:text-cyan-300 transition-colors">SEO Analyzer トップ</Link>
+            <Link href="/about" className="hover:text-cyan-300 transition-colors">このサイトについて</Link>
+            <Link href="/privacy" className="hover:text-cyan-300 transition-colors">プライバシーポリシー</Link>
+          </div>
+          <div>
+            © 2026 RYO MIURA / SEO Analyzer
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

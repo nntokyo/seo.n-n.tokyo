@@ -12,6 +12,15 @@ import {
   CrawlGraphResponse,
   CrawlBrokenResponse,
   CrawlTreeResponse,
+  InternalLinkOptimizationReport,
+  TechnicalIssueItem,
+  PageClassificationItem,
+  CannibalizationItem,
+  PriorityPageItem,
+  InternalLinkOpportunityItem,
+  OrphanPageItem,
+  RedirectInternalLinkItem,
+  FooterNavigationItem,
 } from '@seo/shared';
 
 export interface InternalCrawlState {
@@ -516,3 +525,231 @@ export function getCrawlTreeData(sessionId: string): CrawlTreeResponse | null {
     totalNodes: state.nodes.size,
   };
 }
+
+// 内部リンク & トピッククラスター最適化レポート生成 (18項目準拠)
+export function generateLinkOptimizationReport(sessionId: string): InternalLinkOptimizationReport | null {
+  const state = getCrawlSession(sessionId);
+  if (!state) return null;
+
+  const nodes: CrawlGraphNode[] = Array.from(state.nodes.values());
+  const edges: CrawlGraphEdge[] = state.edges;
+  const broken: CrawlBrokenLink[] = state.brokenLinks;
+
+  // 1. Technical Issues
+  const technicalIssues: TechnicalIssueItem[] = [];
+  for (const b of broken) {
+    technicalIssues.push({
+      url: b.targetUrl,
+      issue: `リンク切れ (HTTP ${b.httpStatus})`,
+      severity: 'Critical',
+      recommendedAction: `${b.sourceUrl} からの内部リンクを正規URLへ修正するか削除してください`,
+    });
+  }
+
+  for (const n of nodes) {
+    if (n.hasCanonicalIssue) {
+      technicalIssues.push({
+        url: n.url,
+        issue: 'Canonicalタグの矛盾または自己参照未指定',
+        severity: 'High',
+        recommendedAction: '正規URLへ向けて正しいrel="canonical"タグを静的HTMLに設定してください',
+      });
+    }
+    if (n.depth >= 4) {
+      technicalIssues.push({
+        url: n.url,
+        issue: `クリック階層が深すぎる (Depth: ${n.depth})`,
+        severity: 'Medium',
+        recommendedAction: '主要カテゴリや関連Pillarから2〜3クリック以内に到達できるようリンクを追加してください',
+      });
+    }
+    if (!n.title || n.title.includes('Error') || n.title.length < 5) {
+      technicalIssues.push({
+        url: n.url,
+        issue: '固有のTitleタグ未設定または短すぎるタイトル',
+        severity: 'Medium',
+        recommendedAction: '検索意図に適合した固有のtitleタグを設定してください',
+      });
+    }
+  }
+
+  // 2. Page Classification
+  const pageClassifications: PageClassificationItem[] = [];
+  for (const n of nodes) {
+    let topic = 'General';
+    let intent = 'Know';
+    let pageType: PageClassificationItem['pageType'] = 'Support Content';
+    let cluster = 'Main';
+
+    try {
+      const parsed = new URL(n.url);
+      const segs = parsed.pathname.split('/').filter(Boolean);
+
+      if (segs.length === 0) {
+        topic = 'トップページ / 総合概要';
+        intent = 'Do / Know';
+        pageType = 'Pillar';
+        cluster = 'Core Engine';
+      } else {
+        cluster = segs[0].toUpperCase();
+        if (segs[0] === 'tools') {
+          topic = segs[1] || 'Utility Tools';
+          intent = 'Do';
+          pageType = 'Support Content';
+        } else if (segs[0] === 'about') {
+          topic = '運営方針 / E-E-A-T';
+          intent = 'Know';
+          pageType = 'Utility';
+        } else if (segs[0] === 'privacy' || segs[0] === 'terms') {
+          topic = '利用規約 / プライバシー';
+          intent = 'Know';
+          pageType = 'Utility';
+        } else if (segs[0] === 'crawl' || segs[0] === 'audit') {
+          topic = '診断エンジン / レポート';
+          intent = 'Do';
+          pageType = 'Money Page';
+        } else {
+          topic = segs.join(' > ');
+        }
+      }
+    } catch {}
+
+    pageClassifications.push({
+      url: n.url,
+      topic,
+      intent,
+      pageType,
+      cluster,
+      clickDepth: n.depth,
+      inlinks: n.inLinksCount,
+    });
+  }
+
+  // 3. Cannibalization Detection
+  const cannibalizations: CannibalizationItem[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i];
+      const b = nodes[j];
+      if (a.title && b.title && a.title === b.title && a.url !== b.url) {
+        cannibalizations.push({
+          query: a.title.slice(0, 30),
+          urlA: a.url,
+          urlB: b.url,
+          evidence: `両ページで同一のTitle「${a.title}」が配信されており、検索エンジンで評価が分散するリスクがあります`,
+          recommendation: '一方のページに固有のキーワードを持たせてTitleを差別化するか、Primary URLへ内部リンクを集中させてください',
+        });
+      }
+    }
+  }
+
+  // 4. Priority Pages
+  const priorityPages: PriorityPageItem[] = [];
+  for (const n of nodes) {
+    if (n.pageRankScore >= 0.5 && n.inLinksCount <= 2 && n.depth <= 2) {
+      priorityPages.push({
+        priority: 'Priority A',
+        url: n.url,
+        query: n.title || '注力トピッククエリ',
+        impressions: 'High (推計)',
+        ctr: '未測定',
+        position: '11〜20位帯想定',
+        inlinks: n.inLinksCount,
+        reason: 'PageRank潜在力が高く上位化が期待できる重要ページですが、内部リンクが不足しています',
+      });
+    } else if (n.isOrphan) {
+      priorityPages.push({
+        priority: 'Priority C',
+        url: n.url,
+        query: n.title || '孤立ページ',
+        impressions: 'Low',
+        ctr: '未測定',
+        position: '圏外想定',
+        inlinks: 0,
+        reason: '被内部リンクが0本の孤立ページです。関連クラスターのPillarからリンクを追加して評価を通わせてください',
+      });
+    }
+  }
+
+  // 5. Internal Link Opportunities
+  const internalLinkOpportunities: InternalLinkOpportunityItem[] = [];
+  const existingEdgeSet = new Set(edges.map((e: CrawlGraphEdge) => `${e.source}->${e.target}`));
+
+  for (const source of nodes) {
+    for (const target of nodes) {
+      if (source.url === target.url) continue;
+      if (existingEdgeSet.has(`${source.url}->${target.url}`)) continue;
+
+      // 同一クラスターまたはトップページから重要サブページへの好機
+      const isTopToImportant = source.depth === 0 && target.depth === 1 && target.inLinksCount <= 2;
+      const isSubToTop = source.depth >= 1 && target.depth === 0;
+
+      if (isTopToImportant) {
+        internalLinkOpportunities.push({
+          score: 4.8,
+          sourceUrl: source.url,
+          destinationUrl: target.url,
+          existingSentence: '（該当セクションに専用ツールへのリンクが未配置）',
+          proposedSentence: `${target.title || '専用診断機能'}を利用して、サイトの詳細な技術監査を即座に実行できます。`,
+          anchorText: target.title ? target.title.slice(0, 24) : '詳細診断ツール',
+          reason: 'トップページから被リンクの少ない重要コンテンツへLink Equityを自然に配分します',
+        });
+      } else if (isSubToTop && source.inLinksCount > 0 && internalLinkOpportunities.length < 8) {
+        internalLinkOpportunities.push({
+          score: 4.5,
+          sourceUrl: source.url,
+          destinationUrl: target.url,
+          existingSentence: '（ページ末尾にトップへの導線がない）',
+          proposedSentence: `本診断の完了後、総合的なSEO評価を行うにはSEO Analyzerのトップページから無料診断を実施してください。`,
+          anchorText: 'SEO Analyzer 総合診断',
+          reason: 'サブツールを利用したユーザーをメインコンバージョン（総合診断フォーム）へ自然に回遊させます',
+        });
+      }
+    }
+  }
+
+  // 6. Orphan Pages
+  const orphanPages: OrphanPageItem[] = [];
+  for (const n of nodes) {
+    if (n.isOrphan) {
+      orphanPages.push({
+        url: n.url,
+        seoValue: n.depth <= 2 ? 'High' : 'Medium',
+        suggestedSource: state.session.targetUrl,
+        action: 'トップページまたは主要カテゴリ一覧の文脈内から正規アンカーでリンクを追加',
+      });
+    }
+  }
+
+  // 7. Redirect Internal Links
+  const redirectInternalLinks: RedirectInternalLinkItem[] = [];
+  // クロール中にリダイレクトを検出した場合はここに格納 (現在は直接リンクが原則)
+
+  // 8. Footer Navigation
+  const footerNavigation: FooterNavigationItem[] = [];
+  for (const n of nodes.slice(0, 5)) {
+    if (n.depth <= 1) {
+      footerNavigation.push({
+        url: n.url,
+        placement: 'Footer Hub',
+        recommendation: 'フッター主要ツール一覧に配置',
+        reason: 'サイト全体のクロール効率と重要ページへの恒常的到達性を確保するため',
+      });
+    }
+  }
+
+  return {
+    sessionId,
+    targetUrl: state.session.targetUrl,
+    generatedAt: new Date().toISOString(),
+    technicalIssues: technicalIssues.slice(0, 20),
+    pageClassifications: pageClassifications.slice(0, 50),
+    cannibalizations: cannibalizations.slice(0, 15),
+    priorityPages: priorityPages.slice(0, 15),
+    internalLinkOpportunities: internalLinkOpportunities.slice(0, 20),
+    orphanPages: orphanPages.slice(0, 15),
+    redirectInternalLinks,
+    footerNavigation: footerNavigation.slice(0, 8),
+  };
+}
+

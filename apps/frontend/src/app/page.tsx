@@ -144,31 +144,29 @@ export default function LandingPage() {
 
           <nav className="hidden md:flex items-center gap-5 text-sm text-slate-400">
             <a href="#features" className="hover:text-white transition-colors">機能</a>
-            <Link href="/crawl/new" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
-              <Network className="w-3.5 h-3.5 text-cyan-400" />
-              <span>ディープクロール</span>
-            </Link>
-            <Link href="/projects" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
-              <FolderKanban className="w-3.5 h-3.5 text-cyan-400" />
-              <span>プロジェクト</span>
-            </Link>
-            <Link href="/google/hub" className="hover:text-violet-400 transition-colors flex items-center gap-1.5 font-mono text-xs text-violet-300">
-              <ShieldCheck className="w-3.5 h-3.5 text-violet-400" />
-              <span>Google公式統合</span>
+            <Link href="/tools/llms-txt" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
+              <Code2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span>llms.txt生成</span>
             </Link>
             <Link href="/tools/sitemap-analyzer" className="hover:text-sky-400 transition-colors flex items-center gap-1.5 font-mono text-xs">
               <Layers className="w-3.5 h-3.5 text-sky-400" />
               <span>サイトマップ分析</span>
             </Link>
+            <Link href="/crawl/new" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
+              <Network className="w-3.5 h-3.5 text-cyan-400" />
+              <span>ディープクロール</span>
+            </Link>
+            <Link href="/google/hub" className="hover:text-violet-400 transition-colors flex items-center gap-1.5 font-mono text-xs text-violet-300">
+              <ShieldCheck className="w-3.5 h-3.5 text-violet-400" />
+              <span>Google公式統合</span>
+            </Link>
+            <Link href="/projects" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
+              <FolderKanban className="w-3.5 h-3.5 text-cyan-400" />
+              <span>プロジェクト</span>
+            </Link>
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link
-              href="/tools/sitemap-analyzer"
-              className="hidden lg:flex text-xs font-mono text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-colors"
-            >
-              サイトマップ分析
-            </Link>
             {currentUser?.role === 'ADMIN' && (
               <Link
                 href="/admin"
@@ -795,20 +793,66 @@ export default function LandingPage() {
             <span>無料で診断を開始する</span>
             <ArrowRight className="w-4 h-4" />
           </a>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-slate-500">
-            <Link href="/about" className="hover:text-cyan-300 transition-colors">このサイトについて</Link>
-            <Link href="/privacy" className="hover:text-cyan-300 transition-colors">プライバシーポリシー</Link>
-            <a
-              href="https://github.com/nntokyo/seo.n-n.tokyo"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-cyan-300 transition-colors"
-            >
-              ソースコード
-            </a>
+          <div className="mt-12 pt-8 border-t border-white/[0.06] grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto">
+            <div>
+              <h4 className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider mb-3">SEO・AEO 解析ツール</h4>
+              <ul className="space-y-2 text-xs text-slate-400">
+                <li>
+                  <a href="#audit-input" className="hover:text-white transition-colors">
+                    100項目即時SEO・AI引用診断（無料）
+                  </a>
+                </li>
+                <li>
+                  <Link href="/tools/llms-txt" className="hover:text-white transition-colors">
+                    llms.txt 自動合成・構文検証ツール
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/tools/sitemap-analyzer" className="hover:text-white transition-colors">
+                    XMLサイトマップ & カノニカル解析ツール
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/crawl/new" className="hover:text-white transition-colors">
+                    全URLディープクロール・内部リンク巡回
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/google/hub" className="hover:text-white transition-colors">
+                    Google公式統合ハブ（PageSpeed / Search Console）
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-xs font-mono font-bold text-violet-400 uppercase tracking-wider mb-3">サービス・運営情報</h4>
+              <ul className="space-y-2 text-xs text-slate-400">
+                <li>
+                  <Link href="/about" className="hover:text-white transition-colors">
+                    このサイトについて（運営者・OSS開発方針）
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy" className="hover:text-white transition-colors">
+                    プライバシーポリシー
+                  </Link>
+                </li>
+                <li>
+                  <a
+                    href="https://github.com/nntokyo/seo.n-n.tokyo"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:text-white transition-colors inline-flex items-center gap-1"
+                  >
+                    <span>GitHub リポジトリ (MIT License)</span>
+                    <ExternalLink className="w-3 h-3 text-slate-500" />
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
-          <div className="mt-5 text-xs text-slate-600">
-            © 2026 RYO MIURA / SEO Analyzer
+          <div className="mt-10 text-xs text-slate-600">
+            © 2026 RYO MIURA / SEO Analyzer. All rights reserved.
           </div>
         </div>
       </footer>

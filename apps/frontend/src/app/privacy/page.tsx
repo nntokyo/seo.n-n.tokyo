@@ -2,15 +2,18 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'プライバシーポリシー | SEO Analyzer',
+  title: 'プライバシーポリシー',
   description: 'SEO Analyzerにおけるアクセス解析、広告、入力データの取り扱いを説明します。',
+  alternates: {
+    canonical: '/privacy',
+  },
 };
 
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen px-4 py-16 sm:px-6">
       <article className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-[#0F1623]/90 p-6 shadow-2xl sm:p-10">
-        <Link href="/" className="text-sm text-cyan-400 hover:text-cyan-300">← SEO Analyzerへ戻る</Link>
+        <Link href="/" className="text-sm text-cyan-400 hover:text-cyan-300">← SEO Analyzer 総合診断へ戻る</Link>
         <h1 className="mt-8 text-3xl font-bold text-white">プライバシーポリシー</h1>
         <p className="mt-3 text-xs text-slate-500">制定日: 2026年9月15日</p>
         <div className="mt-8 space-y-8 text-sm leading-7 text-slate-300">
