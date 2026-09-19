@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { AdSenseUnit } from '../../_components/AdSenseUnit';
 import {
   FileText,
   Sparkles,
@@ -265,6 +266,8 @@ export default function LlmsTxtToolPage() {
           </div>
         </div>
 
+        <AdSenseUnit placement="tool-content" className="mt-12 rounded-2xl border border-white/[0.06]" />
+
         {/* Contextual Next Action / Money Page Link */}
         <div className="mt-12 rounded-3xl border border-white/[0.08] bg-[#0F1623] p-8 max-w-7xl mx-auto w-full">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -304,6 +307,7 @@ export default function LlmsTxtToolPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-4">
             <Link href="/" className="hover:text-cyan-300 transition-colors">SEO Analyzer トップ</Link>
+            <Link href="/tools" className="hover:text-cyan-300 transition-colors">ツール一覧</Link>
             <Link href="/about" className="hover:text-cyan-300 transition-colors">このサイトについて</Link>
             <Link href="/privacy" className="hover:text-cyan-300 transition-colors">プライバシーポリシー</Link>
           </div>
