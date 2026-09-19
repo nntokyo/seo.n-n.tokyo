@@ -21,7 +21,7 @@
    - **PageSpeed Insights (v5)**: CrUX実測値 & LighthouseラボデータによるCore Web Vitals精密測定。
    - **Search Console URL Inspection**: Googlebot公式のインデックス状態（未登録/重複/canonical不備）照会。
    - **Web Risk (v1)** & **Google Indexing API (v3)**: 広告収益を含むサイト向けのセキュリティ脅威判定 & 対象構造化データの更新通知。
-   - **Gemini 2.5 Flash API**: 課題に対するBefore/After差分と、Next.js App Router向けコピペ用改善コードの動的生成。
+   - **Gemini 3.8 Flash API**: 課題に対するBefore/After差分と、Next.js App Router向けコピペ用改善コードの動的生成。
 3. **メタ情報・タグ競合・文字化け 完全検知エンジン**
    - 複数Canonicalタグ重複、Robotsディレクティブの矛盾、文字コード（Mojibake）の検知。
    - 相対パスCanonical/OGP画像の検出、Hreflang多言語相互リンク欠落の検出。
@@ -99,7 +99,7 @@ flowchart TD
 - **Backend (`apps/backend` - Port 5601)**: Fastify / Node.js 22 LTS, TypeScript, Playwright (Chromium Cluster), Cheerio, BullMQ
 - **Webhook & Deploy (`infra` - Port 9104)**: Node.js Webhook Server (HMAC-SHA256署名検証), `infra/deploy.sh` (Zero-downtime & Auto-rollback)
 - **Database & Cache**: PostgreSQL 16 (Docker), Prisma ORM 5.22, Redis 7
-- **AI & Official APIs**: Google PageSpeed Insights v5, Chrome UX Report API, Google Search Console API, Google Web Risk v1, Google Indexing v3, Google Gemini 2.5 Flash
+- **AI & Official APIs**: Google PageSpeed Insights v5, Chrome UX Report API, Google Search Console API, Google Web Risk v1, Google Indexing v3, Google Gemini 3.8 Flash
 - **Infrastructure**: Caddy v2 (Reverse Proxy & Auto SSL), PM2 (`ecosystem.config.cjs`), Linux (ssh home)
 
 ---
