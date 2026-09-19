@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('hero avoids stale or guarantee-like copy', () => {
-  const page = read('apps/frontend/src/app/page.tsx');
+  const page = read('apps/frontend/src/app/_components/HomeInteractive.tsx');
   assert.doesNotMatch(page, /完全対応/);
   assert.doesNotMatch(page, /最も引用される/);
   assert.doesNotMatch(page, /3秒で/);
@@ -13,7 +13,7 @@ test('hero avoids stale or guarantee-like copy', () => {
 });
 
 test('dense desktop navigation waits until xl breakpoint', () => {
-  const page = read('apps/frontend/src/app/page.tsx');
+  const page = read('apps/frontend/src/app/_components/HomeInteractive.tsx');
   assert.match(page, /hidden xl:flex items-center gap-/);
   assert.match(page, /xl:hidden inline-flex h-9 w-9/);
 });
