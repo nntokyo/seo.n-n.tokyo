@@ -72,7 +72,7 @@ export default function RootLayout({
           async
           crossOrigin="anonymous"
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
-          strategy="beforeInteractive"
+          strategy="lazyOnload"
         />
       )}
       <body className="min-h-screen obsidian-grid antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
