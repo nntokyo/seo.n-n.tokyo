@@ -19,6 +19,7 @@ import {
   getCrawlGraphData,
   getCrawlBrokenData,
   getCrawlTreeData,
+  generateLinkOptimizationReport,
   addProgressListener,
   removeProgressListener,
 } from './crawler.js';
@@ -652,6 +653,16 @@ ${linksSection}
     const data = getCrawlTreeData(sessionId);
     if (!data) {
       return reply.status(404).send({ error: 'Crawl tree data not found' });
+    }
+    return data;
+  });
+
+  // 内部リンク & トピッククラスター最適化レポート (18項目準拠)
+  fastify.get('/api/v1/crawl/:sessionId/clusters', async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const data = generateLinkOptimizationReport(sessionId);
+    if (!data) {
+      return reply.status(404).send({ error: 'Internal link optimization report not found for this session' });
     }
     return data;
   });

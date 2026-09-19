@@ -204,7 +204,26 @@ export default function CrawlProgressPage() {
               <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
                 解析結果ビューの選択
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Link
+                  href={`/crawl/${sessionId}/clusters`}
+                  className="p-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all flex flex-col justify-between group shadow-lg shadow-emerald-500/5"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <Layers className="w-5 h-5 text-emerald-400" />
+                    <ChevronRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white mb-0.5 flex items-center gap-1.5">
+                      <span>クラスター＆内部リンク最適化</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">18規則</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-sans">
+                      トピック分類・カニバリ・文脈リンク文案・優先度判定 (推奨)
+                    </p>
+                  </div>
+                </Link>
+
                 <Link
                   href={`/crawl/${sessionId}/graph`}
                   className="p-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 transition-all flex flex-col justify-between group"

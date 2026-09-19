@@ -3,11 +3,20 @@ import Script from 'next/script';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import './globals.css';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seo.n-n.tokyo';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  alternates: {
+    canonical: '/',
+  },
   verification: {
     google: process.env.GOOGLE_SITE_VERIFICATION,
   },
-  title: 'SEO Analyzer — 次世代SEO & AEO/AIO/LLMO/GEO 技術監査プラットフォーム',
+  title: {
+    default: 'SEO Analyzer — 次世代SEO & AEO/AIO/LLMO/GEO 技術監査プラットフォーム',
+    template: '%s | SEO Analyzer',
+  },
   description: '100項目以上の技術的SEO、Core Web Vitals、Google公式API統合、およびGoogle AI Overviews / SearchGPT / Perplexity引用適性を自動診断するエンジニア向けプラットフォーム。',
   icons: {
     icon: [
