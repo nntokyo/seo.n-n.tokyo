@@ -524,6 +524,26 @@ export default function AuditDetailPage() {
 
                   <p className="text-xs text-slate-300 leading-relaxed">{m.message}</p>
 
+                  {m.aiDecision && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-[11px] font-mono">
+                      <span className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-violet-300">
+                        Jev shadow
+                      </span>
+                      <span className="text-slate-400">
+                        AI優先度: <strong className="text-slate-200">{m.aiDecision.priority}</strong>
+                      </span>
+                      <span className="text-slate-400">
+                        Confidence: <strong className="text-slate-200">{Math.round(m.aiDecision.confidence * 100)}%</strong>
+                      </span>
+                      <span className="text-slate-400">
+                        回帰リスク: <strong className="text-slate-200">{m.aiDecision.regressionRisk.toFixed(1)}/2</strong>
+                      </span>
+                      <span className={m.aiDecision.shouldGenerateWithGemini ? 'text-cyan-300' : 'text-slate-500'}>
+                        Gemini個別生成: {m.aiDecision.shouldGenerateWithGemini ? '候補' : '低優先'}
+                      </span>
+                    </div>
+                  )}
+
                   {m.proposal && (
                     <div className="p-3 rounded-xl bg-cyan-950/20 border border-cyan-500/20 text-xs text-cyan-300 leading-relaxed">
                       💡 <strong>改善案:</strong> {m.proposal}
