@@ -299,6 +299,32 @@ export default function AuditDetailPage() {
 
       {/* 2. Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {audit.jevShadow && (
+          <section className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-violet-300" aria-hidden="true" />
+                  <h2 className="text-sm font-semibold text-white">Jev shadow evaluation</h2>
+                  <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-mono text-violet-300">
+                    advisory only
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  既存ルールのスコアやseverityは変更せず、AI判断を参考情報として並行評価しています。
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-mono sm:grid-cols-5">
+                <span className="rounded-lg bg-black/20 px-2.5 py-1.5 text-slate-300">評価 {audit.jevShadow.evaluatedCount}件</span>
+                <span className="rounded-lg bg-black/20 px-2.5 py-1.5 text-cyan-300">Gemini候補 {audit.jevShadow.geminiCandidateCount}件</span>
+                <span className="rounded-lg bg-black/20 px-2.5 py-1.5 text-amber-300">低信頼 {audit.jevShadow.lowConfidenceCount}件</span>
+                <span className="rounded-lg bg-black/20 px-2.5 py-1.5 text-slate-300">平均 {Math.round(audit.jevShadow.averageConfidence * 100)}%</span>
+                <span className="rounded-lg bg-black/20 px-2.5 py-1.5 text-slate-300">{audit.jevShadow.latencyMs}ms</span>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* KPI Strip (Border Grid - ShadcnAdmin) */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* Total Score */}
