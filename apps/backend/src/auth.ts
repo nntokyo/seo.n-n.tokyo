@@ -15,9 +15,12 @@ const SESSIONS_FILE = path.join(authDataDir, 'sessions.json');
 interface StoredUser extends AuthUser {
   passwordSalt?: string;
   passwordHash?: string;
+  passwordAlgorithm?: 'scrypt-v1';
   googleId?: string;
   verificationCode?: string;
   verificationExpires?: number;
+  verificationAttempts?: number;
+  verificationLastSentAt?: number;
 }
 
 interface StoredSession {
@@ -29,6 +32,14 @@ interface StoredSession {
 
 let usersMap = new Map<string, StoredUser>();
 let sessionsMap = new Map<string, StoredSession>();
+
+const loginAttempts = new Map<string, { failures: number; windowStartedAt: number; blockedUntil?: number }>();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_BLOCK_MS = 15 * 60 * 1000;
+const MAX_LOGIN_FAILURES = 5;
+const MAX_VERIFICATION_ATTEMPTS = 5;
+const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
+const SCRYPT_KEY_LENGTH = 64;
 
 function loadAuthData() {
   try {
@@ -73,12 +84,71 @@ function saveSessions() {
 
 loadAuthData();
 
-function hashPassword(password: string, salt: string): string {
+function hashLegacyPassword(password: string, salt: string): string {
   return crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
 }
 
-function generateVerificationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+function hashPassword(password: string, salt: string): string {
+  return crypto.scryptSync(password, salt, SCRYPT_KEY_LENGTH, {
+    N: 16384,
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024,
+  }).toString('hex');
+}
+
+function safeHashEqual(left: string, right: string): boolean {
+  const a = Buffer.from(left, 'hex');
+  const b = Buffer.from(right, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function verifyStoredPassword(user: StoredUser, password: string): boolean {
+  if (!user.passwordSalt || !user.passwordHash) return false;
+  const candidate = user.passwordAlgorithm === 'scrypt-v1'
+    ? hashPassword(password, user.passwordSalt)
+    : hashLegacyPassword(password, user.passwordSalt);
+  return safeHashEqual(candidate, user.passwordHash);
+}
+
+function migratePasswordHashIfNeeded(user: StoredUser, password: string) {
+  if (user.passwordAlgorithm === 'scrypt-v1') return;
+  const salt = crypto.randomBytes(16).toString('hex');
+  user.passwordSalt = salt;
+  user.passwordHash = hashPassword(password, salt);
+  user.passwordAlgorithm = 'scrypt-v1';
+  saveUsers();
+}
+
+export function generateVerificationCode(): string {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function assertLoginAllowed(email: string) {
+  const state = loginAttempts.get(email);
+  if (!state) return;
+  const now = Date.now();
+  if (state.blockedUntil && state.blockedUntil > now) {
+    throw new Error('ログイン試行回数が上限に達しました。しばらくしてから再試行してください');
+  }
+  if (now - state.windowStartedAt > LOGIN_WINDOW_MS) {
+    loginAttempts.delete(email);
+  }
+}
+
+function recordLoginFailure(email: string) {
+  const now = Date.now();
+  const current = loginAttempts.get(email);
+  const state = !current || now - current.windowStartedAt > LOGIN_WINDOW_MS
+    ? { failures: 0, windowStartedAt: now }
+    : current;
+  state.failures += 1;
+  if (state.failures >= MAX_LOGIN_FAILURES) state.blockedUntil = now + LOGIN_BLOCK_MS;
+  loginAttempts.set(email, state);
+}
+
+function clearLoginFailures(email: string) {
+  loginAttempts.delete(email);
 }
 
 function createSessionForUser(user: StoredUser): AuthTokenResponse {
@@ -116,6 +186,9 @@ export function registerWithPassword(req: RegisterRequest): AuthTokenResponse & 
   if (!email || !req.password) {
     throw new Error('メールアドレスとパスワードは必須です');
   }
+  if (req.password.length < 10) {
+    throw new Error('パスワードは10文字以上で指定してください');
+  }
 
   // 重複チェック
   for (const u of usersMap.values()) {
@@ -144,6 +217,9 @@ export function registerWithPassword(req: RegisterRequest): AuthTokenResponse & 
     verificationExpires: isFirstUser ? undefined : verificationExpires,
     passwordSalt: salt,
     passwordHash,
+    passwordAlgorithm: 'scrypt-v1',
+    verificationAttempts: 0,
+    verificationLastSentAt: isFirstUser ? undefined : Date.now(),
     createdAt: new Date().toISOString(),
   };
 
@@ -163,6 +239,7 @@ export function loginWithPassword(req: LoginRequest): AuthTokenResponse {
   if (!email || !req.password) {
     throw new Error('メールアドレスとパスワードを入力してください');
   }
+  assertLoginAllowed(email);
 
   let found: StoredUser | null = null;
   for (const u of usersMap.values()) {
@@ -173,14 +250,17 @@ export function loginWithPassword(req: LoginRequest): AuthTokenResponse {
   }
 
   if (!found || !found.passwordHash || !found.passwordSalt) {
+    recordLoginFailure(email);
     throw new Error('メールアドレスまたはパスワードが正しくありません');
   }
 
-  const hash = hashPassword(req.password, found.passwordSalt);
-  if (hash !== found.passwordHash) {
+  if (!verifyStoredPassword(found, req.password)) {
+    recordLoginFailure(email);
     throw new Error('メールアドレスまたはパスワードが正しくありません');
   }
 
+  clearLoginFailures(email);
+  migratePasswordHashIfNeeded(found, req.password);
   return createSessionForUser(found);
 }
 
@@ -284,6 +364,7 @@ export function restoreUserEmail(userId: string, email: string, wasVerified: boo
   user.emailVerified = wasVerified;
   user.verificationCode = undefined;
   user.verificationExpires = undefined;
+  user.verificationAttempts = 0;
   saveUsers();
 }
 
@@ -328,12 +409,11 @@ export function changeUserPassword(userId: string, currentPass: string, newPass:
     throw new Error('パスワード情報が設定されていません');
   }
 
-  if (!newPass || newPass.length < 6) {
-    throw new Error('新しいパスワードは6文字以上で指定してください');
+  if (!newPass || newPass.length < 10) {
+    throw new Error('新しいパスワードは10文字以上で指定してください');
   }
 
-  const currentHash = hashPassword(currentPass, user.passwordSalt);
-  if (currentHash !== user.passwordHash) {
+  if (!verifyStoredPassword(user, currentPass)) {
     throw new Error('現在のパスワードが正しくありません');
   }
 
@@ -342,6 +422,7 @@ export function changeUserPassword(userId: string, currentPass: string, newPass:
 
   user.passwordSalt = newSalt;
   user.passwordHash = newHash;
+  user.passwordAlgorithm = 'scrypt-v1';
   usersMap.set(userId, user);
   saveUsers();
 
@@ -374,6 +455,8 @@ export function changeUserEmail(userId: string, newEmail: string): { user: AuthU
   user.emailVerified = false; // 未認証へ戻す
   user.verificationCode = code;
   user.verificationExpires = expires;
+  user.verificationAttempts = 0;
+  user.verificationLastSentAt = Date.now();
 
   usersMap.set(userId, user);
   saveUsers();
@@ -413,12 +496,21 @@ export function verifyEmailCode(userId: string, code: string): AuthUser {
     };
   }
 
-  if (!user.verificationCode || user.verificationCode !== code.trim()) {
-    throw new Error('認証コードが一致しません');
-  }
-
   if (user.verificationExpires && user.verificationExpires < Date.now()) {
     throw new Error('認証コードの有効期限が切れています。再送信してください');
+  }
+
+  if ((user.verificationAttempts || 0) >= MAX_VERIFICATION_ATTEMPTS) {
+    throw new Error('認証コードの試行回数が上限に達しました。コードを再送信してください');
+  }
+
+  if (!user.verificationCode || !safeHashEqual(
+    Buffer.from(user.verificationCode).toString('hex'),
+    Buffer.from(code.trim()).toString('hex'),
+  )) {
+    user.verificationAttempts = (user.verificationAttempts || 0) + 1;
+    saveUsers();
+    throw new Error('認証コードが一致しません');
   }
 
   user.emailVerified = true;
@@ -451,9 +543,16 @@ export function resendVerificationCode(userId: string): { verificationCode: stri
     throw new Error('このメールアドレスは既に認証済みです');
   }
 
+  const now = Date.now();
+  if (user.verificationLastSentAt && now - user.verificationLastSentAt < VERIFICATION_RESEND_COOLDOWN_MS) {
+    throw new Error('認証コードは1分後に再送信できます');
+  }
+
   const code = generateVerificationCode();
   user.verificationCode = code;
-  user.verificationExpires = Date.now() + 24 * 3600 * 1000;
+  user.verificationExpires = now + 24 * 3600 * 1000;
+  user.verificationAttempts = 0;
+  user.verificationLastSentAt = now;
 
   usersMap.set(userId, user);
   saveUsers();
