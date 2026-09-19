@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { decryptSecret, encryptSecret, safeEqual } from './security.js';
 import { safeFetchUrl } from './url-security.js';
+import { validateGeminiProposalWithJev } from './jev.js';
 import {
   GoogleSessionStatus,
   PsiCruxData,
@@ -719,14 +720,17 @@ ${JSON.stringify(contextData, null, 2)}
       if (!text) throw new Error('Gemini APIから回答本文を取得できませんでした');
       const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsedProposal = JSON.parse(cleanJson);
-      return {
-            summary: parsedProposal.summary || `${parsed.hostname} のGoogle公式データ分析に基づく改善案です。`,
-            strengths: parsedProposal.strengths || ['高速なサーバー初期応答 (TTFB)', 'モバイルフレンドリー設計'],
-            actionItems: parsedProposal.actionItems || [],
-            titleProposals: parsedProposal.titleProposals || [],
-            metaDescriptionProposal: parsedProposal.metaDescriptionProposal,
-            generatedAt: new Date().toISOString(),
+      const proposal: GeminiProposalData = {
+        summary: parsedProposal.summary || `${parsed.hostname} のGoogle公式データ分析に基づく改善案です。`,
+        strengths: parsedProposal.strengths || ['高速なサーバー初期応答 (TTFB)', 'モバイルフレンドリー設計'],
+        actionItems: parsedProposal.actionItems || [],
+        titleProposals: parsedProposal.titleProposals || [],
+        metaDescriptionProposal: parsedProposal.metaDescriptionProposal,
+        generatedAt: new Date().toISOString(),
       };
+
+      proposal.jevValidation = await validateGeminiProposalWithJev(contextData, proposal);
+      return proposal;
   } catch (error: any) {
     throw new Error(error?.message || 'Gemini改善案の生成に失敗しました');
   }
