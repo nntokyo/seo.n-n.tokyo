@@ -683,10 +683,10 @@ function GoogleHubContent() {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white font-mono flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-400" />
-                <span>4. Google Gemini 2.0 具体的改善提案 & タイトルリライト</span>
+                <span>4. Gemini 3.8 Flash 改善提案 & タイトルリライト</span>
               </h3>
               <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
-                公式実測データに基づくAI推論
+                Google公式データを入力にした生成AI提案
               </span>
             </div>
 

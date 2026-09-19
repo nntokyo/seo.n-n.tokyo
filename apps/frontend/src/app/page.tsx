@@ -145,7 +145,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-5 text-sm text-slate-400">
+          <nav className="hidden xl:flex items-center gap-5 text-sm text-slate-400">
             <a href="#features" className="hover:text-white transition-colors">機能</a>
             <Link href="/tools/llms-txt" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
               <Code2 className="w-3.5 h-3.5 text-cyan-400" />
@@ -199,14 +199,14 @@ export default function LandingPage() {
             )}
             <a 
               href="#audit-input" 
-              className="hidden md:inline-flex text-xs font-semibold text-black bg-gradient-to-r from-cyan-400 to-cyan-300 hover:brightness-110 px-4 py-2 rounded-full transition-all shadow-md shadow-cyan-500/20"
+              className="hidden xl:inline-flex text-xs font-semibold text-black bg-gradient-to-r from-cyan-400 to-cyan-300 hover:brightness-110 px-4 py-2 rounded-full transition-all shadow-md shadow-cyan-500/20"
             >
               即時診断
             </a>
             <button
               type="button"
               onClick={() => setMobileMenuOpen((open) => !open)}
-              className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+              className="xl:hidden inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
               aria-label={mobileMenuOpen ? 'メニューを閉じる' : 'メニューを開く'}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-navigation"
@@ -220,7 +220,7 @@ export default function LandingPage() {
           <nav
             id="mobile-navigation"
             aria-label="モバイルナビゲーション"
-            className="md:hidden border-t border-white/[0.08] bg-[#080B11]/95 px-4 py-4 backdrop-blur-xl"
+            className="xl:hidden border-t border-white/[0.08] bg-[#080B11]/95 px-4 py-4 backdrop-blur-xl"
           >
             <div className="mx-auto grid max-w-7xl grid-cols-1 gap-1 text-sm">
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">機能</a>
@@ -244,18 +244,18 @@ export default function LandingPage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 text-xs font-medium mb-8">
             <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-            <span>次世代検索の新基準: AEO・AIO・LLMO・GEO に完全対応</span>
+            <span>SEO・AEO・LLMO・GEOを横断して技術診断</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-[1.15] mb-6">
             Google検索でも、AI回答でも。<br />
             <span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-violet-400 bg-clip-text text-transparent">
-              あなたのサイトが最も引用される。
+              検索にも、AI回答にも伝わりやすいサイトへ。
             </span>
           </h1>
 
           <p className="max-w-2xl mx-auto text-base sm:text-lg text-slate-400 mb-10 leading-relaxed">
-            150項目以上の技術的SEO、Core Web Vitals実測値、およびGoogle AI Overviews / SearchGPT / Perplexityでの引用適性を3秒で精密診断。Next.js App Router対応の修正コードを自動生成します。
+            技術的SEO、Core Web Vitals、メタ情報、構造化データ、AI回答での参照されやすさを横断して診断。検出した課題には、実装へつなげやすい改善案とコード例を提示します。
           </p>
 
           {/* Quick Audit Input Bar */}
@@ -294,7 +294,7 @@ export default function LandingPage() {
                   </>
                 ) : (
                   <>
-                    <span>3秒で即時診断</span>
+                    <span>無料で診断を開始</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
