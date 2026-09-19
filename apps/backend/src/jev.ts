@@ -8,7 +8,7 @@ const MAX_SHADOW_ISSUES = 6;
 
 type FetchLike = typeof fetch;
 
-interface JevConfig {
+export interface JevConfig {
   enabled: boolean;
   apiKey?: string;
   model: string;
