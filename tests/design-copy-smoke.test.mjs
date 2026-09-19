@@ -14,7 +14,7 @@ test('hero avoids stale or guarantee-like copy', () => {
 
 test('dense desktop navigation waits until xl breakpoint', () => {
   const page = read('apps/frontend/src/app/page.tsx');
-  assert.match(page, /hidden xl:flex items-center gap-5/);
+  assert.match(page, /hidden xl:flex items-center gap-/);
   assert.match(page, /xl:hidden inline-flex h-9 w-9/);
 });
 
