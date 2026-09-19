@@ -16,6 +16,31 @@ export interface JevConfig {
   minConfidence: number;
 }
 
+interface JevRuntimeStats {
+  calls: number;
+  successes: number;
+  fallbacks: number;
+  totalLatencyMs: number;
+}
+
+const runtimeStats: JevRuntimeStats = {
+  calls: 0,
+  successes: 0,
+  fallbacks: 0,
+  totalLatencyMs: 0,
+};
+
+export function getJevRuntimeStats() {
+  return {
+    calls: runtimeStats.calls,
+    successes: runtimeStats.successes,
+    fallbacks: runtimeStats.fallbacks,
+    averageLatencyMs: runtimeStats.successes
+      ? Math.round(runtimeStats.totalLatencyMs / runtimeStats.successes)
+      : 0,
+  };
+}
+
 interface JevChoiceAnswer {
   type: 'choice';
   choice: string;
@@ -181,6 +206,7 @@ export async function evaluateAuditWithJev(
   if (selectedIndexes.length === 0) return result;
 
   const fetcher = options?.fetcher || fetch;
+  runtimeStats.calls += 1;
 
   try {
     const startedAt = Date.now();
@@ -198,10 +224,14 @@ export async function evaluateAuditWithJev(
       signal: AbortSignal.timeout(config.timeoutMs),
     });
 
-    if (!response.ok) return result;
+    if (!response.ok) {
+      runtimeStats.fallbacks += 1;
+      return result;
+    }
 
     const payload = await response.json() as JevResponse;
     if (!payload || typeof payload !== 'object' || !payload.answers || typeof payload.answers !== 'object') {
+      runtimeStats.fallbacks += 1;
       return result;
     }
 
@@ -243,6 +273,10 @@ export async function evaluateAuditWithJev(
       ? decisions.reduce((sum, decision) => sum + decision.confidence, 0) / evaluatedCount
       : 0;
 
+    const latencyMs = Date.now() - startedAt;
+    runtimeStats.successes += 1;
+    runtimeStats.totalLatencyMs += latencyMs;
+
     return {
       ...result,
       metrics: nextMetrics,
@@ -253,11 +287,12 @@ export async function evaluateAuditWithJev(
         geminiCandidateCount: decisions.filter((decision) => decision.shouldGenerateWithGemini).length,
         lowConfidenceCount: decisions.filter((decision) => decision.confidence < config.minConfidence).length,
         averageConfidence,
-        latencyMs: Date.now() - startedAt,
+        latencyMs,
         generatedAt: new Date().toISOString(),
       },
     };
   } catch {
+    runtimeStats.fallbacks += 1;
     return result;
   }
 }
