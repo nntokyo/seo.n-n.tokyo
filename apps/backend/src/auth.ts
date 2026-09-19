@@ -139,9 +139,10 @@ function assertLoginAllowed(email: string) {
 function recordLoginFailure(email: string) {
   const now = Date.now();
   const current = loginAttempts.get(email);
-  const state = !current || now - current.windowStartedAt > LOGIN_WINDOW_MS
-    ? { failures: 0, windowStartedAt: now }
-    : current;
+  const state: { failures: number; windowStartedAt: number; blockedUntil?: number } =
+    !current || now - current.windowStartedAt > LOGIN_WINDOW_MS
+      ? { failures: 0, windowStartedAt: now }
+      : current;
   state.failures += 1;
   if (state.failures >= MAX_LOGIN_FAILURES) state.blockedUntil = now + LOGIN_BLOCK_MS;
   loginAttempts.set(email, state);
