@@ -6,6 +6,17 @@ export interface AiDecisionMetadata {
   confidence: number;
 }
 
+export interface JevShadowSummary {
+  provider: 'jev';
+  model: string;
+  evaluatedCount: number;
+  geminiCandidateCount: number;
+  lowConfidenceCount: number;
+  averageConfidence: number;
+  latencyMs: number;
+  generatedAt: string;
+}
+
 export interface AuditMetric {
   id: string;
   name: string;
@@ -146,6 +157,7 @@ export interface FullAuditResult {
     security: number;
   };
   metrics: AuditMetric[];
+  jevShadow?: JevShadowSummary;
   meta: PageMeta;
   links: CrawlLink[];
   cwv: CwvEstimates;
