@@ -11,6 +11,7 @@ import {
   Layers,
   Network,
   ShieldCheck,
+  Sparkles,
   TrendingUp,
   Zap,
 } from 'lucide-react';
