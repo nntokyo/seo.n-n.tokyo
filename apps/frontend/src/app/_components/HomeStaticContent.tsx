@@ -18,7 +18,7 @@ import { AdSenseUnit } from './AdSenseUnit';
 
 export function HomeStaticContent() {
   return (
-    <>
+    <div className="home-deferred-content">
 <AdSenseUnit placement="home" />
 
       {/* 4. Core Features Section (Grid with Refero Aesthetics) */}
@@ -361,6 +361,6 @@ export function HomeStaticContent() {
           </div>
         </div>
       </footer>
-    </>
+    </div>
   );
 }
