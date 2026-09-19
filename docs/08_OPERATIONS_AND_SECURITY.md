@@ -106,4 +106,8 @@ GitHubリポジトリ（`git@nntokyo:nntokyo/seo.n-n.tokyo.git`）の Settings >
 - 本番: `pnpm db:migrate:deploy`
 - Client再生成: `pnpm db:generate`
 
-既存の本番DBをMigrate管理へ初回移行する際は、現在のスキーマをbaseline migrationとして作成し、DBバックアップ取得後に `prisma migrate resolve --applied <baseline>` で既存DBへ適用済みとして登録してください。以後、破壊的変更はexpand/contract方式で段階的に行い、DB migrationのロールバックはアプリケーションのgit rollbackとは分離して扱います。
+初回導入用のbaseline migrationは `prisma/migrations/20260919000000_baseline/migration.sql` としてリポジトリ管理します。
+
+既に同等スキーマが存在する本番DBでは、**DBバックアップ取得後に一度だけ** `pnpm db:migrate:baseline-existing` を実行してください。このコマンドは `PRISMA_BASELINE_EXISTING_DB=true` を設定して `infra/prisma-migrate-deploy.sh` を起動し、baselineを `prisma migrate resolve --applied` で登録してから未適用migrationをdeployします。成功後は `.state/prisma-baseline-20260919000000_baseline.resolved` が作成され、同一サーバーでの再resolveを防止します。
+
+空の新規DBではbaselineフラグを使用せず通常の `pnpm db:migrate:deploy` / デプロイスクリプトを使用してください。baseline SQL自体が実行されて現在のスキーマを作成します。以後、破壊的変更はexpand/contract方式で段階的に行い、DB migrationのロールバックはアプリケーションのgit rollbackとは分離して扱います。
