@@ -379,18 +379,19 @@ export default function LandingPage() {
                 type="button"
                 onClick={() => setActiveTab('overview')}
                 className={`bg-[#0F1623] p-5 text-left cursor-pointer transition-colors ${activeTab === 'overview' ? 'ring-1 ring-cyan-500/50 bg-[#131b2b]' : 'hover:bg-[#131b2e]'}`}
+                aria-label="総合診断を表示"
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">TOTAL SCORE</span>
                   <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                     {auditResult ? `${auditResult.httpStatus} OK` : '+12% vs last'}
                   </span>
-                </button>
+                </div>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
                   {auditResult ? auditResult.overallScore : 94}<span className="text-slate-500 text-base font-normal">/100</span>
-                </button>
+                </div>
                 <p className="text-xs text-emerald-400 flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" /> Excellent SEO Health
+                  <TrendingUp className="w-3 h-3" aria-hidden="true" /> Excellent SEO Health
                 </p>
               </button>
 
@@ -398,23 +399,25 @@ export default function LandingPage() {
                 type="button"
                 onClick={() => setActiveTab('overview')}
                 className="bg-[#0F1623] p-5 text-left cursor-pointer hover:bg-[#131b2e] transition-colors"
+                aria-label="Core Web Vitalsの概要を表示"
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">CORE WEB VITALS</span>
                   <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">実測速度</span>
-                </button>
+                </div>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
                   {auditResult ? auditResult.scores.performance : 98}<span className="text-slate-500 text-base font-normal">/100</span>
                 </div>
                 <p className="text-xs text-slate-400">
                   {auditResult ? `Response: ${auditResult.responseTimeMs}ms` : 'LCP 1.1s (Good) / INP 45ms'}
                 </p>
-              </div>
+              </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('aeo')}
                 className={`bg-[#0F1623] p-5 text-left cursor-pointer transition-colors ${activeTab === 'aeo' ? 'ring-1 ring-violet-500/50 bg-[#15192c]' : 'hover:bg-[#131b2e]'}`}
+                aria-label="AEOとLLMOの診断を表示"
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">AEO / LLMO READY</span>
@@ -424,12 +427,13 @@ export default function LandingPage() {
                   {auditResult ? auditResult.scores.aeo_llmo : 92}<span className="text-slate-500 text-base font-normal">/100</span>
                 </div>
                 <p className="text-xs text-violet-400">AI Overviews カルーセル対象</p>
-              </div>
+              </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('meta')}
                 className={`bg-[#0F1623] p-5 text-left cursor-pointer transition-colors ${activeTab === 'meta' ? 'ring-1 ring-amber-500/50 bg-[#1c191a]' : 'hover:bg-[#131b2e]'}`}
+                aria-label="メタ情報の診断を表示"
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">META INTEGRITY</span>
@@ -439,7 +443,7 @@ export default function LandingPage() {
                   {auditResult ? auditResult.scores.meta : 88}<span className="text-slate-500 text-base font-normal">/100</span>
                 </div>
                 <p className="text-xs text-amber-400">Canonical & OGP 整合性</p>
-              </div>
+              </button>
             </div>
 
             {/* Proposal Code / Dynamic Tab Content */}
