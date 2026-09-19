@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { safeFetchUrl } from './url-security.js';
 import {
   CrawlGraphNode,
   CrawlGraphEdge,
@@ -231,7 +232,7 @@ async function executeCrawlLoop(sessionId: string) {
     });
 
     try {
-      const res = await fetch(currentUrl, {
+      const res = await safeFetchUrl(currentUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerCrawler/2.0; +https://seo.n-n.tokyo/bot)',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
