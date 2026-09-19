@@ -175,3 +175,25 @@ test('malformed Jev answers are ignored instead of corrupting metrics', async ()
   assert.equal(result.metrics[0].aiDecision, undefined);
   assert.equal(result.metrics[0].status, 'warning');
 });
+
+test('low-confidence Jev result never recommends Gemini generation', async () => {
+  const result = await evaluateAuditWithJev(auditFixture(), {
+    config: { ...enabledConfig, minConfidence: 0.9 },
+    fetcher: (async () => new Response(JSON.stringify({
+      model: 'jev-latest',
+      answers: {
+        issue_0_priority: {
+          type: 'choice',
+          choice: 'high',
+          probabilities: { critical: 0.1, high: 0.8, medium: 0.09, low: 0.01 },
+          confidence: 0.8,
+        },
+        issue_0_generate: { type: 'noul', noul: 0.95 },
+        issue_0_risk: { type: 'score', score: 1, confidence: 0.85 },
+      },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as typeof fetch,
+  });
+
+  assert.equal(result.metrics[0].aiDecision?.shouldGenerateWithGemini, false);
+  assert.equal(result.metrics[0].status, 'warning');
+});
