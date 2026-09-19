@@ -94,3 +94,18 @@ GitHubリポジトリ（`git@nntokyo:nntokyo/seo.n-n.tokyo.git`）の Settings >
 3. **Secret**: `.env` に定義した `DEPLOY_WEBHOOK_SECRET` と同一の文字列（HMAC-SHA256署名検証に使用）
 4. **Which events would you like to trigger this webhook?**: `Just the push event`
 5. **Active**: 有効 (Check)
+
+
+---
+
+## 認証セキュリティと永続化移行方針
+
+ローカルパスワードは新規作成・変更時にNode.jsのscryptでハッシュ化します。旧PBKDF2-SHA512（10,000 iterations）で保存された既存ユーザーは、ログイン成功時にscryptへ自動rehashされるため、一括パスワードリセットは不要です。
+
+- ログイン失敗: 同一メールアドレスで15分間に5回失敗すると15分ブロック
+- メール認証コード: `crypto.randomInt()` による6桁コード
+- 認証コード試行: 1コードあたり最大5回
+- 認証コード再送: 60秒のクールダウン
+- セッショントークン: 平文ではなくSHA-256ハッシュを保存
+
+現行のusers/sessionsは互換性維持のため `.data/auth/*.json` を継続利用します。次段階ではPrisma/PostgreSQLへ `AuthUser` / `AuthSession` / `EmailVerification` 相当のモデルを追加し、既存JSONを一度だけ読み込むmigrationスクリプトで移行します。移行完了まではJSONファイルをバックアップ対象とし、ファイル権限をサーバー実行ユーザーのみに制限します。
