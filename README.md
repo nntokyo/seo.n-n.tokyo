@@ -6,7 +6,7 @@
 > - [ShadcnAdmin](https://shadcnadmin.com/) — shadcn/ui, Tailwind CSS v4, OKLCH, Border Grids, Stat Cards, DataTables
 > - [Refero Styles](https://styles.refero.design/) — AI-Native DESIGN.md Standard, Obsidian Gallery Dark Aesthetic, 16:10 Media Containers, Pill Tabs
 >
-> 独立したバックエンド（API/Worker/Crawler）とフロントエンド（Next.js 15 UI）、およびGitHub Webhookによるゼロダウンタイム自動デプロイ機構を備えたエンタープライズSaaS設計です。
+> 独立したバックエンド（API/Worker/Crawler）とフロントエンド（Next.js 15 UI）、およびGitHub Webhookによるローリングデプロイ機構を備えたエンタープライズSaaS設計です。
 
 ---
 
@@ -25,10 +25,11 @@
 3. **メタ情報・タグ競合・文字化け 完全検知エンジン**
    - 複数Canonicalタグ重複、Robotsディレクティブの矛盾、文字コード（Mojibake）の検知。
    - 相対パスCanonical/OGP画像の検出、Hreflang多言語相互リンク欠落の検出。
-4. **JavaScript SEO & DOM差分解析 (Raw HTML vs Rendered DOM Diff)**
-   - 静的HTMLパースとHeadless Chrome描画後のDOMを比較し、JSによる遅延メタ注入やハイドレーションエラーを可視化。
-5. **サイト全体ディープクロール & 内部リンクネットワーク可視化**
-   - D3.jsによる内部PageRankグラフ、リンク切れ（404）、孤立ページ、クリック階層の深さ（Click Depth）を網羅。
+4. **HTMLベースのSEO・メタ診断（実装済み） / Rendered DOM差分（設計済み）**
+   - 現行実装はCheerioによる取得HTMLの解析を中心に、メタタグ・構造化データ・リンク等を診断します。
+   - Headless ChromeによるRaw HTML vs Rendered DOM Diffは設計書に記載された拡張計画で、現行の依存関係にはPlaywright/Chromium Clusterを含みません。
+5. **サイト全体クロール & 内部リンクネットワーク診断**
+   - 内部PageRank相当のスコア、リンク切れ（404）、孤立ページ、クリック階層、内部リンク・トピッククラスター改善候補を診断します。
 6. **Time-travel 履歴差分比較**
    - デプロイ前後や施策実施前後のスコア変動とタグ変更差分をタイムライン比較。
 
@@ -52,19 +53,19 @@ flowchart TD
         GitHub["GitHub Push Event (main)"] -->|POST /webhook| Webhook
         Webhook -->|非同期実行| DeployScript["infra/deploy.sh"]
         DeployScript --> Build["1. バックグラウンド並列ビルド (旧プロセス稼働維持)"]
-        Build --> Reload["2. PM2 reload (ダウンタイム0秒でプロセス切替)"]
+        Build --> Reload["2. PM2 reload (短時間でプロセス切替)"]
         Reload --> Health{"3. 内部ヘルスチェック (200 OK)"}
         Health -- 成功 --> Success["✅ デプロイ完了"]
-        Health -- 失敗 --> Rollback["🚨 自動ロールバック (旧バージョンを無瞬断維持)"]
+        Health -- 失敗 --> Rollback["🚨 自動ロールバック (旧バージョンへロールバック)"]
     end
 
     Backend --> Postgres[("Docker PostgreSQL 16 (Port 5432)")]
     Backend --> Redis[("Redis 7 (Port 6379)")]
 ```
 
-### 🛡️ システムがダウンしない耐障害性保証
+### 🛡️ デプロイ時の可用性設計
 1. **No Pre-kill (稼働中ビルド)**: 新コードのビルド（pnpm build）が完全に成功するまで既存プロセスを一切停止しません。
-2. **Graceful Reload**: PM2の `reload` により、新プロセスがリッスンを開始した瞬間に入れ替えるため、瞬断が発生しません。
+2. **Graceful Reload**: PM2の `reload` により、PM2 reloadで停止時間を最小化します。現在は各サービス1インスタンスのfork modeのため、厳密な無瞬断は保証しません。
 3. **自動即時ロールバック**: ビルドやヘルスチェックが失敗した場合、直前の正常コミットへ即時ロールバックし旧バージョンを維持します。
 4. **二重デプロイ排他制御**: `flock` によるロックファイル管理で並列実行によるコード破損を防止します。
 
@@ -95,12 +96,13 @@ flowchart TD
 
 ## 🛠️ 技術スタック
 
-- **Frontend (`apps/frontend` - Port 5600)**: Next.js 15 (App Router), React 19, TypeScript 5.5, Tailwind CSS v4 (`@theme`, OKLCH), shadcn/ui, Lucide React, Recharts, D3.js
-- **Backend (`apps/backend` - Port 5601)**: Fastify / Node.js 22 LTS, TypeScript, Playwright (Chromium Cluster), Cheerio, BullMQ
-- **Webhook & Deploy (`infra` - Port 9104)**: Node.js Webhook Server (HMAC-SHA256署名検証), `infra/deploy.sh` (Zero-downtime & Auto-rollback)
-- **Database & Cache**: PostgreSQL 16 (Docker), Prisma ORM 5.22, Redis 7
-- **AI & Official APIs**: Google PageSpeed Insights v5, Chrome UX Report API, Google Search Console API, Google Web Risk v1, Google Indexing v3, Google Gemini 3.8 Flash
-- **Infrastructure**: Caddy v2 (Reverse Proxy & Auto SSL), PM2 (`ecosystem.config.cjs`), Linux (ssh home)
+- **Frontend (`apps/frontend` - Port 5600)**: Next.js 15.2.1 (App Router), React 19, TypeScript 5.7, Tailwind CSS 4, Lucide React
+- **Backend (`apps/backend` - Port 5601)**: Fastify 5, Node.js 22, TypeScript 5.7, Cheerio 1.2, Nodemailer, PDFKit
+- **Shared (`packages/shared`)**: TypeScript共通型・APIレスポンス型
+- **Webhook & Deploy (`infra` - Port 9104)**: Node.js Webhook Server (HMAC-SHA256), PM2, Caddy, `infra/deploy.sh`
+- **Database**: PostgreSQL 16, Prisma ORM / Client 6.19.3
+- **AI & Official APIs**: Google PageSpeed Insights v5, Search Console, GA4 Data API, Web Risk v1, Indexing API v3, Gemini 3.8 Flash
+- **現時点で依存関係に含まれない設計/将来項目**: Playwright / Chromium Cluster、BullMQ、Redisクライアント、Recharts、D3.js。設計書に記載があっても、実装済み機能とは区別します。
 
 ---
 
