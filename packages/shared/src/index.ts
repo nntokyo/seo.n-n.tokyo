@@ -1,3 +1,11 @@
+export interface AiDecisionMetadata {
+  provider: 'jev';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  shouldGenerateWithGemini: boolean;
+  regressionRisk: number;
+  confidence: number;
+}
+
 export interface AuditMetric {
   id: string;
   name: string;
@@ -10,6 +18,7 @@ export interface AuditMetric {
     before: string;
     after: string;
   };
+  aiDecision?: AiDecisionMetadata;
 }
 
 export interface CrawlLink {
