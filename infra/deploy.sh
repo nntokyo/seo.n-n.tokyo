@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# seo.n-n.tokyo ゼロダウンタイム・デプロイスクリプト
+# seo.n-n.tokyo ローリング・デプロイスクリプト
 # ==============================================================================
 
 set -uo pipefail
@@ -79,10 +79,10 @@ fi
 SHORT="${REMOTE_SHA:0:7}"
 PREV_SHORT=$(printf '%.7s' "${CURRENT_LOCAL_SHA:-none}")
 SUBJECT=$(git log -1 --pretty='%s' "$REMOTE_SHA" 2>/dev/null || echo '(no subject)')
-log "===== zero-downtime deploy start: $BRANCH @ $SHORT (from $PREV_SHORT) — $SUBJECT ====="
+log "===== rolling deploy start: $BRANCH @ $SHORT (from $PREV_SHORT) — $SUBJECT ====="
 
 rollback() {
-  log "🚨 DEPLOYMENT FAILED! Initiating zero-downtime rollback to $CURRENT_LOCAL_SHA..."
+  log "🚨 DEPLOYMENT FAILED! Initiating rollback to $CURRENT_LOCAL_SHA..."
   rm -rf "$FRONTEND_BUILD_DIR"
   if [ -d "$FRONTEND_PREVIOUS_DIR" ]; then
     rm -rf "$FRONTEND_DIR/.next"
@@ -97,7 +97,7 @@ rollback() {
     PORT="5601" BACKEND_PORT="5601" pm2 startOrReload "$BASE/ecosystem.config.cjs" --only "$BACKEND_NAME" --update-env >/dev/null 2>&1 || true
     PORT="5600" pm2 startOrReload "$BASE/ecosystem.config.cjs" --only "$FRONTEND_NAME" --update-env >/dev/null 2>&1 || true
   fi
-  log "Rollback completed. Existing PM2 processes remain active without disruption."
+  log "Rollback completed. PM2 processes were restored to the previous build where possible."
   exit 1
 }
 
@@ -214,5 +214,5 @@ fi
 # 6. デプロイ成功の記録
 echo "$REMOTE_SHA" > "$STATE_FILE"
 rm -rf "$FRONTEND_PREVIOUS_DIR" "$BACKEND_DIST_BACKUP"
-log "===== 🎉 ZERO-DOWNTIME DEPLOY SUCCESSFUL: $SHORT ====="
+log "===== DEPLOY SUCCESSFUL: $SHORT ====="
 exit 0
