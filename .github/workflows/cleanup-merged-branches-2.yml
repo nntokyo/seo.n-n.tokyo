@@ -1,0 +1,33 @@
+name: Cleanup merged branches 2
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.head_ref == 'maintenance/cleanup-merged-branches-2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Delete merged branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          branches=(
+            "feat/jev-shadow-evaluation"
+            "ui/refine-product-design"
+            "ui/navigation-monetization"
+            "maintenance/cleanup-merged-branches-2"
+          )
+          for branch in "${branches[@]}"; do
+            if git ls-remote --exit-code --heads origin "refs/heads/${branch}" >/dev/null 2>&1; then
+              git push origin --delete "${branch}"
+            fi
+          done
