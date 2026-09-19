@@ -148,6 +148,7 @@ async function main() {
       service: 'seo-backend',
       version: '1.2.1',
       cachedAudits: auditCache.size,
+      jevShadowEnabled: process.env.JEV_ENABLED === 'true' && Boolean(process.env.TYPESAFE_API_KEY),
       timestamp: new Date().toISOString(),
     };
   });
