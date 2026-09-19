@@ -72,6 +72,7 @@ import path from 'node:path';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import { safeFetchUrl } from './url-security.js';
+import { evaluateAuditWithJev } from './jev.js';
 import { sendAlertEmail, sendTeamInvitationEmail, sendVerificationEmail } from './mailer.js';
 import { createAuditPdf } from './pdf-report.js';
 
@@ -183,7 +184,9 @@ async function main() {
       const html = await response.text();
       const httpStatus = response.status;
 
-      const result = analyzeHtml(targetUrl, html, responseTimeMs, httpStatus, undefined, sitemapOutcome);
+      const result = await evaluateAuditWithJev(
+        analyzeHtml(targetUrl, html, responseTimeMs, httpStatus, undefined, sitemapOutcome),
+      );
 
       // メモリ & ディスクに永続保存
       auditCache.set(result.id, result);
@@ -233,7 +236,9 @@ async function main() {
         }),
         checkSitemap(targetUrl).catch(() => undefined),
       ]);
-      const result = analyzeHtml(targetUrl, await response.text(), Date.now() - startedAt, response.status, undefined, sitemapOutcome);
+      const result = await evaluateAuditWithJev(
+        analyzeHtml(targetUrl, await response.text(), Date.now() - startedAt, response.status, undefined, sitemapOutcome),
+      );
       auditCache.set(result.id, result);
       fs.writeFileSync(path.join(baseDataDir, `${result.id}.json`), JSON.stringify(result), 'utf8');
       const project = createProject(new URL(targetUrl).hostname, targetUrl, verified.ownerId);
@@ -285,7 +290,9 @@ async function main() {
         ]);
         const responseTimeMs = Date.now() - startTime;
         const html = await response.text();
-        const result = analyzeHtml(targetUrl, html, responseTimeMs, response.status, undefined, sitemapOutcome);
+        const result = await evaluateAuditWithJev(
+          analyzeHtml(targetUrl, html, responseTimeMs, response.status, undefined, sitemapOutcome),
+        );
         result.id = id; // 要求されたIDで保存
         auditCache.set(id, result);
         try {
