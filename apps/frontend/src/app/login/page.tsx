@@ -188,9 +188,11 @@ function LoginForm() {
         </div>
 
         {/* Tab switch */}
-        <div className="flex rounded-xl bg-black/40 p-1 border border-white/5">
+        <div role="tablist" aria-label="認証方法" className="flex rounded-xl bg-black/40 p-1 border border-white/5">
           <button
             type="button"
+            role="tab"
+            aria-selected={mode === 'login'}
             onClick={() => {
               setMode('login');
               setError(null);
@@ -203,6 +205,8 @@ function LoginForm() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={mode === 'register'}
             onClick={() => {
               setMode('register');
               setError(null);
@@ -217,13 +221,13 @@ function LoginForm() {
 
         {/* Status Messages */}
         {error && (
-          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+          <div role="alert" className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
             <XCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {successMsg && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2">
+          <div aria-live="polite" className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -238,6 +242,7 @@ function LoginForm() {
                 <User className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
                 <input
                   type="text"
+                  autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="田中 太郎"
@@ -253,6 +258,7 @@ function LoginForm() {
               <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
               <input
                 type="email"
+                autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -268,8 +274,9 @@ function LoginForm() {
               <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
               <input
                 type="password"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 required
-                minLength={6}
+                minLength={mode === 'register' ? 10 : undefined}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -277,13 +284,14 @@ function LoginForm() {
               />
             </div>
             {mode === 'register' && (
-              <span className="text-[10px] text-slate-500">6文字以上の安全なパスワードを入力してください</span>
+              <span className="text-[10px] text-slate-500">10文字以上の安全なパスワードを入力してください</span>
             )}
           </div>
 
           <button
             type="submit"
             disabled={loading || googleLoading}
+            aria-busy={loading}
             className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-sm rounded-xl shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
@@ -310,7 +318,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#080B11] text-slate-100 flex items-center justify-center px-4 py-12 selection:bg-cyan-500/30">
-      <Suspense fallback={<div className="text-slate-400 text-xs font-mono">読み込み中...</div>}>
+      <Suspense fallback={<div aria-live="polite" className="text-slate-400 text-xs font-mono">読み込み中...</div>}>
         <LoginForm />
       </Suspense>
     </div>
