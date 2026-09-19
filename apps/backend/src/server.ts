@@ -72,7 +72,7 @@ import path from 'node:path';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import { safeFetchUrl } from './url-security.js';
-import { evaluateAuditWithJev } from './jev.js';
+import { evaluateAuditWithJev, getJevRuntimeStats } from './jev.js';
 import { sendAlertEmail, sendTeamInvitationEmail, sendVerificationEmail } from './mailer.js';
 import { createAuditPdf } from './pdf-report.js';
 
@@ -149,6 +149,7 @@ async function main() {
       version: '1.2.1',
       cachedAudits: auditCache.size,
       jevShadowEnabled: process.env.JEV_ENABLED === 'true' && Boolean(process.env.TYPESAFE_API_KEY),
+      jevShadowStats: getJevRuntimeStats(),
       timestamp: new Date().toISOString(),
     };
   });
