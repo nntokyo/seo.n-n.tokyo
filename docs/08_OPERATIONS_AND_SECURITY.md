@@ -91,6 +91,6 @@ GitHubリポジトリ（`git@nntokyo:nntokyo/seo.n-n.tokyo.git`）の Settings >
 
 1. **Payload URL**: `https://seo.n-n.tokyo/webhook`
 2. **Content type**: `application/json`
-3. **Secret**: `.env` に定義した `DEPLOY_WEBHOOK_SECRET` と同一の文字列（HMAC-SHA256署名検証に使用）
+3. **Secret**: `.env` に定義した `DEPLOY_WEBHOOK_SECRET` と同一の文字列（HMAC-SHA256署名検証に使用）。**本番環境では必須**で、未設定の場合Webhookプロセスは起動に失敗します。開発時のみ `ALLOW_UNSIGNED_DEPLOY_WEBHOOK=true` で署名なしモードを明示的に許可できますが、`NODE_ENV=production` では無効です。
 4. **Which events would you like to trigger this webhook?**: `Just the push event`
 5. **Active**: 有効 (Check)
