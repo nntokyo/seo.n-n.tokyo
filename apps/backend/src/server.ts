@@ -71,6 +71,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import { safeFetchUrl } from './url-security.js';
 import { sendAlertEmail, sendTeamInvitationEmail, sendVerificationEmail } from './mailer.js';
 import { createAuditPdf } from './pdf-report.js';
 
@@ -165,7 +166,7 @@ async function main() {
     try {
       const startTime = Date.now();
       const [response, sitemapOutcome] = await Promise.all([
-        fetch(targetUrl, {
+        safeFetchUrl(targetUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -226,7 +227,7 @@ async function main() {
     try {
       const startedAt = Date.now();
       const [response, sitemapOutcome] = await Promise.all([
-        fetch(targetUrl, {
+        safeFetchUrl(targetUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)' },
           signal: AbortSignal.timeout(12_000),
         }),
@@ -270,7 +271,7 @@ async function main() {
       try {
         const startTime = Date.now();
         const [response, sitemapOutcome] = await Promise.all([
-          fetch(targetUrl, {
+          safeFetchUrl(targetUrl, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -330,7 +331,7 @@ async function main() {
 
     try {
       const startTime = Date.now();
-      const response = await fetch(targetUrl, {
+      const response = await safeFetchUrl(targetUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -368,7 +369,7 @@ async function main() {
 
     // 実URLが指定された場合はメタ情報と内部リンクを自動取得
     try {
-      const response = await fetch(siteUrl, {
+      const response = await safeFetchUrl(siteUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerBot/2.0; +https://seo.n-n.tokyo/bot)',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -1303,7 +1304,7 @@ ${linksSection}
         for (const project of listProjects(ownerId)) {
           try {
             const startedAt = Date.now();
-            const response = await fetch(project.rootUrl, {
+            const response = await safeFetchUrl(project.rootUrl, {
               headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerMonitor/1.0; +https://seo.n-n.tokyo/bot)' },
               signal: AbortSignal.timeout(12_000),
             });
