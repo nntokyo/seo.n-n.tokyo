@@ -24,7 +24,9 @@ import {
   Check,
   Network,
   FolderKanban,
-  User
+  User,
+  Menu,
+  X
 } from 'lucide-react';
 import { AuthUser } from '@seo/shared';
 import { AdSenseUnit } from './_components/AdSenseUnit';
@@ -77,6 +79,7 @@ export default function LandingPage() {
   const [copied, setCopied] = useState(false);
   const [llmsCopied, setLlmsCopied] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -129,16 +132,16 @@ export default function LandingPage() {
     <div className="flex flex-col min-h-screen">
       {/* 1. Header (Sticky Blur - ShadcnAdmin / Refero) */}
       <header className="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#080B11]/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-violet-500 flex items-center justify-center p-0.5 shadow-lg shadow-cyan-500/20">
               <div className="w-full h-full bg-[#080B11] rounded-[10px] flex items-center justify-center">
                 <Terminal className="w-4 h-4 text-cyan-400" />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-base tracking-tight text-white">SEO Analyzer</span>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/10">v2.0</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-base tracking-tight text-white truncate">SEO Analyzer</span>
+              <span className="hidden sm:inline-flex text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/10">v2.0</span>
             </div>
           </div>
 
@@ -166,7 +169,7 @@ export default function LandingPage() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {currentUser?.role === 'ADMIN' && (
               <Link
                 href="/admin"
@@ -178,28 +181,58 @@ export default function LandingPage() {
             {currentUser ? (
               <Link
                 href="/account"
-                className="text-xs font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-colors flex items-center gap-1.5"
+                aria-label="マイページ"
+                className="text-xs font-mono px-2.5 sm:px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-colors flex items-center gap-1.5"
               >
-                <User className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{currentUser.name} (マイページ)</span>
+                <User className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
+                <span className="hidden sm:inline max-w-40 truncate">{currentUser.name} (マイページ)</span>
               </Link>
             ) : (
               <Link
                 href="/login"
-                className="text-xs font-mono px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/30 bg-white/5 hover:bg-cyan-500/10 text-slate-200 hover:text-cyan-300 transition-colors flex items-center gap-1.5"
+                aria-label="ログイン"
+                className="text-xs font-mono px-2.5 sm:px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/30 bg-white/5 hover:bg-cyan-500/10 text-slate-200 hover:text-cyan-300 transition-colors flex items-center gap-1.5"
               >
-                <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-                <span>ログイン</span>
+                <Terminal className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
+                <span className="hidden sm:inline">ログイン</span>
               </Link>
             )}
             <a 
               href="#audit-input" 
-              className="text-xs font-semibold text-black bg-gradient-to-r from-cyan-400 to-cyan-300 hover:brightness-110 px-4 py-2 rounded-full transition-all shadow-md shadow-cyan-500/20"
+              className="hidden md:inline-flex text-xs font-semibold text-black bg-gradient-to-r from-cyan-400 to-cyan-300 hover:brightness-110 px-4 py-2 rounded-full transition-all shadow-md shadow-cyan-500/20"
             >
               即時診断
             </a>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+              aria-label={mobileMenuOpen ? 'メニューを閉じる' : 'メニューを開く'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
+            >
+              {mobileMenuOpen ? <X className="w-4 h-4" aria-hidden="true" /> : <Menu className="w-4 h-4" aria-hidden="true" />}
+            </button>
           </div>
         </div>
+
+        {mobileMenuOpen && (
+          <nav
+            id="mobile-navigation"
+            aria-label="モバイルナビゲーション"
+            className="md:hidden border-t border-white/[0.08] bg-[#080B11]/95 px-4 py-4 backdrop-blur-xl"
+          >
+            <div className="mx-auto grid max-w-7xl grid-cols-1 gap-1 text-sm">
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">機能</a>
+              <Link href="/tools/llms-txt" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">llms.txt生成</Link>
+              <Link href="/tools/sitemap-analyzer" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">サイトマップ分析</Link>
+              <Link href="/crawl/new" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">ディープクロール</Link>
+              <Link href="/google/hub" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">Google公式統合</Link>
+              <Link href="/projects" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">プロジェクト</Link>
+              <a href="#audit-input" onClick={() => setMobileMenuOpen(false)} className="mt-2 rounded-lg bg-cyan-400 px-3 py-2.5 text-center font-semibold text-slate-950">即時診断へ</a>
+            </div>
+          </nav>
+        )}
       </header>
 
       {/* 2. Hero Section (High Impact Terminal & Cyber Glow) */}
@@ -227,22 +260,32 @@ export default function LandingPage() {
 
           {/* Quick Audit Input Bar */}
           <div id="audit-input" className="max-w-2xl mx-auto mb-6">
-            <form onSubmit={handleAudit} className="relative flex items-center p-2 rounded-2xl bg-[#0F1623] border border-white/10 shadow-2xl focus-within:border-cyan-500/50 transition-all">
-              <div className="pl-3 pr-2 text-slate-500">
-                <Search className="w-5 h-5" />
+            <form onSubmit={handleAudit} className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 rounded-2xl bg-[#0F1623] border border-white/10 shadow-2xl focus-within:border-cyan-500/50 transition-all">
+              <label htmlFor="audit-url" className="sr-only">診断するサイトURL</label>
+              <div className="flex min-w-0 flex-1 items-center rounded-xl bg-black/10">
+                <div className="pl-3 pr-2 text-slate-500" aria-hidden="true">
+                  <Search className="w-5 h-5" />
+                </div>
+                <input
+                  id="audit-url"
+                  type="url"
+                  inputMode="url"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  required
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  aria-describedby="audit-url-help"
+                  className="min-w-0 w-full bg-transparent py-3 pr-3 text-sm text-white placeholder:text-slate-500 focus:outline-none"
+                />
               </div>
-              <input
-                type="text"
-                required
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://example.com を入力して無料診断..."
-                className="w-full bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none"
-              />
               <button
                 type="submit"
                 disabled={isAuditing}
-                className="flex items-center gap-2 text-xs font-semibold text-black bg-cyan-400 hover:bg-cyan-300 px-5 py-3 rounded-xl transition-all whitespace-nowrap disabled:opacity-50"
+                aria-busy={isAuditing}
+                className="flex w-full sm:w-auto items-center justify-center gap-2 text-xs font-semibold text-black bg-cyan-400 hover:bg-cyan-300 px-5 py-3 rounded-xl transition-all whitespace-nowrap disabled:opacity-50"
               >
                 {isAuditing ? (
                   <>
@@ -258,13 +301,18 @@ export default function LandingPage() {
               </button>
             </form>
 
+            <p id="audit-url-help" className="sr-only">http または https で始まる公開サイトのURLを入力してください。</p>
+            <div className="sr-only" aria-live="polite">
+              {isAuditing ? 'サイトを診断しています' : auditResult ? '診断が完了しました' : ''}
+            </div>
+
             {errorMsg && (
-              <div className="mt-3 p-3 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 text-left">
-                🚨 {errorMsg}
+              <div role="alert" className="mt-3 p-3 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 text-left">
+                {errorMsg}
               </div>
             )}
 
-            <div className="flex items-center justify-center gap-6 mt-4 text-xs text-slate-500">
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-4 text-xs text-slate-500">
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> クレジットカード不要</span>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Google公式API連携</span>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> llms.txt 自動合成</span>
@@ -274,16 +322,16 @@ export default function LandingPage() {
           {/* 3. Interactive Hero Dashboard Preview (ShadcnAdmin Border Grid) */}
           <div className="relative rounded-3xl p-1 bg-gradient-to-b from-white/10 to-transparent border border-white/10 shadow-2xl shadow-cyan-950/40 text-left overflow-hidden mt-8">
             {/* Top Toolbar */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#0F1623]/90">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-white/[0.08] bg-[#0F1623]/90">
+              <div className="flex min-w-0 items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500/80" />
                 <div className="w-3 h-3 rounded-full bg-amber-500/80" />
                 <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                <span className="ml-3 font-mono text-xs text-slate-400">
+                <span className="ml-1 sm:ml-3 min-w-0 truncate font-mono text-xs text-slate-400">
                   {auditResult ? `audit-live: ${auditResult.url}` : 'audit-preview: https://seo.n-n.tokyo'}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex w-full sm:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 {auditResult && (
                   <Link
                     href={`/audit/${auditResult.id}?url=${encodeURIComponent(auditResult.url)}`}
@@ -293,25 +341,31 @@ export default function LandingPage() {
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 )}
-                <div className="inline-flex p-1 rounded-full bg-slate-900 border border-white/10 text-xs">
+                <div role="tablist" aria-label="診断結果の表示切替" className="grid w-full sm:w-auto grid-cols-3 p-1 rounded-xl sm:rounded-full bg-slate-900 border border-white/10 text-xs">
                   <button 
                     type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'overview'}
                     onClick={() => setActiveTab('overview')}
-                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'overview' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-2 sm:px-4 py-1.5 rounded-lg sm:rounded-full text-xs font-medium transition-all ${activeTab === 'overview' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
                   >
                     総合診断
                   </button>
                   <button 
                     type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'aeo'}
                     onClick={() => setActiveTab('aeo')}
-                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'aeo' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-2 sm:px-4 py-1.5 rounded-lg sm:rounded-full text-xs font-medium transition-all ${activeTab === 'aeo' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
                   >
                     AEO / LLMO
                   </button>
                   <button 
                     type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'meta'}
                     onClick={() => setActiveTab('meta')}
-                    className={`px-4 py-1 rounded-full text-xs font-medium transition-all ${activeTab === 'meta' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-2 sm:px-4 py-1.5 rounded-lg sm:rounded-full text-xs font-medium transition-all ${activeTab === 'meta' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
                   >
                     メタ不具合
                   </button>
@@ -321,32 +375,34 @@ export default function LandingPage() {
 
             {/* 4連 Border Grid KPI Stat Cards (ShadcnAdmin Spec) */}
             <div className="grid gap-px bg-white/[0.08] grid-cols-2 lg:grid-cols-4 bg-[#080B11]">
-              <div 
+              <button
+                type="button"
                 onClick={() => setActiveTab('overview')}
-                className={`bg-[#0F1623] p-5 cursor-pointer transition-colors ${activeTab === 'overview' ? 'ring-1 ring-cyan-500/50 bg-[#131b2b]' : 'hover:bg-[#131b2e]'}`}
+                className={`bg-[#0F1623] p-5 text-left cursor-pointer transition-colors ${activeTab === 'overview' ? 'ring-1 ring-cyan-500/50 bg-[#131b2b]' : 'hover:bg-[#131b2e]'}`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">TOTAL SCORE</span>
                   <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                     {auditResult ? `${auditResult.httpStatus} OK` : '+12% vs last'}
                   </span>
-                </div>
+                </button>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
                   {auditResult ? auditResult.overallScore : 94}<span className="text-slate-500 text-base font-normal">/100</span>
-                </div>
+                </button>
                 <p className="text-xs text-emerald-400 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" /> Excellent SEO Health
                 </p>
-              </div>
+              </button>
 
-              <div 
+              <button
+                type="button"
                 onClick={() => setActiveTab('overview')}
-                className="bg-[#0F1623] p-5 cursor-pointer hover:bg-[#131b2e] transition-colors"
+                className="bg-[#0F1623] p-5 text-left cursor-pointer hover:bg-[#131b2e] transition-colors"
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">CORE WEB VITALS</span>
                   <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">実測速度</span>
-                </div>
+                </button>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
                   {auditResult ? auditResult.scores.performance : 98}<span className="text-slate-500 text-base font-normal">/100</span>
                 </div>
@@ -355,9 +411,10 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              <div 
+              <button
+                type="button"
                 onClick={() => setActiveTab('aeo')}
-                className={`bg-[#0F1623] p-5 cursor-pointer transition-colors ${activeTab === 'aeo' ? 'ring-1 ring-violet-500/50 bg-[#15192c]' : 'hover:bg-[#131b2e]'}`}
+                className={`bg-[#0F1623] p-5 text-left cursor-pointer transition-colors ${activeTab === 'aeo' ? 'ring-1 ring-violet-500/50 bg-[#15192c]' : 'hover:bg-[#131b2e]'}`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">AEO / LLMO READY</span>
@@ -369,9 +426,10 @@ export default function LandingPage() {
                 <p className="text-xs text-violet-400">AI Overviews カルーセル対象</p>
               </div>
 
-              <div 
+              <button
+                type="button"
                 onClick={() => setActiveTab('meta')}
-                className={`bg-[#0F1623] p-5 cursor-pointer transition-colors ${activeTab === 'meta' ? 'ring-1 ring-amber-500/50 bg-[#1c191a]' : 'hover:bg-[#131b2e]'}`}
+                className={`bg-[#0F1623] p-5 text-left cursor-pointer transition-colors ${activeTab === 'meta' ? 'ring-1 ring-amber-500/50 bg-[#1c191a]' : 'hover:bg-[#131b2e]'}`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">META INTEGRITY</span>
