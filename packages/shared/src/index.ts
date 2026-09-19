@@ -281,6 +281,15 @@ export interface Ga4MetricsData {
   period: string; // e.g. "直近28日間"
 }
 
+export interface JevGeminiValidation {
+  provider: 'jev';
+  action: 'accept' | 'accept_with_warning' | 'needs_review' | 'reject';
+  addressesInputProbability: number;
+  seoRegressionProbability: number;
+  confidence: number;
+  latencyMs: number;
+}
+
 export interface GeminiProposalData {
   summary: string;
   strengths: string[];
@@ -294,6 +303,7 @@ export interface GeminiProposalData {
   titleProposals: string[];
   metaDescriptionProposal?: string;
   generatedAt: string;
+  jevValidation?: JevGeminiValidation;
 }
 
 export interface WebRiskData {
