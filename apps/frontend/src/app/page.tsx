@@ -145,26 +145,18 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <nav className="hidden xl:flex items-center gap-5 text-sm text-slate-400">
-            <a href="#features" className="hover:text-white transition-colors">機能</a>
-            <Link href="/tools/llms-txt" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
-              <Code2 className="w-3.5 h-3.5 text-cyan-400" />
-              <span>llms.txt生成</span>
+          <nav className="hidden xl:flex items-center gap-6 text-sm text-slate-400" aria-label="主要ナビゲーション">
+            <a href="#audit-input" className="hover:text-white transition-colors">無料診断</a>
+            <Link href="/tools" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
+              <span>ツール</span>
             </Link>
-            <Link href="/tools/sitemap-analyzer" className="hover:text-sky-400 transition-colors flex items-center gap-1.5 font-mono text-xs">
-              <Layers className="w-3.5 h-3.5 text-sky-400" />
-              <span>サイトマップ分析</span>
+            <Link href="/google/hub" className="hover:text-violet-300 transition-colors flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" />
+              <span>Google連携</span>
             </Link>
-            <Link href="/crawl/new" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
-              <Network className="w-3.5 h-3.5 text-cyan-400" />
-              <span>ディープクロール</span>
-            </Link>
-            <Link href="/google/hub" className="hover:text-violet-400 transition-colors flex items-center gap-1.5 font-mono text-xs text-violet-300">
-              <ShieldCheck className="w-3.5 h-3.5 text-violet-400" />
-              <span>Google公式統合</span>
-            </Link>
-            <Link href="/projects" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5 font-mono text-xs">
-              <FolderKanban className="w-3.5 h-3.5 text-cyan-400" />
+            <Link href="/projects" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5">
+              <FolderKanban className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
               <span>プロジェクト</span>
             </Link>
           </nav>
@@ -222,14 +214,24 @@ export default function LandingPage() {
             aria-label="モバイルナビゲーション"
             className="xl:hidden border-t border-white/[0.08] bg-[#080B11]/95 px-4 py-4 backdrop-blur-xl"
           >
-            <div className="mx-auto grid max-w-7xl grid-cols-1 gap-1 text-sm">
-              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">機能</a>
-              <Link href="/tools/llms-txt" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">llms.txt生成</Link>
-              <Link href="/tools/sitemap-analyzer" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">サイトマップ分析</Link>
-              <Link href="/crawl/new" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">ディープクロール</Link>
-              <Link href="/google/hub" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">Google公式統合</Link>
-              <Link href="/projects" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">プロジェクト</Link>
-              <a href="#audit-input" onClick={() => setMobileMenuOpen(false)} className="mt-2 rounded-lg bg-cyan-400 px-3 py-2.5 text-center font-semibold text-slate-950">即時診断へ</a>
+            <div className="mx-auto max-w-7xl space-y-4 text-sm">
+              <div>
+                <p className="px-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">診断</p>
+                <a href="#audit-input" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">SEO総合診断</a>
+              </div>
+              <div>
+                <p className="px-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">分析ツール</p>
+                <Link href="/tools" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-cyan-300 hover:bg-white/5">ツール一覧</Link>
+                <Link href="/tools/sitemap-analyzer" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">サイトマップ分析</Link>
+                <Link href="/crawl/new" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">ディープクロール</Link>
+                <Link href="/tools/llms-txt" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">llms.txt生成</Link>
+              </div>
+              <div>
+                <p className="px-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">運用</p>
+                <Link href="/google/hub" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">Google連携</Link>
+                <Link href="/projects" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">プロジェクト</Link>
+              </div>
+              <a href="#audit-input" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg bg-cyan-400 px-3 py-2.5 text-center font-semibold text-slate-950">無料診断を開始</a>
             </div>
           </nav>
         )}
@@ -614,7 +616,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <AdSenseUnit />
+      <AdSenseUnit placement="home" />
 
       {/* 4. Core Features Section (Grid with Refero Aesthetics) */}
       <section id="features" className="py-20 border-t border-white/[0.08] bg-[#080B11]">
