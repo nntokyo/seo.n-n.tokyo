@@ -26,14 +26,23 @@ try {
 const port = Number.parseInt(process.env.DEPLOY_WEBHOOK_PORT || '9104', 10);
 const host = process.env.DEPLOY_WEBHOOK_HOST || '127.0.0.1';
 const secret = process.env.DEPLOY_WEBHOOK_SECRET || '';
+const allowUnsignedWebhook = process.env.ALLOW_UNSIGNED_DEPLOY_WEBHOOK === 'true' && process.env.NODE_ENV !== 'production';
 const targetBranch = process.env.DEPLOY_TARGET_BRANCH || 'main';
 const deployScript = process.env.DEPLOY_SCRIPT || resolve(currentDir, 'deploy.sh');
 const maxPayloadBytes = 1024 * 1024; // 1MB
 
+if (!secret && !allowUnsignedWebhook) {
+  throw new Error('DEPLOY_WEBHOOK_SECRET is required. Unsigned deploy webhooks are disabled by default.');
+}
+
+if (!secret && allowUnsignedWebhook) {
+  console.warn('[seo-webhook] WARNING: unsigned webhook mode is enabled for non-production use only');
+}
+
 let isDeploying = false;
 
 function isValidSignature(payload, signature) {
-  if (!secret) return true; // secret未設定時は警告しつつ通過 (本番では設定推奨)
+  if (!secret) return allowUnsignedWebhook;
   const expected = `sha256=${crypto.createHmac('sha256', secret).update(payload).digest('hex')}`;
   const actualBuffer = Buffer.from(signature || '', 'utf8');
   const expectedBuffer = Buffer.from(expected, 'utf8');
@@ -47,7 +56,7 @@ function reply(res, statusCode, body) {
 
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && (req.url === '/health' || req.url === '/' || req.url === '/webhook')) {
-    reply(res, 200, { status: 'ok', service: 'seo-deploy-webhook', deploying: isDeploying });
+    reply(res, 200, { status: 'ok', service: 'seo-deploy-webhook', deploying: isDeploying, signatureVerification: Boolean(secret) });
     return;
   }
 
