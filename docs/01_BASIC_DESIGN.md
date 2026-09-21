@@ -28,7 +28,7 @@ graph TD
     subgraph BackendWorkers["バックエンド内部処理 & キュー基盤"]
         FastWorker["Fast HTML Analyzer (Cheerio)"]
         BrowserWorker["Headless Chromium Cluster (Playwright)"]
-        AiWorker["AI / GEO Engine (Google Gemini 2.5 Flash API)"]
+        AiWorker["AI / GEO Engine (Google Gemini 3.8 Flash API)"]
         GoogleHub["Google API Hub (PSI, Search Console, Web Risk, Indexing)"]
         RedisStore[("Redis 7 (キュー & キャッシュ)")]
     end

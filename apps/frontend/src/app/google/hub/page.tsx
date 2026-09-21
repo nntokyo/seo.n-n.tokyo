@@ -40,6 +40,10 @@ import {
   GeminiProposalData
 } from '@seo/shared';
 
+// 28日間の表示回数がこの値未満の場合は、CTRや平均順位を結論づけるには
+// データが不足しているとみなし、画面上で明示する。
+const SPARSE_GSC_IMPRESSION_THRESHOLD = 20;
+
 function GoogleHubContent() {
   const searchParams = useSearchParams();
   const [targetUrl, setTargetUrl] = useState('https://seo.n-n.tokyo');
@@ -602,12 +606,12 @@ function GoogleHubContent() {
                   </section>
                 )}
 
-                {gsc.totalImpressions < 20 && (
+                {gsc.totalImpressions < SPARSE_GSC_IMPRESSION_THRESHOLD && (
                   <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs">
                     <div className="font-semibold text-amber-300">Search Consoleのデータ量がまだ少ない状態です</div>
                     <p className="mt-1 leading-6 text-slate-400">
                       直近28日間の表示回数が{gsc.totalImpressions}回のため、CTRや平均順位はまだ判断材料として不安定です。
-                      インデックス状態は正常なので、公開コンテンツと内部リンクを増やしながら表示回数の蓄積を確認してください。
+                      インデックス状況とあわせて確認し、公開コンテンツと内部リンクを増やしながら表示回数の蓄積を待ってください。
                     </p>
                   </div>
                 )}

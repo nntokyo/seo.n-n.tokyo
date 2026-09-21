@@ -22,6 +22,11 @@ test('Google Hub uses current Gemini model label', () => {
   const hub = read('apps/frontend/src/app/google/hub/page.tsx');
   assert.doesNotMatch(hub, /Gemini 2\.0/);
   assert.match(hub, /Gemini 3\.8 Flash/);
+
+  // 設定画面の連携カードにも同じ現行モデル表記を出す。
+  const integrations = read('apps/frontend/src/app/settings/integrations/page.tsx');
+  assert.doesNotMatch(integrations, /Gemini 2\.0/);
+  assert.match(integrations, /Gemini 3\.8 Flash/);
 });
 
 test('global font stack includes Japanese fallbacks', () => {
