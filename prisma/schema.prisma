@@ -1,8 +1,9 @@
+// Prisma 7 reads the connection URL for CLI commands from prisma.config.ts.
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
+// prisma-client-js keeps the generated client at @prisma/client for compatibility.
 generator client {
   provider = "prisma-client-js"
 }

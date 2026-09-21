@@ -215,7 +215,7 @@ export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOu
   }
 
   // Next.js App Router 推奨コード生成
-  const generatedNextjsCode = `// app/sitemap.ts (Next.js 15 App Router)
+  const generatedNextjsCode = `// app/sitemap.ts (Next.js 16 App Router)
 import type { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {

@@ -70,7 +70,7 @@ Caddyはバックエンドやフロントエンドへの接続をヘルス監視
 | **公開FQDN** | `https://seo.n-n.tokyo` | Caddyによる自動Let's Encrypt SSL終端 |
 | **Gitリポジトリ** | `git@nntokyo:nntokyo/seo.n-n.tokyo.git` | デプロイブランチ: `main` |
 | **配置パス (BASE)** | `/Datas/www/seo.n-n.tokyo` | Webルート配下 |
-| **フロントエンド** | `127.0.0.1:5600` (PM2: `seo-frontend`) | Next.js 15 UI / SSR |
+| **フロントエンド** | `127.0.0.1:5600` (PM2: `seo-frontend`) | Next.js 16 UI / SSR |
 | **バックエンド** | `127.0.0.1:5601` (PM2: `seo-backend`) | Fastify API / クローラー / Gemini |
 | **GitHub Webhook** | `127.0.0.1:9104` (PM2: `seo-webhook`) | GitHub Pushイベント受信 & デプロイキック |
 | **外部Webhookパス** | `https://seo.n-n.tokyo/webhook` | GitHubリポジトリ設定用URL |

@@ -13,6 +13,8 @@ export interface SafeFetchOptions {
   timeoutMs?: number;
   maxBytes?: number;
   maxRedirects?: number;
+  method?: 'GET' | 'POST';
+  body?: string | Buffer;
 }
 
 function ipv4Number(address: string): number {
@@ -101,13 +103,19 @@ export async function assertPublicHttpUrl(rawUrl: string): Promise<URL> {
 }
 
 async function requestOnce(url: URL, options: SafeFetchOptions): Promise<Response> {
+  // Resolve once and connect to that literal address. This prevents a hostname from
+  // passing validation and then rebinding to a private address before the request.
   const { address, family } = await resolvePublicAddress(url);
   const transport = url.protocol === 'https:' ? https : http;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   const headers = new Headers(options.headers || {});
+  const body = options.body;
   headers.set('host', url.host);
   if (!headers.has('accept-encoding')) headers.set('accept-encoding', 'identity');
+  if (body !== undefined && !headers.has('content-length')) {
+    headers.set('content-length', String(Buffer.byteLength(body)));
+  }
 
   return new Promise<Response>((resolve, reject) => {
     const req = transport.request({
@@ -116,7 +124,7 @@ async function requestOnce(url: URL, options: SafeFetchOptions): Promise<Respons
       family,
       port: url.port || (url.protocol === 'https:' ? 443 : 80),
       path: `${url.pathname}${url.search}`,
-      method: 'GET',
+      method: options.method || 'GET',
       headers: Object.fromEntries(headers.entries()),
       servername: url.protocol === 'https:' ? url.hostname : undefined,
     }, (res) => {
@@ -161,7 +169,11 @@ async function requestOnce(url: URL, options: SafeFetchOptions): Promise<Respons
       else options.signal.addEventListener('abort', abort, { once: true });
     }
 
-    req.end();
+    if (body !== undefined) {
+      req.end(body);
+    } else {
+      req.end();
+    }
   });
 }
 

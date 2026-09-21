@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Terminal,
   ShieldCheck,
-  Chrome,
 } from 'lucide-react';
 import { AuthUser, AuthTokenResponse } from '@seo/shared';
 

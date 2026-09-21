@@ -41,7 +41,9 @@ PORT=${PORT}
 HOST=127.0.0.1
 HOSTNAME=127.0.0.1
 NEXT_PUBLIC_APP_URL=https://${DOMAIN}
+NEXT_PUBLIC_SITE_URL=https://${DOMAIN}
 NEXT_PUBLIC_DOMAIN=${DOMAIN}
+INTERNAL_API_URL=http://127.0.0.1:5601
 NEXTAUTH_URL=https://${DOMAIN}
 NEXTAUTH_SECRET=$(openssl rand -hex 32)
 DATABASE_URL=postgresql://${DB_USER}:${DB_PASS}@127.0.0.1:5432/${DB_NAME}?schema=public
@@ -67,6 +69,10 @@ fi
 
 echo "=== [4/6] 依存関係インストール & ビルド ==="
 export PATH="/usr/local/bin:/usr/bin:/bin:$HOME/.local/share/pnpm:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -1)/bin"
+# package.json の packageManager に従い、初期構築でも pnpm 12 を使用する。
+if command -v corepack >/dev/null 2>&1; then
+  corepack enable >/dev/null 2>&1 || true
+fi
 pnpm install --frozen-lockfile
 if [ -f "$BASE/prisma/schema.prisma" ]; then
   ./node_modules/.bin/prisma db push --accept-data-loss || true

@@ -1,6 +1,6 @@
 {
   "name": "@seo/backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "main": "dist/server.js",
   "scripts": {
@@ -11,24 +11,26 @@
     "test": "tsx --test src/*.test.ts"
   },
   "dependencies": {
-    "@fastify/cors": "^10.0.2",
-    "@prisma/client": "6.19.3",
+    "@fastify/cors": "^11.3.0",
+    "@prisma/client": "7.10.0",
     "@seo/shared": "workspace:*",
     "cheerio": "1.2.0",
-    "fastify": "^5.2.1",
-    "nodemailer": "10.0.9",
+    "fastify": "^5.12.5",
+    "nodemailer": "10.0.10",
     "pdfkit": "0.20.2"
   },
   "devDependencies": {
-    "@types/cheerio": "1.0.0",
-    "@types/node": "^22.13.9",
-    "@types/nodemailer": "8.0.1",
+    "@types/node": "^26.6.2",
+    "@types/nodemailer": "8.0.2",
     "@types/pdfkit": "0.17.6",
-    "prisma": "6.19.3",
-    "tsx": "^4.19.3",
-    "typescript": "^5.7.3"
+    "prisma": "7.10.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
   },
   "prisma": {
     "schema": "../../prisma/schema.prisma"
+  },
+  "engines": {
+    "node": ">=22.12.0 <27"
   }
 }
