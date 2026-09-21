@@ -22,7 +22,7 @@ graph TD
     subgraph CaddyRouting["Caddy URLルーティング"]
         Caddy -->|/webhook| WebhookWorker["Port 9104: GitHub Webhook Server\n(HMAC-SHA256署名検証 & ゼロダウンタイムデプロイ)"]
         Caddy -->|/api/*, /sse/*| BackendApp["Port 5601: バックエンド (Fastify / Node.js)\n(REST API, SSE Stream, Playwright, Gemini)"]
-        Caddy -->|/* (UI, Pages)| FrontendApp["Port 5600: フロントエンド (Next.js 15)\n(React 19, shadcn/ui, Tailwind v4, D3.js)"]
+        Caddy -->|/* (UI, Pages)| FrontendApp["Port 5600: フロントエンド (Next.js 16)\n(React 19, shadcn/ui, Tailwind v4, D3.js)"]
     end
 
     subgraph BackendWorkers["バックエンド内部処理 & キュー基盤"]

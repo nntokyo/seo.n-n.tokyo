@@ -2,9 +2,10 @@
 node_modules
 .pnpm-store
 
-# Next.js build output
+# Next.js / TypeScript build output
 .next
 out
+*.tsbuildinfo
 
 # Production
 build

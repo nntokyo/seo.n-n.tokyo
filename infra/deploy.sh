@@ -6,6 +6,10 @@
 set -uo pipefail
 
 export PATH="/usr/local/bin:/usr/bin:/bin:$HOME/.local/share/pnpm:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -1)/bin"
+# package.json の packageManager に従い、デプロイ時も pnpm 12 を使用する。
+if command -v corepack >/dev/null 2>&1; then
+  corepack enable >/dev/null 2>&1 || true
+fi
 
 BASE="/Datas/www/seo.n-n.tokyo"
 BRANCH="main"
@@ -115,8 +119,8 @@ if [ "$REEXEC_MODE" != "true" ]; then
 fi
 
 # 2. 依存パッケージのインストール
-log "Step 1: Installing dependencies (pnpm install)..."
-if ! pnpm install 2>&1; then
+log "Step 1: Installing dependencies (pnpm install --frozen-lockfile)..."
+if ! pnpm install --frozen-lockfile 2>&1; then
   log "pnpm install failed"
   rollback
 fi

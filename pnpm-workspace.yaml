@@ -1,3 +1,19 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# pnpm 12では依存パッケージのinstall scriptを明示的に許可する。
+# Prismaクライアント、ネイティブバンドル、Next.js画像最適化に必要な最小限だけを許可する。
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
+  sharp: true
+
+minimumReleaseAgeExclude:
+  - tsx@4.23.15
+
+# Prisma 7が要求するMySQLドライバーの既知の脆弱性を修正済みの同一メジャーへ固定する。
+overrides:
+  mysql2: 3.24.4

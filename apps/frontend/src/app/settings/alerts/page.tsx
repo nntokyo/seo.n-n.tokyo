@@ -76,7 +76,7 @@ export default function AlertsSettingsPage() {
     setTesting(true);
     setMessage(null);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/projects/global/notify/test`, {
+      const res = await fetch(`${API_BASE}/api/v1/settings/alerts/test`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

@@ -6,7 +6,7 @@
 > - [ShadcnAdmin](https://shadcnadmin.com/) — shadcn/ui, Tailwind CSS v4, OKLCH, Border Grids, Stat Cards, DataTables
 > - [Refero Styles](https://styles.refero.design/) — AI-Native DESIGN.md Standard, Obsidian Gallery Dark Aesthetic, 16:10 Media Containers, Pill Tabs
 >
-> 独立したバックエンド（API/Worker/Crawler）とフロントエンド（Next.js 15 UI）、およびGitHub Webhookによるローリングデプロイ機構を備えたエンタープライズSaaS設計です。
+> 独立したバックエンド（API/Worker/Crawler）とフロントエンド（Next.js 16 UI）、およびGitHub Webhookによるローリングデプロイ機構を備えたエンタープライズSaaS設計です。
 
 ---
 
@@ -46,7 +46,7 @@ flowchart TD
     subgraph Routing["Caddy ルーティング"]
         Caddy -->|/webhook| Webhook["127.0.0.1:9104: GitHub Webhook\n(HMAC-SHA256署名検証)"]
         Caddy -->|/api/*, /sse/*| Backend["127.0.0.1:5601: seo-backend\n(Fastify API / Crawler / Gemini)"]
-        Caddy -->|/*| Frontend["127.0.0.1:5600: seo-frontend\n(Next.js 15 UI / shadcn/ui)"]
+        Caddy -->|/*| Frontend["127.0.0.1:5600: seo-frontend\n(Next.js 16 UI / shadcn/ui)"]
     end
 
     subgraph ZeroDowntime["ゼロダウンタイム・パイプライン (/deploy.sh)"]
@@ -96,11 +96,11 @@ flowchart TD
 
 ## 🛠️ 技術スタック
 
-- **Frontend (`apps/frontend` - Port 5600)**: Next.js 15.2.1 (App Router), React 19, TypeScript 5.7, Tailwind CSS 4, Lucide React
-- **Backend (`apps/backend` - Port 5601)**: Fastify 5, Node.js 22, TypeScript 5.7, Cheerio 1.2, Nodemailer, PDFKit
+- **Frontend (`apps/frontend` - Port 5600)**: Next.js 16.3, React 19.3, TypeScript 6.0, Tailwind CSS 4.3, Lucide React
+- **Backend (`apps/backend` - Port 5601)**: Fastify 5.12, Node.js 22.12+, TypeScript 6.0, Cheerio 1.2, Nodemailer, PDFKit
 - **Shared (`packages/shared`)**: TypeScript共通型・APIレスポンス型
 - **Webhook & Deploy (`infra` - Port 9104)**: Node.js Webhook Server (HMAC-SHA256), PM2, Caddy, `infra/deploy.sh`
-- **Database**: PostgreSQL 16, Prisma ORM / Client 6.19.3
+- **Database**: PostgreSQL 16, Prisma ORM / Client 7.10
 - **AI & Official APIs**: Google PageSpeed Insights v5, Search Console, GA4 Data API, Web Risk v1, Indexing API v3, Gemini 3.8 Flash。TypeSafe AI Jevはfeature flag付きのshadow evaluationとして任意利用し、既存ルールのseverity/scoreは上書きしません。
 - **現時点で依存関係に含まれない設計/将来項目**: Playwright / Chromium Cluster、BullMQ、Redisクライアント、Recharts、D3.js。設計書に記載があっても、実装済み機能とは区別します。
 

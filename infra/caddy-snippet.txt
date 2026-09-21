@@ -60,7 +60,7 @@ seo.n-n.tokyo {
         }
     }
 
-    # ④ フロントエンド アプリケーション (Port 5600: Next.js 15 App)
+    # ④ フロントエンド アプリケーション (Port 5600: Next.js 16 App)
     handle {
         reverse_proxy 127.0.0.1:5600 {
             header_up Host {host}

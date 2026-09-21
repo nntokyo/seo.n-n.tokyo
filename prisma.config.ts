@@ -1,4 +1,4 @@
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from 'prisma/config';
 
 try {
   process.loadEnvFile();
@@ -7,11 +7,13 @@ try {
 }
 
 export default defineConfig({
-  schema: "prisma/schema.prisma",
+  schema: 'prisma/schema.prisma',
   migrations: {
-    path: "prisma/migrations",
+    path: 'prisma/migrations',
   },
+  // Prisma 7 does not need a connection to generate the client. Migrate commands
+  // still report a clear configuration error if DATABASE_URL is not supplied.
   datasource: {
-    url: env("DATABASE_URL"),
+    url: process.env.DATABASE_URL!,
   },
 });

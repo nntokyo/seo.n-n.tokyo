@@ -69,9 +69,8 @@ import {
 
 import fs from 'node:fs';
 import path from 'node:path';
-import dns from 'node:dns/promises';
-import net from 'node:net';
 import { safeFetchUrl } from './url-security.js';
+import { tokenFromAuthorizationHeader, tokenFromCookieHeader } from './request-auth.js';
 import { evaluateAuditWithJev, getJevRuntimeStats } from './jev.js';
 import { sendAlertEmail, sendTeamInvitationEmail, sendVerificationEmail } from './mailer.js';
 import { createAuditPdf } from './pdf-report.js';
@@ -99,31 +98,30 @@ async function main() {
   // インメモリ診断結果キャッシュ (直近500件)
   const auditCache = new Map<string, any>();
 
-  const readCookie = (request: any, name: string): string | undefined => {
-    const raw = request.headers.cookie || '';
-    const item = raw.split(';').map((part: string) => part.trim()).find((part: string) => part.startsWith(`${name}=`));
-    return item ? decodeURIComponent(item.slice(name.length + 1)) : undefined;
-  };
+  const readCookie = (request: any, name: string): string | undefined =>
+    tokenFromCookieHeader(request.headers.cookie, name);
   const authToken = (request: any): string | undefined =>
-    request.headers.authorization || readCookie(request, 'seo_auth_token');
+    tokenFromAuthorizationHeader(request.headers.authorization) || readCookie(request, 'seo_auth_token');
   const currentUser = (request: any) => verifySessionToken(authToken(request));
   const googleSessionId = (request: any): string | undefined => readCookie(request, 'google_session_id');
   const secureCookie = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  const assertPublicWebhook = async (rawUrl: string) => {
+  const sendWebhook = async (rawUrl: string, payload: unknown): Promise<Response> => {
     const parsed = new URL(rawUrl);
     if (parsed.protocol !== 'https:') throw new Error('Webhook URLはHTTPSで指定してください');
-    const addresses = await dns.lookup(parsed.hostname, { all: true });
-    const privateIp = (address: string) => {
-      if (net.isIPv4(address)) {
-        const [a, b] = address.split('.').map(Number);
-        return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
-      }
-      const value = address.toLowerCase();
-      return value === '::1' || value.startsWith('fc') || value.startsWith('fd') || value.startsWith('fe80:');
-    };
-    if (!addresses.length || addresses.some(({ address }) => privateIp(address))) {
-      throw new Error('内部ネットワーク宛てのWebhook URLは使用できません');
+
+    const response = await safeFetchUrl(parsed.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5_000),
+      maxRedirects: 0,
+      maxBytes: 256 * 1024,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Webhook returned HTTP ${response.status}`);
     }
+    return response;
   };
 
   // 起動時にディスク上の既存レポートを復元
@@ -146,7 +144,7 @@ async function main() {
     return {
       status: 'ok',
       service: 'seo-backend',
-      version: '1.2.1',
+      version: '1.3.0',
       cachedAudits: auditCache.size,
       jevShadowEnabled: process.env.JEV_ENABLED === 'true' && Boolean(process.env.TYPESAFE_API_KEY),
       jevShadowStats: getJevRuntimeStats(),
@@ -934,7 +932,26 @@ ${linksSection}
     return saveAlertSettings(user.id, body);
   });
 
-  // SCR-22: Webhook テスト送信 (SCR-22)
+  // SCR-22: アカウント設定のWebhookテスト送信
+  fastify.post('/api/v1/settings/alerts/test', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) return reply.status(401).send({ error: 'ログインが必要です' });
+    const body = (request.body || {}) as { webhookUrl?: string };
+    const webhookUrl = body.webhookUrl || getAlertSettings(user.id).webhookUrl;
+    if (!webhookUrl) return reply.status(400).send({ error: 'Webhook URLが設定されていません' });
+
+    try {
+      const res = await sendWebhook(webhookUrl, {
+        text: '🚨 [SEO Analyzer] 監視アラートテスト通知\nWebhookの受信設定を確認しました。',
+        timestamp: new Date().toISOString(),
+      });
+      return { success: true, status: res.status, message: 'テスト通知を送信しました' };
+    } catch (err: any) {
+      return reply.status(502).send({ error: `Webhook送信失敗: ${err.message}` });
+    }
+  });
+
+  // SCR-22: プロジェクト指定のWebhookテスト送信
   fastify.post('/api/v1/projects/:id/notify/test', async (request, reply) => {
     const { id } = request.params as { id: string };
     const user = currentUser(request);
@@ -948,18 +965,12 @@ ${linksSection}
     }
 
     try {
-      await assertPublicWebhook(webhookUrl);
       const payload = {
         text: `🚨 [SEO Analyzer] 監視アラートテスト通知 (プロジェクトID: ${id})\n本番スコア監視システムのテスト配信です。正常にWebhookを受信しました。`,
         project: id,
         timestamp: new Date().toISOString(),
       };
-      const res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(5000),
-      });
+      const res = await sendWebhook(webhookUrl, payload);
       return { success: true, status: res.status, message: 'テスト通知を送信しました' };
     } catch (err: any) {
       return reply.status(500).send({ error: `Webhook送信失敗: ${err.message}` });
@@ -1323,12 +1334,10 @@ ${linksSection}
             recordAuditToProject(project.id, result);
             if (!shouldNotify) continue;
             if (settings.webhookUrl) {
-              await assertPublicWebhook(settings.webhookUrl);
-              await fetch(settings.webhookUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: `[SEO Analyzer] ${project.name}: ${result.overallScore}/100\n${project.rootUrl}`, projectId: project.id, score: result.overallScore }),
-                signal: AbortSignal.timeout(5_000),
+              await sendWebhook(settings.webhookUrl, {
+                text: `[SEO Analyzer] ${project.name}: ${result.overallScore}/100\n${project.rootUrl}`,
+                projectId: project.id,
+                score: result.overallScore,
               });
             }
             if (settings.emailNotifications && settings.notificationEmail) {
