@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('landing page exposes a mobile navigation and URL-specific audit input', () => {
-  const page = read('apps/frontend/src/app/page.tsx');
+  const page = read('apps/frontend/src/app/_components/HomeInteractive.tsx');
   assert.match(page, /aria-controls="mobile-navigation"/);
   assert.match(page, /id="mobile-navigation"/);
   assert.match(page, /id="audit-url"/);
@@ -15,7 +15,7 @@ test('landing page exposes a mobile navigation and URL-specific audit input', ()
 });
 
 test('interactive landing KPI cards are keyboard-operable buttons', () => {
-  const page = read('apps/frontend/src/app/page.tsx');
+  const page = read('apps/frontend/src/app/_components/HomeInteractive.tsx');
   assert.match(page, /aria-label="総合診断を表示"/);
   assert.match(page, /aria-label="AEOとLLMOの診断を表示"/);
   assert.doesNotMatch(page, /<div\s+\n\s+onClick=\{\(\) => setActiveTab/);

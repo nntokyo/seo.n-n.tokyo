@@ -51,3 +51,10 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Defer layout/paint for homepage sections that start below the initial viewport. */
+.home-deferred-content {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 4200px;
+}
