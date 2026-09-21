@@ -95,7 +95,7 @@ flowchart TD
     
     Analyzer --> RuleEngine{"静的ルール定義あり？"}
     RuleEngine -- あり (定型パターン) --> StaticTemplate["定型スニペット生成\n(Next.js Image / Metadata API / Caddy / Nginx)"]
-    RuleEngine -- なし (文脈・テキスト依存) --> Gemini["Google Gemini 2.5 Flash API\n(文脈を考慮した自然な日本語リライト & コード生成)"]
+    RuleEngine -- なし (文脈・テキスト依存) --> Gemini["Google Gemini 3.8 Flash API\n(文脈を考慮した自然な日本語リライト & コード生成)"]
     
     StaticTemplate & Gemini --> DiffBuilder["Before / After 視覚差分ビルダー"]
     DiffBuilder --> ProposalCard["FixProposal Entity 構築\n(UIに即時表示 & クリップボードコピー)"]

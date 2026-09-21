@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('homepage navigation uses a compact tools hub entry', () => {
-  const page = read('apps/frontend/src/app/page.tsx');
+  const page = read('apps/frontend/src/app/_components/HomeInteractive.tsx');
   assert.match(page, /href="\/tools"/);
   assert.match(page, />ツール<\/span>/);
   assert.match(page, />Google連携<\/span>/);

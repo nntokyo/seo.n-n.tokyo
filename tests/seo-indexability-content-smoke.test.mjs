@@ -69,7 +69,7 @@ test('sitemap includes the guides and public analysis pages', () => {
 });
 
 test('home and tools hub link to SEO guide content', () => {
-  const home = read('apps/frontend/src/app/page.tsx');
+  const home = read('apps/frontend/src/app/_components/HomeStaticContent.tsx');
   const tools = read('apps/frontend/src/app/tools/page.tsx');
   assert.match(home, /href="\/guides"/);
   assert.match(home, /href="\/guides\/seo-diagnosis"/);

@@ -160,7 +160,7 @@ export default function IntegrationsSettingsPage() {
             </p>
           </div>
 
-          {/* Google Gemini 2.0 */}
+          {/* Google Gemini 3.8 Flash */}
           <div className="p-6 rounded-2xl bg-slate-900/50 border border-white/10 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -168,7 +168,7 @@ export default function IntegrationsSettingsPage() {
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Google Gemini 2.0</h3>
+                  <h3 className="text-sm font-bold text-white">Google Gemini 3.8 Flash</h3>
                   <span className="text-[11px] font-mono text-slate-400">AI改善提案・コード生成</span>
                 </div>
               </div>

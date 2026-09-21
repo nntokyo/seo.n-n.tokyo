@@ -40,6 +40,10 @@ import {
   GeminiProposalData
 } from '@seo/shared';
 
+// 28日間の表示回数がこの値未満の場合は、CTRや平均順位を結論づけるには
+// データが不足しているとみなし、画面上で明示する。
+const SPARSE_GSC_IMPRESSION_THRESHOLD = 20;
+
 function GoogleHubContent() {
   const searchParams = useSearchParams();
   const [targetUrl, setTargetUrl] = useState('https://seo.n-n.tokyo');
@@ -362,7 +366,7 @@ function GoogleHubContent() {
           <div className="bg-[#0F1623] p-5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 font-mono">Gemini AI提案</span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">2.5 Flash</span>
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">3.8 Flash</span>
             </div>
             <div className="font-mono text-3xl font-extrabold text-white mb-1">
               {gemini ? gemini.actionItems.length : '--'}<span className="text-slate-500 text-base font-normal"> 件の改善案</span>
@@ -600,6 +604,16 @@ function GoogleHubContent() {
                       </p>
                     )}
                   </section>
+                )}
+
+                {gsc.totalImpressions < SPARSE_GSC_IMPRESSION_THRESHOLD && (
+                  <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs">
+                    <div className="font-semibold text-amber-300">Search Consoleのデータ量がまだ少ない状態です</div>
+                    <p className="mt-1 leading-6 text-slate-400">
+                      直近28日間の表示回数が{gsc.totalImpressions}回のため、CTRや平均順位はまだ判断材料として不安定です。
+                      インデックス状況とあわせて確認し、公開コンテンツと内部リンクを増やしながら表示回数の蓄積を待ってください。
+                    </p>
+                  </div>
                 )}
 
                 {/* インデックス判定ステータス */}
@@ -857,8 +871,10 @@ function GoogleHubContent() {
               </div>
             ) : (
               <div className="p-8 rounded-2xl border border-white/10 bg-[#0F1623] text-center space-y-2">
-                <div className="text-xs font-mono text-slate-400">Gemini 改善提案: 診断実行待ち</div>
-                <p className="text-xs text-slate-500">URLを入力して「公式データ取得」を押すとAI提案が生成されます。</p>
+                <div className="text-xs font-mono text-slate-300">Gemini 改善提案: 未生成</div>
+                <p className="text-xs text-slate-500">
+                  {hubData?.errors.gemini || '公式データ取得後に、利用可能なGemini APIキーがある場合は改善提案を生成します。'}
+                </p>
               </div>
             )}
           </div>
