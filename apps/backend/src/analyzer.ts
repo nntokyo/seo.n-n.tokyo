@@ -4,6 +4,10 @@ import { collectPageFindings, isGenericAnchor, readJsonLd, PageSignals } from '.
 import { buildActionPlan, weightedAreaScore } from './ranked-audit.js';
 import { SitemapCheckOutcome } from './sitemap.js';
 
+function htmlAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
 export function analyzeHtml(
   url: string,
   html: string,
@@ -115,7 +119,7 @@ export function analyzeHtml(
       id: 'CONT-002',
       name: 'Titleの表示幅の目安',
       category: 'content',
-      score: 90,
+      score: 100,
       status: 'notice',
       message: `Titleは${title.length}文字です。Google は文字数の上限を定めておらず、端末の表示幅で切れます。15〜70文字は画面上の目安であり、合格・不合格ではありません。`,
       proposal: 'そのページの内容が分かる題名にする。キーワードの詰め込みはしない。',
@@ -167,7 +171,7 @@ export function analyzeHtml(
       id: 'CONT-004',
       name: 'H1見出しが複数',
       category: 'content',
-      score: 90,
+      score: 100,
       status: 'notice',
       message: `H1 が ${h1Count} 個あります。複数であること自体は順位の減点条件ではありません。`,
       proposal: '主見出しを一つにすると、読者には伝わりやすい。',
@@ -217,7 +221,7 @@ export function analyzeHtml(
       proposal: '単一の正規URLのみを指定してください。',
       codeDiff: {
         before: '<link rel="canonical" href="..." />\n<link rel="canonical" href="..." />',
-        after: `export const metadata: Metadata = {\n  alternates: {\n    canonical: '${url}',\n  },\n};`,
+        after: `export const metadata: Metadata = {\n  alternates: {\n    canonical: ${JSON.stringify(url)},\n  },\n};`,
       },
     });
   } else if (canonical && !canonical.startsWith('http://') && !canonical.startsWith('https://')) {
@@ -250,7 +254,7 @@ export function analyzeHtml(
       proposal: '正規URLを指定するCanonicalタグを追加してください。',
       codeDiff: {
         before: '<!-- canonical 未設定 -->',
-        after: `<link rel="canonical" href="${url}" />`,
+        after: `<link rel="canonical" href="${htmlAttr(url)}" />`,
       },
     });
   }
@@ -294,10 +298,10 @@ export function analyzeHtml(
   if (hasMaxSnippet && hasMaxImagePreview) {
     metrics.push({
       id: 'AIO-001',
-      name: 'AIスニペット最大表示許可タグ',
+      name: 'スニペット制御メタタグ',
       category: 'aeo_llmo',
       score: 100,
-      status: 'good',
+      status: 'notice',
       message: 'max-snippet:-1 と max-image-preview:large は入っています。これはスニペットの任意の制御であり、AI Overviews への掲載や順位を保証しません。',
     });
   } else {
@@ -324,10 +328,10 @@ export function analyzeHtml(
   if (definitionCount > 0) {
     metrics.push({
       id: 'AEO-001',
-      name: '結論ファースト定義文 (Answerability)',
+      name: '見出し直下の定義らしい文',
       category: 'aeo_llmo',
-      score: 95,
-      status: 'good',
+      score: 100,
+      status: 'notice',
       message: `主要見出し直下に定義らしい文が ${definitionCount} 箇所あります。編集上の観察であり、引用や掲載の予測ではありません。`,
     });
   } else {
@@ -342,16 +346,15 @@ export function analyzeHtml(
     });
   }
 
-  // リスト・テーブル構造 (LLM引用性)
-  const hasStructuredLists = $('ul, ol, table').length > 0;
-  if (hasStructuredLists) {
+  const listCount = $('ul, ol, table').length;
+  if (listCount > 0) {
     metrics.push({
       id: 'AEO-002',
-      name: '構造化リスト/テーブルによる情報整理',
+      name: 'リストまたはテーブル',
       category: 'aeo_llmo',
-      score: 90,
-      status: 'good',
-      message: 'リストまたはテーブルによる構造化データが含まれており、LLMが要約・比較表として参照しやすいレイアウトです。',
+      score: 100,
+      status: 'notice',
+      message: `リストまたはテーブルが ${listCount} 個あります。並びの観察であり、引用や順位は変わりません。`,
     });
   }
 
@@ -359,25 +362,21 @@ export function analyzeHtml(
   if (schemaTypes.length > 0) {
     metrics.push({
       id: 'TRUST-001',
-      name: '構造化データ (JSON-LD) 実装',
+      name: '構造化データ (JSON-LD)',
       category: 'technical',
       score: 100,
-      status: 'good',
-      message: `Schema.org JSON-LD (${schemaTypes.join(', ')}) が検出されました。ナレッジグラフおよびAIエンティティの認識に最適です。`,
+      status: 'notice',
+      message: `JSON-LD を ${schemaTypes.join(', ')} として読みました。見える内容と一致しているかは別です。掲載やエンティティ認識は保証しません。`,
     });
   } else {
     metrics.push({
       id: 'TRUST-001',
       name: '構造化データ (JSON-LD) 未設定',
       category: 'technical',
-      score: 45,
-      status: 'warning',
-      message: 'JSON-LD がありません。生成 AI の検索結果に構造化データは必須ではありません。リッチリザルトに出したい型だけ、見える内容と一致させて追加します。',
+      score: 100,
+      status: 'notice',
+      message: 'JSON-LD がありません。生成 AI の検索結果に構造化データは必須ではありません。無いこと自体は減点しません。',
       proposal: 'リッチリザルトの対象になる型があるときだけ、その型の必須プロパティを足す。',
-      codeDiff: {
-        before: '<!-- JSON-LD なし -->',
-        after: `<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "WebSite",\n  "name": "${title || 'My Site'}",\n  "url": "${url}"\n}\n</script>`,
-      },
     });
   }
 
@@ -399,7 +398,7 @@ export function analyzeHtml(
       category: 'security',
       score: 0,
       status: 'critical',
-      message: 'HTTPプロトコルで配信されています。ブラウザ警告が表示されSEO評価が大きく低下します。',
+      message: 'HTTP で配信されています。ブラウザが警告します。この診断では総合の上限を 60 にします。順位の予測ではありません。',
       proposal: 'SSL証明書を導入しHTTPSへリダイレクトしてください。',
     });
   }
@@ -433,46 +432,23 @@ export function analyzeHtml(
   // --- Core Web Vitals & Performance Estimates ---
   const pageSizeBytes = Buffer.byteLength(html, 'utf8');
   const pageSizeKb = Math.round(pageSizeBytes / 1024);
-  const estimatedFcp = Math.max(120, Math.round(responseTimeMs * 0.7));
-  const estimatedLcp = Math.max(300, Math.round(responseTimeMs * 1.4 + (pageSizeKb > 500 ? 600 : 150)));
-  const estimatedCls = 0.02;
 
   const cwv: CwvEstimates = {
-    fcp: estimatedFcp,
-    lcp: estimatedLcp,
-    cls: estimatedCls,
+    fcp: null,
+    lcp: null,
+    cls: null,
     ttfb: responseTimeMs,
     totalSizeKb: pageSizeKb,
   };
 
-  if (responseTimeMs < 800) {
-    metrics.push({
-      id: 'CWV-001',
-      name: 'サーバー応答速度 (TTFB)',
-      category: 'cwv',
-      score: 100,
-      status: 'good',
-      message: `TTFB ${responseTimeMs}ms で高速に応答しています（推奨 < 800ms）。`,
-    });
-  } else if (responseTimeMs < 1800) {
-    metrics.push({
-      id: 'CWV-001',
-      name: 'サーバー応答速度 (TTFB)',
-      category: 'cwv',
-      score: 75,
-      status: 'warning',
-      message: `TTFB ${responseTimeMs}ms です。CDNキャッシュの適用やエッジサーバーの導入を推奨します。`,
-    });
-  } else {
-    metrics.push({
-      id: 'CWV-001',
-      name: 'サーバー応答遅延 (TTFB)',
-      category: 'cwv',
-      score: 40,
-      status: 'critical',
-      message: `TTFBが${responseTimeMs}msと低速です。Core Web VitalsのLCP悪化の主原因になります。`,
-    });
-  }
+  metrics.push({
+    id: 'CWV-001',
+    name: 'この1回の応答時間',
+    category: 'cwv',
+    score: 100,
+    status: 'notice',
+    message: `この取得の応答は ${responseTimeMs} ms、HTML は ${pageSizeKb} KB です。LCP、INP、CLS は測っていません。フィールドの合否は Search Console か PageSpeed Insights の CrUX で見てください。`,
+  });
 
   // --- 順位付き施策（領域点・インパクト・工数） ---
   const headerMap: Record<string, string> = {};
@@ -608,8 +584,6 @@ export function analyzeHtml(
     missingAltCount,
   };
 
-  const answerabilityScore = Math.min(100, Math.round((definitionCount * 25) + (hasMaxSnippet ? 30 : 0) + (schemaTypes.length > 0 ? 20 : 0) + 25));
-
   const recommendations = actionPlan.actions
     .filter((action) => action.severity !== 'info')
     .slice(0, 3)
@@ -640,7 +614,6 @@ export function analyzeHtml(
     sitemap: sitemapData?.sitemapResult,
     aiOverview: {
       summary: `${parsedUrl.hostname} のこの URL を、検索の技術要件と内部の作業順ルーブリックで見ました。P1 は ${actionPlan.actions.filter((action) => action.priority === 'P1').length} 件です。点数は掲載や順位の予測ではありません。`,
-      answerabilityScore,
       citations: [
         { title: title || parsedUrl.hostname, url, domain: parsedUrl.hostname },
         ...links.filter((l) => l.isInternal).slice(0, 2).map((l) => ({

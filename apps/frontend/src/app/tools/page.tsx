@@ -15,8 +15,8 @@ import {
 import { AdSenseUnit } from '../_components/AdSenseUnit';
 
 export const metadata: Metadata = {
-  title: 'SEO・AI検索ツール一覧',
-  description: 'SEO総合診断、サイトマップ分析、ディープクロール、llms.txt生成、Google公式API連携を目的別に選べるツール一覧です。',
+  title: 'SEOツール一覧',
+  description: 'SEO総合診断、サイトマップ分析、ディープクロール、任意の llms.txt、Google公式API連携を目的別に選べるツール一覧です。',
   alternates: { canonical: '/tools' },
 };
 
@@ -28,7 +28,7 @@ const groups = [
       {
         href: '/#audit-input',
         title: 'SEO総合診断',
-        description: '技術SEO、メタ情報、Core Web Vitals、AI検索対応を横断して確認。',
+        description: 'クロール、タイトル、構造化データ、HTTPSを確認し、直す順番を出します。Core Web Vitals はこの診断では測りません。',
         icon: Search,
         accent: 'text-cyan-400',
       },
@@ -41,7 +41,7 @@ const groups = [
       {
         href: '/tools/sitemap-analyzer',
         title: 'サイトマップ分析',
-        description: 'XML Sitemap、更新頻度、URL構造、canonical候補を検証。',
+        description: 'XML の構文、更新、URL の形を見ます。canonical タグは読みません。',
         icon: Layers,
         accent: 'text-sky-400',
       },
@@ -55,13 +55,13 @@ const groups = [
     ],
   },
   {
-    title: 'AI検索対応',
-    description: 'AIクローラーやGoogle公式データを使った改善に進みます。',
+    title: '公式データと任意ファイル',
+    description: 'Search Console や PageSpeed の公式データと、Google 検索では使わない任意ファイルです。',
     items: [
       {
         href: '/tools/llms-txt',
         title: 'llms.txt生成',
-        description: 'AIクローラー向けのサイト案内ファイルを生成し、そのまま配置可能。',
+        description: '他のサービス向けの任意ファイルです。Google 検索は使いません。',
         icon: FileText,
         accent: 'text-violet-400',
       },
@@ -113,7 +113,7 @@ export default function ToolsPage() {
             <Gauge className="h-3.5 w-3.5" aria-hidden="true" />
             目的から選ぶ
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">SEO・AI検索ツール</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">SEOツール</h1>
           <p className="mt-4 text-sm leading-7 text-slate-400 sm:text-base">
             まず総合診断で問題を見つけ、必要に応じてサイトマップ、クロール、llms.txt、Google公式データへ進めます。
             機能名ではなく、やりたいことから選べるように整理しています。

@@ -21,7 +21,7 @@ import {
 export default function LlmsTxtToolPage() {
   const [targetUrl, setTargetUrl] = useState('https://seo.n-n.tokyo');
   const [title, setTitle] = useState('SEO Analyzer');
-  const [description, setDescription] = useState('AI時代の次世代SEO & AEO/AIO/LLMO/GEO 技術監査プラットフォーム');
+  const [description, setDescription] = useState('サイトの概要。置いても検索順位や引用は変わりません。');
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -93,7 +93,7 @@ export default function LlmsTxtToolPage() {
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm tracking-tight text-white">llms.txt Generator</span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/10">
-                AEO Standard
+                検索では未使用
               </span>
             </div>
           </div>
@@ -113,13 +113,13 @@ export default function LlmsTxtToolPage() {
         <div className="space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-400 text-xs font-mono">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>RFC準拠・次世代AIクローラー規格</span>
+            <span>任意の補助ファイル</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
             llms.txt 自動合成 & 検証ツール
           </h1>
           <p className="text-sm sm:text-base text-slate-400 max-w-3xl leading-relaxed">
-            Perplexity、SearchGPT、Claude、GeminiなどのAIクローラーに向けて、サイトの構造・要約・公式リンクを効率的に学習させる標準ファイル
+            Google 検索は使いません。他のサービス向けに、サイトの概要と主要ページへのリンクをまとめる任意のファイル
             <code className="mx-1 px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 font-mono text-xs">/llms.txt</code>
             を自動合成します。
           </p>
@@ -211,7 +211,7 @@ export default function LlmsTxtToolPage() {
                   Webルート直下（例: <code className="text-cyan-300 font-mono">https://domain.com/llms.txt</code>）でHTTP 200を返却してください。
                 </li>
                 <li>
-                  主要な見出し・要約・重要ページURLを箇条書きで記載することで、AI検索エンジンの回答引用率を最大化できます。
+                  主要なページへのリンクを短く書きます。置いても検索順位や引用は変わりません。
                 </li>
               </ul>
             </div>
@@ -257,7 +257,7 @@ export default function LlmsTxtToolPage() {
                     <p className="text-xs">
                       左のフォームにサイトURLを入力して「合成する」をクリックすると、
                       <br />
-                      AIクローラー向け仕様に最適化された llms.txt がここに生成されます。
+                      他のサービス向けの任意ファイルがここに出ます。Google 検索は使いません。
                     </p>
                   </div>
                 )}
@@ -276,10 +276,10 @@ export default function LlmsTxtToolPage() {
                 RECOMMENDED NEXT STEP
               </span>
               <h3 className="text-lg font-bold text-white">
-                llms.txtを配置した後は、サイト全体のSEO・AI引用適性を無料総合診断
+                置いたあとは、クロールとインデックスを診断する
               </h3>
               <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                メタタグ競合、Core Web Vitals実測値、Google AI Overviewsでのカルーセル引用確率を100項目以上で自動監査します。
+                順位や引用確率は出しません。直す順番、canonical、サイトマップ、HTTPSを確認します。
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">

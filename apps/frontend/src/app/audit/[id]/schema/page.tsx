@@ -1,41 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import {
-  ArrowLeft,
-  Code2,
-  CheckCircle2,
-  AlertTriangle,
-  Layers,
-  Copy,
-  Check
-} from 'lucide-react';
-import { FullAuditResult } from '@seo/shared';
+import { ArrowLeft, Code2, Copy, Check } from 'lucide-react';
+import { AuditLoading, AuditMissing, useStoredAudit } from '../../../../components/AuditResultGate';
 
 export default function AuditSchemaPage() {
   const params = useParams();
   const id = params.id as string;
-  const [audit, setAudit] = useState<FullAuditResult | null>(null);
+  const { audit, phase } = useStoredAudit(id);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-    fetch(`/api/v1/audit/results/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setAudit(data));
-  }, [id]);
+  if (phase === 'loading') return <AuditLoading />;
+  if (phase === 'missing' || !audit) return <AuditMissing />;
 
-  if (!audit) {
-    return (
-      <div className="min-h-screen bg-[#080B11] flex items-center justify-center text-slate-400 font-mono text-xs">
-        読み込み中...
-      </div>
-    );
-  }
-
-  const sampleJsonLd = `{\n  "@context": "https://schema.org",\n  "@type": "WebSite",\n  "name": "${audit.meta.title || 'WebSite'}",\n  "url": "${audit.url}",\n  "description": "${audit.meta.description || ''}"\n}`;
+  const sampleJsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: audit.meta.title || 'サイト名',
+    url: audit.url,
+    ...(audit.meta.description ? { description: audit.meta.description } : {}),
+  }, null, 2);
 
   const copyCode = () => {
     navigator.clipboard.writeText(sampleJsonLd);
@@ -72,10 +58,10 @@ export default function AuditSchemaPage() {
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            JSON-LD リッチリザルト & エンティティ判定
+            検出した JSON-LD
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Google検索のリッチリザルト選出およびAIナレッジグラフ構築に必要な構造化データの埋め込み状態です。
+            JSON-LD は任意です。見える内容と一致しているかを見ます。リッチリザルトの掲載は保証しません。型が無いこと自体は減点しません。
           </p>
         </div>
 
@@ -86,9 +72,9 @@ export default function AuditSchemaPage() {
               検出された Schema Types ({audit.meta.schemaTypes.length}件)
             </span>
             <span className={`text-xs font-mono px-3 py-1 rounded-full ${
-              audit.meta.schemaTypes.length > 0 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              audit.meta.schemaTypes.length > 0 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/10 text-slate-300 border border-slate-500/20'
             }`}>
-              {audit.meta.schemaTypes.length > 0 ? '検出済み' : '未検出'}
+              {audit.meta.schemaTypes.length > 0 ? '検出済み' : 'なし。必須ではない'}
             </span>
           </div>
 
@@ -102,7 +88,7 @@ export default function AuditSchemaPage() {
             </div>
           ) : (
             <p className="text-xs text-slate-400 font-sans">
-              JSON-LD形式の構造化データが検出されませんでした。WebSiteやOrganization等の構造化データを付与することを強く推奨します。
+              このページから JSON-LD は取れていません。リッチリザルトに出したい型があるときだけ、見える内容と一致させて足します。WebSite や Organization を足すこと自体は必須ではありません。
             </p>
           )}
         </div>
@@ -111,7 +97,7 @@ export default function AuditSchemaPage() {
         <div className="p-6 rounded-3xl border border-white/[0.08] bg-[#0F1623] space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
-              推奨 WebSite 構造化データ (JSON-LD)
+              例。必須ではない WebSite JSON-LD
             </span>
             <button
               type="button"

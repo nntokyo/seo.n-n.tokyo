@@ -246,18 +246,18 @@ export function HomeInteractive() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 text-xs font-medium mb-8">
             <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-            <span>SEO・AEO・LLMO・GEOを横断して技術診断</span>
+            <span>クロールからタイトルまで、直す順番で見る</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-[1.15] mb-6">
-            Google検索でも、AI回答でも。<br />
+            検索に出す前に、<br />
             <span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-violet-400 bg-clip-text text-transparent">
-              検索にも、AI回答にも伝わりやすいサイトへ。
+              直す箇所を先に決める。
             </span>
           </h1>
 
           <p className="max-w-2xl mx-auto text-base sm:text-lg text-slate-400 mb-10 leading-relaxed">
-            技術的SEO、Core Web Vitals、メタ情報、構造化データ、AI回答での参照されやすさを横断して診断。検出した課題には、実装へつなげやすい改善案とコード例を提示します。
+            1ページを取得し、クロール、インデックス、タイトル、構造化データ、HTTPSを確認します。点数は作業の順番です。順位やAIの引用は予測しません。
           </p>
 
           {/* Quick Audit Input Bar */}
@@ -360,7 +360,7 @@ export function HomeInteractive() {
                     onClick={() => setActiveTab('aeo')}
                     className={`px-2 sm:px-4 py-1.5 rounded-lg sm:rounded-full text-xs font-medium transition-all ${activeTab === 'aeo' ? 'bg-cyan-500 text-black shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
                   >
-                    AEO / LLMO
+                    AIクローラー
                   </button>
                   <button 
                     type="button"
@@ -382,15 +382,16 @@ export function HomeInteractive() {
                 onClick={() => setActiveTab('overview')}
                 className={`bg-[#0F1623] p-5 text-left cursor-pointer transition-colors ${activeTab === 'overview' ? 'ring-1 ring-cyan-500/50 bg-[#131b2b]' : 'hover:bg-[#131b2e]'}`}
                 aria-label="総合診断を表示"
+                aria-pressed={activeTab === 'overview'}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">TOTAL SCORE</span>
                   <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                    {auditResult ? `${auditResult.httpStatus} OK` : '+12% vs last'}
+                    {auditResult ? `HTTP ${auditResult.httpStatus}` : 'サンプル'}
                   </span>
                 </div>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
-                  {auditResult ? auditResult.overallScore : 94}<span className="text-slate-500 text-base font-normal">/100</span>
+                  {auditResult ? auditResult.overallScore : '—'}<span className="text-slate-500 text-base font-normal">{auditResult ? '/100' : ''}</span>
                 </div>
                 <p className="text-xs text-slate-400 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" aria-hidden="true" /> {auditResult ? '作業順の点数。順位は予測しない' : 'URL を入れると診断します'}
@@ -401,17 +402,18 @@ export function HomeInteractive() {
                 type="button"
                 onClick={() => setActiveTab('overview')}
                 className="bg-[#0F1623] p-5 text-left cursor-pointer hover:bg-[#131b2e] transition-colors"
-                aria-label="Core Web Vitalsの概要を表示"
+                aria-label="この取得の応答時間を表示"
+                aria-pressed={activeTab === 'overview'}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">CORE WEB VITALS</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">THIS FETCH</span>
                   <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">{auditResult ? '1回の取得' : 'サンプル'}</span>
                 </div>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
-                  {auditResult ? auditResult.scores.performance : 98}<span className="text-slate-500 text-base font-normal">/100</span>
+                  {auditResult ? auditResult.responseTimeMs : '—'}<span className="text-slate-500 text-base font-normal">{auditResult ? 'ms' : ''}</span>
                 </div>
                 <p className="text-xs text-slate-400">
-                  {auditResult ? `Response: ${auditResult.responseTimeMs}ms` : 'LCP 1.1s (Good) / INP 45ms'}
+                  {auditResult ? 'LCP でも CrUX でもない' : 'サンプル。実測値ではない'}
                 </p>
               </button>
 
@@ -419,32 +421,38 @@ export function HomeInteractive() {
                 type="button"
                 onClick={() => setActiveTab('aeo')}
                 className={`bg-[#0F1623] p-5 text-left cursor-pointer transition-colors ${activeTab === 'aeo' ? 'ring-1 ring-violet-500/50 bg-[#15192c]' : 'hover:bg-[#131b2e]'}`}
-                aria-label="AEOとLLMOの診断を表示"
+                aria-label="AIクローラーの診断を表示"
+                aria-pressed={activeTab === 'aeo'}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">AEO / LLMO READY</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">AI CRAWLER</span>
                   <span className="text-[10px] font-mono text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">AI クローラー</span>
                 </div>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
-                  {auditResult ? auditResult.scores.aeo_llmo : 92}<span className="text-slate-500 text-base font-normal">/100</span>
+                  {auditResult ? (auditResult.actionPlan?.areas.find((area) => area.id === 'ai')?.score ?? '—') : '—'}<span className="text-slate-500 text-base font-normal">{auditResult?.actionPlan?.areas.find((area) => area.id === 'ai')?.score != null ? '/100' : ''}</span>
                 </div>
-                <p className="text-xs text-violet-400">特別なマークアップは不要</p>
+                <p className="text-xs text-violet-400">
+                  {auditResult?.actionPlan?.areas.find((area) => area.id === 'ai')?.score == null ? '未評価。引用は予測しない' : '特別なマークアップは不要'}
+                </p>
               </button>
 
               <button
                 type="button"
-                onClick={() => setActiveTab('meta')}
-                className={`bg-[#0F1623] p-5 text-left cursor-pointer transition-colors ${activeTab === 'meta' ? 'ring-1 ring-amber-500/50 bg-[#1c191a]' : 'hover:bg-[#131b2e]'}`}
-                aria-label="メタ情報の診断を表示"
+                onClick={() => setActiveTab('overview')}
+                className="bg-[#0F1623] p-5 text-left cursor-pointer transition-colors hover:bg-[#131b2e]"
+                aria-label="先に直す P1 の件数を表示"
+                aria-pressed={activeTab === 'overview'}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">META INTEGRITY</span>
-                  <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">メタ整合性</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">P1</span>
+                  <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">先に直す</span>
                 </div>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
-                  {auditResult ? auditResult.scores.meta : 88}<span className="text-slate-500 text-base font-normal">/100</span>
+                  {auditResult?.actionPlan ? auditResult.actionPlan.actions.filter((action) => action.priority === 'P1').length : '—'}
                 </div>
-                <p className="text-xs text-amber-400">Canonical & OGP 整合性</p>
+                <p className="text-xs text-amber-400">
+                  {auditResult?.actionPlan ? '詳細は下の施策' : 'URL を入れると出ます'}
+                </p>
               </button>
             </div>
 
@@ -476,7 +484,7 @@ export function HomeInteractive() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-white">
                       {activeTab === 'aeo'
-                        ? 'AEO / LLMO 関連検査項目'
+                        ? 'AIクローラーと任意の制御'
                         : activeTab === 'meta'
                         ? 'メタタグ・Canonical 検査項目'
                         : `総合診断された検査項目 (${auditResult.metrics.length}件)`}
@@ -504,7 +512,7 @@ export function HomeInteractive() {
                             </span>
                             <span className="text-sm font-semibold text-white">{m.name}</span>
                           </div>
-                          <span className="text-xs font-mono text-slate-400">{m.score} 点</span>
+                          <span className="text-xs font-mono text-slate-400">{m.status === 'notice' ? '点数にしない' : `${m.score} 点`}</span>
                         </div>
                         <p className="text-xs text-slate-400">{m.message}</p>
                         {m.codeDiff && (
@@ -578,7 +586,7 @@ export function HomeInteractive() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-md">AEO / AIO</span>
+                          <span className="text-xs font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-md">サンプル</span>
                           <span className="text-sm font-semibold text-white">生成 AI の検索に特別なファイルは要りません</span>
                         </div>
                         <span className="text-xs font-mono text-violet-400 bg-violet-500/10 px-3 py-1 rounded-full border border-violet-500/20">
@@ -602,27 +610,13 @@ export function HomeInteractive() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">META DEFECT</span>
-                          <span className="text-sm font-semibold text-white">Canonical & OGP 整合性プレビュー</span>
-                        </div>
-                        <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                          整合性: 88点
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-                        <div className="p-4 rounded-xl border border-white/10 bg-[#0F1623] space-y-2">
-                          <div className="text-slate-400 font-bold">検出された正規化タグ</div>
-                          <div className="text-cyan-300 break-all">rel="canonical" href="https://seo.n-n.tokyo"</div>
-                          <div className="text-emerald-400 text-[11px]">✅ Self-canonical 正常一致</div>
-                        </div>
-
-                        <div className="p-4 rounded-xl border border-white/10 bg-[#0F1623] space-y-2">
-                          <div className="text-slate-400 font-bold">OGP / ソーシャル設定</div>
-                          <div className="text-slate-200">og:title, og:description, twitter:card (設定済み)</div>
-                          <div className="text-emerald-400 text-[11px]">✅ 1200x630 サムネイル比率準拠</div>
+                          <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">サンプル</span>
+                          <span className="text-sm font-semibold text-white">診断前の見本です</span>
                         </div>
                       </div>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        URL を入れると、取得した canonical と OGP を表示します。この見本に点数も、画像サイズの合格もありません。
+                      </p>
                     </div>
                   )}
                 </div>

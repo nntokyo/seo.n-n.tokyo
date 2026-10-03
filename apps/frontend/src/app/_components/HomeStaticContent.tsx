@@ -48,12 +48,12 @@ export function HomeStaticContent() {
                 <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-6 text-cyan-400 group-hover:scale-105 transition-transform">
                   <Bot className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-3 group-hover:text-cyan-300 transition-colors">AEO / AIO / LLMO / GEO 最適化</h3>
+                <h3 className="text-lg font-bold text-white mb-3 group-hover:text-cyan-300 transition-colors">直す順番</h3>
                 <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                  Google AI Overviews、SearchGPT、Perplexityでの自社サイト引用確率を判定。AIが抜き出しやすい定義文構造・ファクト密度を自動スコアリングします。
+                  影響と工数で施策を並べます。点数は作業順であり、検索順位やAIの引用は予測しません。未評価の領域は0点にしません。
                 </p>
                 <div className="text-xs font-mono text-cyan-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                  <span>詳細仕様とllms.txt生成</span>
+                  <span>診断の見方</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </div>
               </a>
@@ -66,9 +66,9 @@ export function HomeStaticContent() {
                 <div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-6 text-violet-400 group-hover:scale-105 transition-transform">
                   <ShieldCheck className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-3 group-hover:text-violet-300 transition-colors">Google 公式 API 完全統合</h3>
+                <h3 className="text-lg font-bold text-white mb-3 group-hover:text-violet-300 transition-colors">Google 公式データ</h3>
                 <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                  PageSpeed Insights (v5) によるCore Web Vitals実測値、およびSearch Console URL InspectionによるGooglebot公式インデックス状態を直接照会。
+                  連携したアカウントで、PageSpeed Insights のフィールドデータと Search Console の URL 検査を見ます。未連携のときはこの画面では測れません。
                 </p>
                 <div className="text-xs font-mono text-violet-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                   <span>Google公式統合ハブを開く</span>
@@ -84,9 +84,9 @@ export function HomeStaticContent() {
                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 text-emerald-400 group-hover:scale-105 transition-transform">
                   <Layers className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-3 group-hover:text-emerald-300 transition-colors">サイトマップ & ハブ・カノニカル分析</h3>
+                <h3 className="text-lg font-bold text-white mb-3 group-hover:text-emerald-300 transition-colors">サイトマップの中身</h3>
                 <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                  XMLサイトマップの構文検証からトピッククラスター親ハブ特定、hreflang/AMP対URL、非正規化パラメータ混入まで一括精密診断。
+                  XMLサイトマップの構文、更新、URLの形を見ます。canonical タグそのものは読みません。サイトマップは発見のヒントであり、クロールも掲載も保証しません。
                 </p>
                 <div className="text-xs font-mono text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                   <span>サイトマップ分析ツールを開く</span>
@@ -104,14 +104,14 @@ export function HomeStaticContent() {
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-medium mb-4">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>AI時代の新標準 Web規格</span>
+                  <span>検索セントラルに沿った確認</span>
                 </div>
                 <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-6">
-                  SEOの次は、<br />
-                  AEO / AIO / LLMO / GEO です。
+                  引用確率は出しません。<br />
+                  直す順番を出します。
                 </h2>
                 <p className="text-slate-400 text-sm sm:text-base leading-relaxed mb-6">
-                  検索エンジンだけでなく、自律型AIエージェントやLLMがWebを巡回してユーザーに回答を提示する現代。自社サイトが「AIに選ばれる構造」になっているかどうかがビジネスの命運を分けます。
+                  Google 検索は、llms.txt も生成 AI 用の特別なマークアップも使いません。見るのはクロールできるリンク、正規 URL、本文、タイトルです。
                 </p>
 
                 <div className="space-y-4">
@@ -120,8 +120,8 @@ export function HomeStaticContent() {
                       <Bot className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-white mb-1">AEO (Answer Engine Optimization)</h4>
-                      <p className="text-xs text-slate-400">Google強調スニペットやSiri/Alexaの音声ダイレクト回答枠を独占するための構文診断。</p>
+                      <h4 className="text-sm font-bold text-white mb-1">クロールとインデックス</h4>
+                      <p className="text-xs text-slate-400">robots.txt、noindex、canonical、サイトマップを先に見ます。サイトマップはヒントであり、掲載の保証ではありません。</p>
                     </div>
                   </div>
 
@@ -130,8 +130,8 @@ export function HomeStaticContent() {
                       <Sparkles className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-white mb-1">AIO & LLMO</h4>
-                      <p className="text-xs text-slate-400">Google AI Overviews や ChatGPT Search でのインライン引用・カルーセル掲載確率をスコアリング。</p>
+                      <h4 className="text-sm font-bold text-white mb-1">AIクローラー</h4>
+                      <p className="text-xs text-slate-400">robots.txt で生成 AI 向けクローラーを止めているかは参考情報です。検索順位の減点にはしません。</p>
                     </div>
                   </div>
 
@@ -148,7 +148,7 @@ export function HomeStaticContent() {
                           <h4 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">llms.txt 標準自動生成ツール</h4>
                           <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:translate-x-0.5 group-hover:text-cyan-400 transition-all" />
                         </div>
-                        <p className="text-xs text-slate-400">AIモデルがサイト情報を効率的に把握するための公式Markdown仕様（/llms.txt）をワンクリック合成。</p>
+                        <p className="text-xs text-slate-400">llms.txt は他のサービス向けの任意ファイルです。Google 検索の加点にはなりません。</p>
                       </div>
                     </div>
                   </Link>
@@ -160,40 +160,32 @@ export function HomeStaticContent() {
                 <div className="flex items-center justify-between pb-4 border-b border-white/[0.08] mb-4">
                   <span className="text-xs font-mono text-slate-400 flex items-center gap-2">
                     <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                    Google AI Overviews 引用シミュレータ
+                    サンプル。診断結果ではありません
                   </span>
                   <Link
                     href="#audit-input"
                     className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 px-2.5 py-1 rounded-full border border-cyan-500/20 transition-colors"
                   >
-                    リアルタイム再現
+                    URL を入れて診断
                   </Link>
                 </div>
 
                 <div className="space-y-4">
                   <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20">
                     <p className="text-xs text-slate-200 leading-relaxed mb-3">
-                      ✨ <strong>AI生成要約:</strong> SEO Analyzerは、Core Web VitalsやCanonicalタグの整合性を自動診断するエンジニア向けプラットフォームです。AI検索向けの公開情報やサイト構造も確認できます。
+                      <strong>P1:</strong> title がない。タイトルリンクの材料です。文字数の枠では合否を付けません。
                     </p>
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                      <div className="p-2.5 rounded-xl bg-[#080B11] border border-white/10 shrink-0 flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px] text-cyan-400 font-bold">NN</div>
-                        <div>
-                          <div className="text-[11px] font-bold text-white">seo.n-n.tokyo</div>
-                          <div className="text-[9px] text-slate-500">機能と仕様書...</div>
-                        </div>
-                      </div>
-                    </div>
+                    <p className="text-[11px] font-mono text-slate-500">サンプルの施策です。このサイトの診断結果ではありません。</p>
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-slate-400 pt-2 font-mono">
                     <span className="flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      AIクローラー: <strong className="text-emerald-400">全許可 (200 OK)</strong>
+                      影響 100 · 数時間
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      スニペット: <strong className="text-emerald-400">max-snippet:-1</strong>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
+                      引用確率: <strong className="text-slate-300">出さない</strong>
                     </span>
                   </div>
                 </div>
@@ -208,10 +200,10 @@ export function HomeStaticContent() {
             <div className="text-center max-w-3xl mx-auto mb-16">
               <h2 className="text-xs font-bold uppercase tracking-widest text-violet-400 mb-3">GOOGLE OFFICIAL API</h2>
               <p className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
-                Google公式データによる絶対的な客観性と信頼性
+                連携した Google 公式データ
               </p>
               <p className="text-sm text-slate-400 leading-relaxed">
-                サードパーティの推計値ではなく、Googleが実際に保有するCrUX実測データベースとSearch ConsoleインデックスAPIに直結して診断します。
+                1回の取得では CrUX も Search Console も見ていません。見るのは、アカウントを連携した Google 公式の画面だけです。
               </p>
             </div>
 
@@ -223,7 +215,7 @@ export function HomeStaticContent() {
                 </div>
                 <h3 className="text-lg font-bold text-white">Core Web Vitals 実測データ照会</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  実ユーザーのChrome測定データ（Chrome User Experience Report）からLCP、INP、CLS、TTFBをミリ秒単位で抽出。75パーセンタイル値での合格判定を実施します。
+                  実ユーザーの Chrome 測定（CrUX）では、LCP と INP と TTFB をミリ秒で、CLS を単位のない値で見ます。良好の目安は LCP 2.5 秒以内、INP 200 ミリ秒未満、CLS 0.1 未満です。これはフィールドデータで、このサイトの 1 回の取得とは別です。
                 </p>
               </div>
 
@@ -234,7 +226,7 @@ export function HomeStaticContent() {
                 </div>
                 <h3 className="text-lg font-bold text-white">Googlebot インデックス公式状態</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Googlebotが前回クロールした日時、レンダリング成功可否、検出されたCanonicalとGoogleが選択したCanonicalの差異をリアルタイム照会します。
+                  Google が保存している前回クロールと、Google が選んだ canonical を返します。その場で再クロールする API ではありません。未連携ならこの画面では空です。
                 </p>
               </div>
             </div>
@@ -289,10 +281,10 @@ export function HomeStaticContent() {
         <footer className="py-16 border-t border-white/[0.08] bg-[#080B11]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              今すぐ、あなたのサイトのSEOとAI表示を診断しませんか？
+              今すぐ、直す順番を見てみませんか？
             </h2>
             <p className="text-slate-400 text-sm mb-8 max-w-xl mx-auto">
-              URLを入力するだけ。100項目以上の精密監査レポートと修正コードを即座に確認できます。
+              URLを入力するだけ。クロール、タイトル、構造化データ、HTTPSを見て、直す順番を出します。
             </p>
             <a
               href="#audit-input"
@@ -303,11 +295,11 @@ export function HomeStaticContent() {
             </a>
             <div className="mt-12 pt-8 border-t border-white/[0.06] grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto">
               <div>
-                <h4 className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider mb-3">SEO・AEO 解析ツール</h4>
+                <h4 className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider mb-3">ツール</h4>
                 <ul className="space-y-2 text-xs text-slate-400">
                   <li>
                     <a href="#audit-input" className="hover:text-white transition-colors">
-                      100項目即時SEO・AI引用診断（無料）
+                      即時診断（無料。順位は予測しない）
                     </a>
                   </li>
                   <li>
@@ -317,7 +309,7 @@ export function HomeStaticContent() {
                   </li>
                   <li>
                     <Link href="/tools/sitemap-analyzer" className="hover:text-white transition-colors">
-                      XMLサイトマップ & カノニカル解析ツール
+                      XMLサイトマップ解析ツール
                     </Link>
                   </li>
                   <li>

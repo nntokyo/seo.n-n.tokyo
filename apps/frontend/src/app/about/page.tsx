@@ -19,9 +19,9 @@ export default function AboutPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">目的</h2>
             <p className="mt-3">
-              SEO Analyzerは、技術的SEO、Core Web Vitals、Google公式API、AI検索への対応状況を一か所で確認するための個人運営のウェブサービスです。
-              1URLを100項目以上で即時監査する<Link href="/" className="text-cyan-400 hover:text-cyan-300 mx-1">SEO総合診断</Link>をはじめ、
-              AI回答エンジン向けの<Link href="/tools/llms-txt" className="text-cyan-400 hover:text-cyan-300 mx-1">llms.txt 自動合成ツール</Link>や
+              SEO Analyzerは、クロール、インデックス、タイトル、構造化データ、HTTPSを確認し、直す順番を出す個人運営のウェブサービスです。順位やAIの引用は予測しません。
+              1URLをその場で見る<Link href="/" className="text-cyan-400 hover:text-cyan-300 mx-1">SEO総合診断</Link>をはじめ、
+              Google検索では使わない任意ファイルを作る<Link href="/tools/llms-txt" className="text-cyan-400 hover:text-cyan-300 mx-1">llms.txt ツール</Link>や
               <Link href="/tools/sitemap-analyzer" className="text-cyan-400 hover:text-cyan-300 mx-1">XMLサイトマップ解析ツール</Link>などを提供し、開発者とSEO担当者の技術改善を支援しています。
             </p>
           </section>

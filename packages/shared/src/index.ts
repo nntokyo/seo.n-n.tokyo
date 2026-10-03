@@ -61,10 +61,11 @@ export interface PageMeta {
 }
 
 export interface CwvEstimates {
-  fcp: number; // ms
-  lcp: number; // ms
-  cls: number;
-  ttfb: number; // ms
+  /** この取得では測らない。フィールドデータが無いときは null。 */
+  fcp: number | null;
+  lcp: number | null;
+  cls: number | null;
+  ttfb: number; // この1回の応答 ms
   totalSizeKb: number;
 }
 
@@ -222,7 +223,7 @@ export interface FullAuditResult {
   sitemap?: SitemapValidationResult;
   aiOverview: {
     summary: string;
-    answerabilityScore: number;
+    answerabilityScore?: number;
     citations: Array<{ title: string; url: string; domain: string }>;
     recommendations: string[];
   };

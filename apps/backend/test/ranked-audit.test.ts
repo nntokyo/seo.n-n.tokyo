@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { analyzeHtml } from '../src/analyzer.ts';
+import { sitemapNextSample } from '../src/sitemap.ts';
 import { AuditArea } from '@seo/shared';
 import { buildActionPlan, FindingDraft } from '../src/ranked-audit.ts';
 import { inspectRobots } from '../src/robots.ts';
@@ -122,6 +123,7 @@ test('page rules follow Google docs rather than character-limit failures', () =>
   const ids = result.actionPlan?.actions.map((action) => action.id) ?? [];
   assert.equal(ids.includes('title_length'), true);
   assert.equal(result.actionPlan?.actions.find((action) => action.id === 'title_length')?.heuristic, true);
+  assert.equal(result.actionPlan?.actions.find((action) => action.id === 'title_length')?.severity, 'info');
   assert.equal(ids.includes('meta_missing'), false);
   assert.equal(ids.includes('images_alt'), false);
   assert.equal(ids.includes('jsonld_errors'), true);
@@ -132,9 +134,45 @@ test('page rules follow Google docs rather than character-limit failures', () =>
   assert.equal(ids.includes('hsts_missing'), false);
   const titleMetric = result.metrics.find((metric) => metric.id === 'CONT-002');
   assert.equal(titleMetric?.status, 'notice');
+  assert.match(titleMetric?.message ?? '', /文字数の上限を定めておらず/);
   const snippet = result.metrics.find((metric) => metric.id === 'AIO-001');
   assert.equal(snippet?.status, 'notice');
   assert.notEqual(snippet?.status, 'critical');
+  const jsonLd = result.metrics.find((metric) => metric.id === 'TRUST-001');
+  assert.equal(jsonLd?.status, 'notice');
+  assert.doesNotMatch(jsonLd?.message ?? '', /ナレッジグラフ|エンティティの認識に最適/);
+  const response = result.metrics.find((metric) => metric.id === 'CWV-001');
+  assert.equal(response?.status, 'notice');
+  assert.doesNotMatch(response?.message ?? '', /LCP悪化|主原因/);
+  assert.equal(result.cwv.lcp, null);
+  assert.equal(result.cwv.cls, null);
+  assert.equal(result.actionPlan?.actions.find((action) => action.id === 'no_structured_data')?.severity, undefined);
+});
+
+test('observational rows do not grade citation or escape code samples', () => {
+  const html = `<!doctype html><html><head>
+    <title>${'題名'.repeat(20)}</title>
+    <link rel="canonical" href="https://example.com/a" />
+    <link rel="canonical" href="https://example.com/b" />
+  </head><body><h1>主題</h1><ul><li>一つ</li></ul></body></html>`;
+  const result = analyzeHtml('https://example.com/a?q="1"', html, 900, 200);
+  const list = result.metrics.find((metric) => metric.id === 'AEO-002');
+  assert.equal(list?.status, 'notice');
+  assert.doesNotMatch(list?.message ?? '', /LLM|引用しやすい/);
+  const missingSchema = result.metrics.find((metric) => metric.id === 'TRUST-001');
+  assert.equal(missingSchema?.codeDiff, undefined);
+  const canonicalLine = result.metrics.find((metric) => metric.id === 'META-001')?.codeDiff?.after.match(/canonical: (.+),/)?.[1];
+  assert.equal(canonicalLine ? JSON.parse(canonicalLine) : '', 'https://example.com/a?q="1"');
+  const bare = analyzeHtml('https://example.com/x', '<!doctype html><html><head><title>十分な長さの題名です</title></head><body><h1>主題</h1></body></html>', 100, 200);
+  assert.equal(bare.actionPlan?.actions.find((action) => action.id === 'no_structured_data')?.severity, 'info');
+  const marked = analyzeHtml('https://example.com/', '<!doctype html><html><head><title>十分な長さの題名です</title><meta name="robots" content="max-snippet:-1, max-image-preview:large"></head><body><h1>主題</h1></body></html>', 100, 200);
+  assert.equal(marked.metrics.find((metric) => metric.id === 'AIO-001')?.status, 'notice');
+  assert.equal(marked.aiOverview.answerabilityScore, undefined);
+  const sample = sitemapNextSample([{ loc: 'https://example.com/a?q="1"', lastmod: '2026-01-01' }]);
+  assert.match(sample ?? '', /q=\\"1\\"/);
+  assert.doesNotMatch(sample ?? '', /llms-txt|priority:|changeFrequency:/);
+  assert.equal(sitemapNextSample([]), undefined);
+  assert.match(bare.metrics.find((metric) => metric.id === 'META-003')?.codeDiff?.after ?? '', /&quot;|href="https:\/\/example.com\/x"/);
 });
 
 test('missing title is high and noindex caps the score', () => {

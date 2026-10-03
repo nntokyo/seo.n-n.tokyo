@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { FullAuditResult, AuditMetric } from '@seo/shared';
 import { ActionPlanPanel } from '../../../components/ActionPlanPanel';
+import { metricPointLabel } from '../../../components/metric-point';
 
 export default function AuditDetailPage() {
   const params = useParams();
@@ -40,7 +41,7 @@ export default function AuditDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'metrics' | 'aeo' | 'meta' | 'diff' | 'links' | 'sitemap'>('metrics');
-  const [metricFilter, setMetricFilter] = useState<'all' | 'critical' | 'warning' | 'good'>('all');
+  const [metricFilter, setMetricFilter] = useState<'all' | 'critical' | 'warning' | 'notice' | 'good'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
@@ -237,7 +238,46 @@ export default function AuditDetailPage() {
 
   const criticalCount = audit.metrics.filter((m) => m.status === 'critical').length;
   const warningCount = audit.metrics.filter((m) => m.status === 'warning').length;
+  const noticeCount = audit.metrics.filter((m) => m.status === 'notice').length;
   const goodCount = audit.metrics.filter((m) => m.status === 'good').length;
+  const jsString = (value: string) => JSON.stringify(value.replace(/\s+/g, ' ').trim().slice(0, 500));
+  const metadataLines = [
+    '// この取得で見えた値だけです。無かった項目は書いていません。',
+    "import type { Metadata } from 'next';",
+    '',
+    'export const metadata: Metadata = {',
+  ];
+  if (audit.meta.title) metadataLines.push(`  title: ${jsString(audit.meta.title)},`);
+  if (audit.meta.description) metadataLines.push(`  description: ${jsString(audit.meta.description)},`);
+  if (audit.meta.canonical) {
+    metadataLines.push('  alternates: {', `    canonical: ${jsString(audit.meta.canonical)},`, '  },');
+  }
+  if (audit.meta.robots) {
+    metadataLines.push(
+      '  robots: {',
+      `    index: ${/noindex/i.test(audit.meta.robots) ? 'false' : 'true'},`,
+      `    follow: ${/nofollow/i.test(audit.meta.robots) ? 'false' : 'true'},`,
+      '  },',
+    );
+  }
+  const openGraph = [
+    audit.meta.ogTitle ? `    title: ${jsString(audit.meta.ogTitle)},` : '',
+    audit.meta.ogDescription ? `    description: ${jsString(audit.meta.ogDescription)},` : '',
+    audit.meta.canonical ? `    url: ${jsString(audit.meta.canonical)},` : '',
+    audit.meta.ogImage ? `    images: [{ url: ${jsString(audit.meta.ogImage)} }],` : '',
+  ].filter(Boolean);
+  if (openGraph.length > 0) metadataLines.push('  openGraph: {', ...openGraph, '  },');
+  const twitter = [
+    audit.meta.twitterCard ? `    card: ${jsString(audit.meta.twitterCard)},` : '',
+    audit.meta.ogTitle ? `    title: ${jsString(audit.meta.ogTitle)},` : '',
+    audit.meta.ogDescription ? `    description: ${jsString(audit.meta.ogDescription)},` : '',
+  ].filter(Boolean);
+  if (twitter.length > 0) metadataLines.push('  twitter: {', ...twitter, '  },');
+  metadataLines.push('};');
+  const metadataSample = metadataLines.join('\n');
+  const p1Count = audit.actionPlan?.actions.filter((action) => action.priority === 'P1').length ?? 0;
+  const fixCount = audit.actionPlan?.actions.filter((action) => action.severity !== 'info').length ?? 0;
+  const fetchedOk = audit.httpStatus >= 200 && audit.httpStatus < 300;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#080B11] text-slate-100 selection:bg-cyan-500/30">
@@ -265,6 +305,7 @@ export default function AuditDetailPage() {
             <Link
               href={`/reports/${audit.id}`}
               target="_blank"
+              aria-label="PDFとして保存"
               className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-slate-300 flex items-center gap-1.5 transition-colors"
               title="PDFとして保存・印刷"
             >
@@ -273,6 +314,7 @@ export default function AuditDetailPage() {
             </Link>
             <Link
               href={`/google/hub?url=${encodeURIComponent(audit.url)}`}
+              aria-label="Google公式連携"
               className="px-3 py-1.5 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-xs font-mono text-violet-300 flex items-center gap-1.5 transition-colors"
             >
               <ShieldCheck className="w-3 h-3 text-violet-400" />
@@ -282,6 +324,7 @@ export default function AuditDetailPage() {
               type="button"
               disabled={isReloading}
               onClick={() => fetchAuditResult(true)}
+              aria-label={isReloading ? '再診断中' : '再読み込み'}
               className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-slate-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-3 h-3 ${isReloading ? 'animate-spin text-cyan-400' : ''}`} />
@@ -326,87 +369,50 @@ export default function AuditDetailPage() {
           </section>
         )}
 
-        {/* KPI Strip (Border Grid - ShadcnAdmin) */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {/* Total Score */}
-          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
-            <span className="text-[11px] font-mono text-slate-400">総合スコア</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] space-y-2">
+            <span className="text-[11px] font-mono text-slate-400">総合</span>
             <div className="flex items-baseline gap-1">
-              <span
-                className={`text-3xl font-extrabold font-mono ${
-                  audit.overallScore >= 80 ? 'text-emerald-400' : audit.overallScore >= 60 ? 'text-amber-400' : 'text-red-400'
-                }`}
-              >
-                {audit.overallScore}
-              </span>
+              <span className="text-3xl font-extrabold font-mono text-white">{audit.overallScore}</span>
               <span className="text-xs text-slate-500">/ 100</span>
             </div>
-            <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              <span>{audit.httpStatus} OK</span>
-            </div>
+            <p className="text-[10px] font-mono text-slate-400">作業順の点数。順位や引用は予測しない</p>
           </div>
-
-          {/* Technical SEO */}
-          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
-            <span className="text-[11px] font-mono text-slate-400">テクニカルSEO</span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold font-mono text-white">{audit.scores.seo}</span>
-              <span className="text-xs text-slate-500">点</span>
+          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] space-y-2">
+            <span className="text-[11px] font-mono text-slate-400">HTTP</span>
+            <div className={`text-3xl font-extrabold font-mono ${fetchedOk ? 'text-emerald-400' : 'text-red-400'}`}>
+              {audit.httpStatus}
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">Title / Canonical</span>
+            <p className="text-[10px] font-mono text-slate-400">{fetchedOk ? 'HTML を取得できた' : 'この URL は取得できていない'}</p>
           </div>
-
-          {/* Core Web Vitals */}
-          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
-            <span className="text-[11px] font-mono text-slate-400">パフォーマンス (TTFB)</span>
+          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] space-y-2">
+            <span className="text-[11px] font-mono text-slate-400">この1回の応答</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold font-mono text-cyan-400">{audit.responseTimeMs}</span>
+              <span className="text-3xl font-extrabold font-mono text-cyan-300">{audit.responseTimeMs}</span>
               <span className="text-xs text-slate-500">ms</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">サイズ: {audit.cwv.totalSizeKb} KB</span>
+            <p className="text-[10px] font-mono text-slate-400">HTML {audit.cwv.totalSizeKb} KB。LCP や CrUX ではない</p>
           </div>
-
-          {/* AEO / LLMO */}
-          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
-            <span className="text-[11px] font-mono text-slate-400">AI クローラー</span>
+          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] space-y-2">
+            <span className="text-[11px] font-mono text-slate-400">先に直す</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold font-mono text-violet-400">
-                {audit.actionPlan ? (audit.actionPlan.areas.find((area) => area.id === 'ai')?.score ?? '—') : audit.scores.aeo_llmo}
-              </span>
-              <span className="text-xs text-slate-500">点</span>
+              <span className="text-3xl font-extrabold font-mono text-white">{audit.actionPlan ? p1Count : '—'}</span>
+              <span className="text-xs text-slate-500">P1</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">
-              {audit.actionPlan?.areas.find((area) => area.id === 'ai')?.score === null ? '未評価' : '特別なマークアップは不要'}
-            </span>
-          </div>
-
-          {/* Meta Integrity */}
-          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
-            <span className="text-[11px] font-mono text-slate-400">メタデータ整合性</span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold font-mono text-white">{audit.scores.meta}</span>
-              <span className="text-xs text-slate-500">点</span>
-            </div>
-            <span className="text-[10px] text-slate-400 font-mono">OGP / Twitter Card</span>
-          </div>
-
-          {/* Security */}
-          <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
-            <span className="text-[11px] font-mono text-slate-400">セキュリティ & SSL</span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold font-mono text-emerald-400">{audit.scores.security}</span>
-              <span className="text-xs text-slate-500">点</span>
-            </div>
-            <span className="text-[10px] text-slate-400 font-mono">TLS / HTTPS</span>
+            <p className="text-[10px] font-mono text-slate-400">
+              {audit.actionPlan ? `減点する施策 ${fixCount} 件` : 'この保存結果には施策一覧がない'}
+            </p>
           </div>
         </div>
 
         {audit.actionPlan && <ActionPlanPanel plan={audit.actionPlan} url={audit.url} />}
 
         {/* Pill Navigation Tabs (Refero Styles) */}
-        <div className="border-b border-white/[0.08] pb-1 flex items-center gap-2 overflow-x-auto">
+        <div className="border-b border-white/[0.08] pb-1 flex items-center gap-2 overflow-x-auto" role="tablist" aria-label="診断の表示">
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'metrics'}
             onClick={() => setActiveTab('metrics')}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center gap-2 ${
               activeTab === 'metrics'
@@ -419,6 +425,9 @@ export default function AuditDetailPage() {
           </button>
 
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'aeo'}
             onClick={() => setActiveTab('aeo')}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center gap-2 ${
               activeTab === 'aeo'
@@ -427,10 +436,13 @@ export default function AuditDetailPage() {
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>AI Overviews & AEO</span>
+            <span>AIクローラー</span>
           </button>
 
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'meta'}
             onClick={() => setActiveTab('meta')}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center gap-2 ${
               activeTab === 'meta'
@@ -443,6 +455,9 @@ export default function AuditDetailPage() {
           </button>
 
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'diff'}
             onClick={() => setActiveTab('diff')}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center gap-2 ${
               activeTab === 'diff'
@@ -455,6 +470,9 @@ export default function AuditDetailPage() {
           </button>
 
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'links'}
             onClick={() => setActiveTab('links')}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center gap-2 ${
               activeTab === 'links'
@@ -467,6 +485,9 @@ export default function AuditDetailPage() {
           </button>
 
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'sitemap'}
             onClick={() => setActiveTab('sitemap')}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all shrink-0 flex items-center gap-2 ${
               activeTab === 'sitemap'
@@ -487,24 +508,40 @@ export default function AuditDetailPage() {
               <div className="flex items-center gap-1.5 text-xs font-mono">
                 <span className="text-slate-500 mr-2">重要度:</span>
                 <button
+                  type="button"
+                  aria-pressed={metricFilter === 'all'}
                   onClick={() => setMetricFilter('all')}
                   className={`px-2.5 py-1 rounded-lg ${metricFilter === 'all' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
                 >
                   すべて ({audit.metrics.length})
                 </button>
                 <button
+                  type="button"
+                  aria-pressed={metricFilter === 'critical'}
                   onClick={() => setMetricFilter('critical')}
                   className={`px-2.5 py-1 rounded-lg ${metricFilter === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'text-red-400/80 hover:text-red-400'}`}
                 >
                   Critical ({criticalCount})
                 </button>
                 <button
+                  type="button"
+                  aria-pressed={metricFilter === 'warning'}
                   onClick={() => setMetricFilter('warning')}
                   className={`px-2.5 py-1 rounded-lg ${metricFilter === 'warning' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-amber-400/80 hover:text-amber-400'}`}
                 >
                   Warning ({warningCount})
                 </button>
                 <button
+                  type="button"
+                  aria-pressed={metricFilter === 'notice'}
+                  onClick={() => setMetricFilter('notice')}
+                  className={`px-2.5 py-1 rounded-lg ${metricFilter === 'notice' ? 'bg-slate-500/20 text-slate-200 border border-slate-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  Notice ({noticeCount})
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={metricFilter === 'good'}
                   onClick={() => setMetricFilter('good')}
                   className={`px-2.5 py-1 rounded-lg ${metricFilter === 'good' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-emerald-400/80 hover:text-emerald-400'}`}
                 >
@@ -515,6 +552,7 @@ export default function AuditDetailPage() {
               <div className="flex items-center gap-2 text-xs font-mono">
                 <span className="text-slate-500">カテゴリ:</span>
                 <select
+                  aria-label="カテゴリ"
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
                   className="bg-black/50 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-cyan-500"
@@ -522,8 +560,8 @@ export default function AuditDetailPage() {
                   <option value="all">全カテゴリ</option>
                   <option value="technical">テクニカル / Meta</option>
                   <option value="content">コンテンツ / 見出し</option>
-                  <option value="aeo_llmo">AEO / AI Overviews</option>
-                  <option value="cwv">Core Web Vitals</option>
+                  <option value="aeo_llmo">AIクローラー / 任意の制御</option>
+                  <option value="cwv">この1回の応答</option>
                   <option value="security">セキュリティ</option>
                 </select>
               </div>
@@ -554,7 +592,7 @@ export default function AuditDetailPage() {
                       <span className="text-xs font-mono text-slate-500">{m.id}</span>
                       <h3 className="text-sm font-semibold text-white">{m.name}</h3>
                     </div>
-                    <span className="text-xs font-mono text-slate-400 font-bold">{m.score} 点</span>
+                    <span className="text-xs font-mono text-slate-400 font-bold">{metricPointLabel(m.status, m.score)}</span>
                   </div>
 
                   <p className="text-xs text-slate-300 leading-relaxed">{m.message}</p>
@@ -606,58 +644,42 @@ export default function AuditDetailPage() {
         {/* Tab 2: AEO & AI Overviews */}
         {activeTab === 'aeo' && (
           <div className="space-y-6">
-            {/* AI Mockup Card */}
             <div className="p-6 rounded-2xl border border-violet-500/30 bg-[#0B0F17] space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-                <div className="flex items-center gap-2 text-violet-400">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2 text-violet-300">
                   <Bot className="w-4 h-4" />
                   <span className="text-xs font-mono font-bold uppercase tracking-wider">
-                    Google AI Overviews (AIO) 引用シミュレーター
+                    取得したページのメモ
                   </span>
                 </div>
-                <span className="text-[11px] font-mono text-violet-400 bg-violet-500/10 px-2.5 py-0.5 rounded-full border border-violet-500/20">
-                  回答抽出率: {audit.aiOverview.answerabilityScore}%
+                <span className="text-[11px] font-mono text-slate-300 bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">
+                  引用は予測しない
                 </span>
               </div>
-
-              <div className="p-5 rounded-xl bg-violet-950/20 border border-violet-500/20 space-y-3">
-                <p className="text-sm text-slate-200 leading-relaxed font-sans">
-                  ✨ <strong>AI生成ダイレクト要約:</strong> {audit.aiOverview.summary}
-                </p>
-
-                <div className="pt-2">
-                  <span className="text-[10px] font-mono text-slate-400 uppercase">参照・引用ソース (Citations):</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {audit.aiOverview.citations.map((c, idx) => (
-                      <div
-                        key={idx}
-                        className="p-2.5 rounded-xl bg-[#080B11] border border-white/10 flex items-center gap-2 text-xs"
-                      >
-                        <div className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px] text-cyan-400 font-bold">
-                          {idx + 1}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-white truncate max-w-[180px]">{c.title}</div>
-                          <div className="text-[10px] text-slate-500 font-mono truncate max-w-[180px]">{c.domain}</div>
-                        </div>
-                      </div>
+              <p className="text-sm text-slate-200 leading-relaxed">{audit.aiOverview.summary}</p>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Google 検索は llms.txt も、生成 AI 用の特別なマークアップも使いません。下のリンクはこのページと、HTML から読めた内部リンクです。引用元ではありません。
+              </p>
+              <ul className="space-y-2">
+                {audit.aiOverview.citations.map((item) => (
+                  <li key={item.url} className="text-xs">
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-cyan-300 break-all hover:text-cyan-200">
+                      {item.title || item.url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              {audit.aiOverview.recommendations.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-xs font-mono text-slate-300">先に直すこと</h3>
+                  <ol className="list-decimal space-y-2 pl-4 text-xs text-slate-300">
+                    {audit.aiOverview.recommendations.map((rec) => (
+                      <li key={rec}>{rec}</li>
                     ))}
-                  </div>
+                  </ol>
+                  <a href="#action-plan" className="inline-block text-[11px] font-mono text-cyan-300">施策一覧へ</a>
                 </div>
-              </div>
-
-              {/* Actionable Recommendations */}
-              <div className="space-y-2 pt-2">
-                <h4 className="text-xs font-bold text-white font-mono">AEO / LLMO 最適化推奨アクション:</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {audit.aiOverview.recommendations.map((rec, idx) => (
-                    <div key={idx} className="p-3 rounded-xl bg-black/40 border border-white/[0.06] text-xs text-slate-300 flex items-start gap-2">
-                      <span className="text-cyan-400 font-bold mt-0.5">#{idx + 1}</span>
-                      <span>{rec}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -668,7 +690,7 @@ export default function AuditDetailPage() {
             <div className="rounded-2xl border border-white/[0.08] bg-[#0B0F17] overflow-hidden">
               <div className="px-5 py-3.5 border-b border-white/[0.08] bg-black/30 flex items-center justify-between">
                 <h3 className="text-xs font-mono font-bold text-white">検出された主要メタタグ一覧</h3>
-                <span className="text-xs font-mono text-slate-400">文字セット: {audit.meta.charset || 'UTF-8'}</span>
+                <span className="text-xs font-mono text-slate-400">文字数は合否ではない</span>
               </div>
 
               <div className="divide-y divide-white/[0.06] text-xs font-mono">
@@ -676,14 +698,14 @@ export default function AuditDetailPage() {
                 <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
                   <div className="text-slate-400 font-bold">&lt;title&gt;</div>
                   <div className="md:col-span-2 text-white break-all font-sans">{audit.meta.title || '(未設定)'}</div>
-                  <div className="text-right text-slate-500">{audit.meta.title ? `${audit.meta.title.length} 文字` : '0 文字'}</div>
+                  <div className="text-right text-slate-500">{audit.meta.title ? `${audit.meta.title.length} 文字` : '—'}</div>
                 </div>
 
                 {/* Description */}
                 <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
                   <div className="text-slate-400 font-bold">description</div>
                   <div className="md:col-span-2 text-white break-all font-sans">{audit.meta.description || '(未設定)'}</div>
-                  <div className="text-right text-slate-500">{audit.meta.description ? `${audit.meta.description.length} 文字` : '0 文字'}</div>
+                  <div className="text-right text-slate-500">{audit.meta.description ? `${audit.meta.description.length} 文字` : '—'}</div>
                 </div>
 
                 {/* Canonical */}
@@ -695,7 +717,14 @@ export default function AuditDetailPage() {
                 {/* Robots */}
                 <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
                   <div className="text-slate-400 font-bold">robots</div>
-                  <div className="md:col-span-3 text-white">{audit.meta.robots || audit.meta.googlebot || '(デフォルト: index, follow)'}</div>
+                  <div className="md:col-span-3 text-white">
+                    {audit.meta.robots || '未設定'}
+                    {!audit.meta.robots && <span className="text-slate-500">（タグが無ければ Google の初期値は index, follow）</span>}
+                  </div>
+                </div>
+                <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
+                  <div className="text-slate-400 font-bold">googlebot</div>
+                  <div className="md:col-span-3 text-white">{audit.meta.googlebot || '未設定'}</div>
                 </div>
 
                 {/* OGP Image */}
@@ -737,57 +766,14 @@ export default function AuditDetailPage() {
                 <span>Next.js App Router (metadata) 推奨設定コード</span>
               </h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                以下のコードを <code className="text-cyan-300 font-mono">src/app/layout.tsx</code> または <code className="text-cyan-300 font-mono">src/app/page.tsx</code> に貼り付けることで、Title、Canonical、AIO max-snippet、OGP の不具合が一括解決されます。
+                公開したいページ向けの例です。noindex のページには貼らないでください。title と description は、この取得で見えた文字列を置いただけです。文字数の枠や max-snippet の未設定は不具合ではありません。
               </p>
 
               <div className="relative rounded-xl bg-black/60 p-4 font-mono text-xs text-emerald-300 border border-white/[0.06] overflow-x-auto">
-                <pre>{`import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: '${audit.meta.title || 'サイトタイトル'}',
-  description: '${audit.meta.description || 'サイトの要約説明'}',
-  alternates: {
-    canonical: '${audit.meta.canonical || audit.url}',
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
-  openGraph: {
-    title: '${audit.meta.ogTitle || audit.meta.title || 'サイトタイトル'}',
-    description: '${audit.meta.ogDescription || audit.meta.description || 'サイトの要約説明'}',
-    url: '${audit.url}',
-    siteName: '${new URL(audit.url).hostname}',
-    images: [
-      {
-        url: '${audit.meta.ogImage || 'https://' + new URL(audit.url).hostname + '/og-image.png'}',
-        width: 1200,
-        height: 630,
-      },
-    ],
-    locale: 'ja_JP',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: '${audit.meta.ogTitle || audit.meta.title || 'サイトタイトル'}',
-    description: '${audit.meta.ogDescription || audit.meta.description || 'サイトの要約説明'}',
-  },
-};`}</pre>
+                <pre>{metadataSample}</pre>
                 <button
-                  onClick={() =>
-                    copyCode(
-                      `import type { Metadata } from 'next';\n\nexport const metadata: Metadata = {\n  title: '${audit.meta.title || 'サイトタイトル'}',\n  description: '${audit.meta.description || 'サイトの要約説明'}',\n  alternates: {\n    canonical: '${audit.meta.canonical || audit.url}',\n  },\n  robots: {\n    index: true,\n    follow: true,\n    googleBot: {\n      index: true,\n      follow: true,\n      'max-video-preview': -1,\n      'max-image-preview': 'large',\n      'max-snippet': -1,\n    },\n  },\n  openGraph: {\n    title: '${audit.meta.ogTitle || audit.meta.title || 'サイトタイトル'}',\n    description: '${audit.meta.ogDescription || audit.meta.description || 'サイトの要約説明'}',\n    url: '${audit.url}',\n    siteName: '${new URL(audit.url).hostname}',\n    images: [\n      {\n        url: '${audit.meta.ogImage || 'https://' + new URL(audit.url).hostname + '/og-image.png'}',\n        width: 1200,\n        height: 630,\n      },\n    ],\n    locale: 'ja_JP',\n    type: 'website',\n  },\n  twitter: {\n    card: 'summary_large_image',\n    title: '${audit.meta.ogTitle || audit.meta.title || 'サイトタイトル'}',\n    description: '${audit.meta.ogDescription || audit.meta.description || 'サイトの要約説明'}',\n  },\n};`,
-                      'next-metadata'
-                    )
-                  }
+                  type="button"
+                  onClick={() => copyCode(metadataSample, 'next-metadata')}
                   className="absolute top-3 right-3 px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-xs flex items-center gap-1.5 transition-colors"
                 >
                   {copiedCodeId === 'next-metadata' ? (
@@ -907,10 +893,10 @@ export const metadata: Metadata = {
                             : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                         }`}
                       >
-                        {audit.sitemap.hasRobotsTxtSitemap ? '連携済み (Sitemap記載あり)' : '未記載 (警告)'}
+                        {audit.sitemap.hasRobotsTxtSitemap ? 'Sitemap 行あり' : 'Sitemap 行は無い'}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono">クローラー自動巡回</span>
+                    <span className="text-[10px] text-slate-500 font-mono">サイトマップは発見のヒントです。クロールも掲載も保証しません</span>
                   </div>
 
                   <div className="p-5 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
@@ -974,38 +960,39 @@ export const metadata: Metadata = {
                     <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
                       <h4 className="text-xs font-mono font-bold text-white flex items-center gap-2">
                         <Split className="w-3.5 h-3.5 text-sky-400" />
-                        <span>カノニカル & コンパニオンURL整合性</span>
+                        <span>サイトマップ URL の内訳</span>
                       </h4>
                       <span className="text-[10px] font-mono text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
-                        正規化照合
+                        canonical は未確認
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 text-xs font-mono">
                       <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
-                        <span className="text-slate-400 text-[10px]">正規URL (Self-canonical)</span>
+                        <span className="text-slate-400 text-[10px]">utm_ / session / filter を含まない URL</span>
                         <div className="text-base font-bold text-emerald-400">
-                          {audit.sitemap.analytics?.canonicalCompanion?.selfCanonicalCount ?? audit.sitemap.totalUrls} 件
+                          {audit.sitemap.analytics?.canonicalCompanion ? audit.sitemap.analytics.canonicalCompanion.selfCanonicalCount : '—'} 件
                         </div>
+                        <p className="text-[10px] text-slate-500 leading-relaxed">canonical は読んでいません。</p>
                       </div>
                       <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
-                        <span className="text-slate-400 text-[10px]">パラメータURL混入警告</span>
+                        <span className="text-slate-400 text-[10px]">utm_ / session / filter を含む URL</span>
                         <div className={`text-base font-bold ${
                           (audit.sitemap.analytics?.canonicalCompanion?.potentialCanonicalConflictCount ?? 0) > 0 ? 'text-amber-400' : 'text-slate-500'
                         }`}>
-                          {audit.sitemap.analytics?.canonicalCompanion?.potentialCanonicalConflictCount ?? 0} 件
+                          {audit.sitemap.analytics?.canonicalCompanion ? audit.sitemap.analytics.canonicalCompanion.potentialCanonicalConflictCount : '—'} 件
                         </div>
                       </div>
                       <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
                         <span className="text-slate-400 text-[10px]">Hreflang 多言語対URL</span>
                         <div className="text-base font-bold text-sky-400">
-                          {audit.sitemap.analytics?.canonicalCompanion?.hreflangCount ?? 0} 件
+                          {audit.sitemap.analytics?.canonicalCompanion ? audit.sitemap.analytics.canonicalCompanion.hreflangCount : '—'} 件
                         </div>
                       </div>
                       <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
                         <span className="text-slate-400 text-[10px]">モバイル/AMP 対URL</span>
                         <div className="text-base font-bold text-violet-400">
-                          {audit.sitemap.analytics?.canonicalCompanion?.ampCount ?? 0} 件
+                          {audit.sitemap.analytics?.canonicalCompanion ? audit.sitemap.analytics.canonicalCompanion.ampCount : '—'} 件
                         </div>
                       </div>
                     </div>
@@ -1104,7 +1091,7 @@ export const metadata: Metadata = {
                       <div className="flex items-center gap-2">
                         <Code2 className="w-3.5 h-3.5 text-sky-400" />
                         <h3 className="text-xs font-mono font-bold text-white">
-                          Next.js App Router 推奨コード (app/sitemap.ts)
+                          取得した URL だけの例 (app/sitemap.ts)
                         </h3>
                       </div>
                       <button

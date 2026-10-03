@@ -65,34 +65,54 @@ function download(filename: string, content: string, type: string) {
   URL.revokeObjectURL(href);
 }
 
-function Scatter({ actions }: { actions: RankedAction[] }) {
+function matchesPriority(action: RankedAction, priority: 'all' | ActionPriority | 'quick'): boolean {
+  if (priority === 'all') return true;
+  if (priority === 'quick') return action.quickWin;
+  return action.priority === priority;
+}
+
+function Scatter({ actions, priority }: { actions: RankedAction[]; priority: 'all' | ActionPriority | 'quick' }) {
   const plotted = actions.filter((action) => action.severity !== 'info');
   return (
-    <svg viewBox="0 0 360 200" className="w-full h-52" role="img" aria-label="インパクトと工数">
-      <rect x="0" y="0" width="360" height="200" fill="transparent" />
-      <line x1="40" y1="16" x2="40" y2="168" stroke="rgba(255,255,255,0.15)" />
-      <line x1="40" y1="168" x2="340" y2="168" stroke="rgba(255,255,255,0.15)" />
-      <text x="8" y="20" fill="#94a3b8" fontSize="10">高</text>
-      <text x="8" y="164" fill="#94a3b8" fontSize="10">低</text>
-      {[1, 2, 3, 4].map((effort) => (
-        <text key={effort} x={40 + ((effort - 1) / 3) * 280} y="186" fill="#94a3b8" fontSize="10" textAnchor="middle">
-          {effort === 1 ? '数時間' : effort === 2 ? '1日' : effort === 3 ? '数日' : '週'}
-        </text>
-      ))}
-      {plotted.map((action, index) => {
-        const x = 40 + ((action.effort - 1) / 3) * 280 + ((index % 3) - 1) * 6;
-        const y = 20 + (1 - action.impact / 100) * 140;
-        const fill = action.priority === 'P1' ? '#f87171' : action.priority === 'P2' ? '#fbbf24' : '#94a3b8';
-        return (
-          <g key={action.id}>
-            {action.quickWin && <circle cx={x} cy={y} r="9" fill="none" stroke="#22d3ee" strokeWidth="1.5" />}
-            <circle cx={x} cy={y} r="5" fill={fill}>
-              <title>{`${action.priority} ${action.title} インパクト ${action.impact}`}</title>
-            </circle>
-          </g>
-        );
-      })}
-    </svg>
+    <div>
+      <svg viewBox="0 0 360 200" className="w-full h-52" role="img" aria-labelledby="impact-effort-caption">
+        <rect x="0" y="0" width="360" height="200" fill="transparent" />
+        <line x1="40" y1="16" x2="40" y2="168" stroke="rgba(255,255,255,0.15)" />
+        <line x1="40" y1="168" x2="340" y2="168" stroke="rgba(255,255,255,0.15)" />
+        <text x="8" y="20" fill="#94a3b8" fontSize="10">高</text>
+        <text x="8" y="164" fill="#94a3b8" fontSize="10">低</text>
+        {[1, 2, 3, 4].map((effort) => (
+          <text key={effort} x={40 + ((effort - 1) / 3) * 280} y="186" fill="#94a3b8" fontSize="10" textAnchor="middle">
+            {effort === 1 ? '数時間' : effort === 2 ? '1日' : effort === 3 ? '数日' : '週'}
+          </text>
+        ))}
+        {plotted.map((action, index) => {
+          const x = 40 + ((action.effort - 1) / 3) * 280 + ((index % 3) - 1) * 6;
+          const y = 20 + (1 - action.impact / 100) * 140;
+          const fill = action.priority === 'P1' ? '#f87171' : action.priority === 'P2' ? '#fbbf24' : '#94a3b8';
+          const active = matchesPriority(action, priority);
+          return (
+            <g key={action.id} opacity={active ? 1 : 0.2}>
+              {action.quickWin && <circle cx={x} cy={y} r="9" fill="none" stroke="#22d3ee" strokeWidth="1.5" />}
+              <circle cx={x} cy={y} r="5" fill={fill}>
+                <title>{`${action.priority} ${action.title} 影響 ${action.impact} ${action.effortLabel}`}</title>
+              </circle>
+            </g>
+          );
+        })}
+      </svg>
+      <p id="impact-effort-caption" className="text-[10px] text-slate-500">
+        縦が影響、横が工数。赤が P1、黄が P2、灰が P3。円の枠はクイックウィン。重なる点は少しずらしています。
+      </p>
+      <ul className="mt-2 max-h-28 space-y-1 overflow-y-auto text-[11px] text-slate-300">
+        {plotted.map((action) => (
+          <li key={action.id} className={matchesPriority(action, priority) ? '' : 'opacity-40'}>
+            <span className="font-mono text-slate-500">{action.priority}</span> {action.title}
+            <span className="font-mono text-slate-500"> · 影響 {action.impact} · {action.effortLabel}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -106,7 +126,7 @@ export function ActionPlanPanel({ plan, url }: { plan: ActionPlan; url: string }
   const infoCount = plan.actions.filter((action) => action.severity === 'info').length;
 
   return (
-    <section className="space-y-4">
+    <section id="action-plan" className="scroll-mt-20 space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-white">直す順番</h2>
@@ -143,13 +163,16 @@ export function ActionPlanPanel({ plan, url }: { plan: ActionPlan; url: string }
               <span>{area.label}</span>
               <span>w{area.weight}</span>
             </div>
-            <div className="mt-1 text-xl font-mono font-bold text-white">{area.score ?? '—'}</div>
-            <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
-              <div
-                className="h-full bg-cyan-400/80"
-                style={{ width: `${Math.max(0, Math.min(100, area.score ?? 0))}%` }}
-              />
+            <div className={`mt-1 text-xl font-mono font-bold ${area.score === null ? 'text-slate-500' : 'text-white'}`}>
+              {area.score ?? '—'}
             </div>
+            {area.score === null ? (
+              <p className="mt-2 text-[10px] text-slate-500">未評価。平均に入れない</p>
+            ) : (
+              <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                <div className="h-full bg-cyan-400/80" style={{ width: `${area.score}%` }} />
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -160,7 +183,7 @@ export function ActionPlanPanel({ plan, url }: { plan: ActionPlan; url: string }
             <h3 className="text-xs font-mono text-slate-300">インパクト × 工数</h3>
             <span className="text-[10px] text-cyan-300">枠線はクイックウィン</span>
           </div>
-          <Scatter actions={plan.actions} />
+          <Scatter actions={plan.actions} priority={priority} />
         </div>
         <div className="lg:col-span-2 rounded-2xl border border-white/[0.08] bg-[#0B0F17] p-4 space-y-3">
           <h3 className="text-xs font-mono text-slate-300">どこに手を入れるか</h3>
@@ -190,6 +213,7 @@ export function ActionPlanPanel({ plan, url }: { plan: ActionPlan; url: string }
           <button
             key={key}
             type="button"
+            aria-pressed={priority === key}
             onClick={() => setPriority(key)}
             className={`px-2.5 py-1 rounded-lg border ${priority === key ? 'border-cyan-400/40 text-cyan-200 bg-cyan-500/10' : 'border-white/10 text-slate-400'}`}
           >
@@ -213,7 +237,7 @@ export function ActionPlanPanel({ plan, url }: { plan: ActionPlan; url: string }
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">{action.evidence}</p>
             <p className="text-xs text-cyan-200/90 leading-relaxed">{action.fix}</p>
-            <a href={action.source} target="_blank" rel="noreferrer" className="text-[11px] font-mono text-slate-500 hover:text-slate-300 break-all">
+            <a href={action.source} target="_blank" rel="noopener noreferrer" className="text-[11px] font-mono text-slate-500 hover:text-slate-300 break-all">
               {action.source}
             </a>
           </article>

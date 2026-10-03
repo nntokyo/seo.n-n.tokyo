@@ -16,22 +16,22 @@ export const metadata: Metadata = {
   },
   applicationName: 'SEO Analyzer',
   title: {
-    default: 'SEO Analyzer — 無料SEO診断・サイトマップ・AI検索対策ツール',
+    default: 'SEO Analyzer — 無料SEO診断・サイトマップ・技術監査ツール',
     template: '%s | SEO Analyzer',
   },
-  description: 'URLを入力して技術SEO、メタ情報、Core Web Vitals、サイトマップ、内部リンク、llms.txt、Google公式データを確認できる無料SEO分析ツール。',
+  description: 'URLを入力してクロール、タイトル、構造化データ、サイトマップ、HTTPSを確認し、直す順番を出す無料SEO分析ツール。順位は予測しません。',
   openGraph: {
     type: 'website',
     locale: 'ja_JP',
     url: siteUrl,
     siteName: 'SEO Analyzer',
-    title: 'SEO Analyzer — 無料SEO診断・サイトマップ・AI検索対策ツール',
-    description: '技術SEO、サイトマップ、内部リンク、llms.txt、Google公式データを横断して確認できる無料SEO分析ツール。',
+    title: 'SEO Analyzer — 無料SEO診断・サイトマップ・技術監査ツール',
+    description: 'クロール、タイトル、構造化データ、サイトマップを確認し、直す順番を出す無料SEO分析ツール。',
   },
   twitter: {
     card: 'summary',
-    title: 'SEO Analyzer — 無料SEO診断・サイトマップ・AI検索対策ツール',
-    description: '技術SEO、サイトマップ、内部リンク、llms.txt、Google公式データを横断して確認できる無料SEO分析ツール。',
+    title: 'SEO Analyzer — 無料SEO診断・サイトマップ・技術監査ツール',
+    description: 'クロール、タイトル、構造化データ、サイトマップを確認し、直す順番を出す無料SEO分析ツール。',
   },
   icons: {
     icon: [
@@ -94,7 +94,7 @@ export default function RootLayout({
               applicationCategory: 'BusinessApplication',
               operatingSystem: 'Web',
               inLanguage: 'ja',
-              description: '技術SEO、Core Web Vitals、サイトマップ、内部リンク、AI検索対応を分析するWebアプリケーション。',
+              description: 'クロール、タイトル、構造化データ、サイトマップ、HTTPSを確認し、直す順番を出すWebアプリケーション。',
               offers: {
                 '@type': 'Offer',
                 price: 0,

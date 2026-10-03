@@ -9,6 +9,24 @@ export interface SitemapCheckOutcome {
   robots: RobotsSnapshot;
 }
 
+export function sitemapNextSample(entries: Array<{ loc: string; lastmod?: string }>): string | undefined {
+  const rows = entries.slice(0, 8).filter((entry) => entry.loc).map((entry) => {
+    const fields = [`      url: ${JSON.stringify(entry.loc)}`];
+    if (entry.lastmod) fields.push(`      lastModified: ${JSON.stringify(entry.lastmod)}`);
+    return `    {\n${fields.join(',\n')},\n    }`;
+  });
+  if (rows.length === 0) return undefined;
+  return `// 取得した URL だけです。Google は priority と changefreq を使いません。
+import type { MetadataRoute } from 'next';
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  return [
+${rows.join(',\n')},
+  ];
+}
+`;
+}
+
 export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOutcome> {
   const targetUrl = new URL(targetUrlStr);
   const origin = targetUrl.origin;
@@ -224,30 +242,7 @@ export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOu
     });
   }
 
-  // Next.js App Router 推奨コード生成
-  const generatedNextjsCode = `// app/sitemap.ts (Next.js 16 App Router)
-import type { MetadataRoute } from 'next';
-
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = '${origin}';
-  const now = new Date();
-
-  return [
-    {
-      url: baseUrl,
-      lastModified: now,
-      changeFrequency: 'daily',
-      priority: 1.0,
-    },
-    {
-      url: \`\${baseUrl}/tools/llms-txt\`,
-      lastModified: now,
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-  ];
-}
-`;
+  const generatedNextjsCode = sitemapNextSample(urls);
 
   // TECH-006 メトリクス生成
   let metricScore = 100;
@@ -280,8 +275,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     status: metricStatus,
     message: metricMessage,
     proposal: metricScore < 100 ? 'robots.txt に Sitemap URL を指定し、正確な XML サイトマップを生成してください。' : undefined,
-    codeDiff: metricScore < 100 ? {
-      before: `<!-- sitemap.xml または robots.txt 連携が不完全 -->`,
+    codeDiff: generatedNextjsCode && metricScore < 100 ? {
+      before: '<!-- 取得したサイトマップの URL から作った例です -->',
       after: generatedNextjsCode,
     } : undefined,
   };

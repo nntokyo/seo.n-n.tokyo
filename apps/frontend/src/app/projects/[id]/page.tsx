@@ -282,7 +282,7 @@ export default function ProjectDetailPage() {
                 <p className="text-lg font-bold font-mono text-amber-400">{latestHistory.categories.cwv}点</p>
               </div>
               <div className="p-3.5 rounded-2xl bg-black/30 border border-white/5 space-y-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase">AI / GEO (AIO)</span>
+                <span className="text-[10px] font-mono text-slate-400 uppercase">AIクローラー（旧）</span>
                 <p className="text-lg font-bold font-mono text-violet-400">{latestHistory.categories.aeo_llmo}点</p>
               </div>
             </div>
@@ -381,7 +381,7 @@ export default function ProjectDetailPage() {
                 </div>
                 <h3 className="text-sm font-bold text-white">サイトマップ & llms.txt</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  XMLサイトマップの構文検証・カノニカル不一致解析、AI検索エンジン用の llms.txt を自動生成。
+                  XMLサイトマップの構文と URL の形を見ます。llms.txt は Google 検索では使わない任意ファイルです。
                 </p>
               </div>
               <Link
@@ -436,7 +436,7 @@ export default function ProjectDetailPage() {
                       <span>SEO: {h.categories.technical}</span>
                       <span>Meta: {h.categories.content}</span>
                       <span>CWV: {h.categories.cwv}</span>
-                      <span>AIO: {h.categories.aeo_llmo}</span>
+                      <span>AI: {h.categories.aeo_llmo}</span>
                     </div>
                     <div className="col-span-2 text-right flex justify-end gap-2">
                       <Link

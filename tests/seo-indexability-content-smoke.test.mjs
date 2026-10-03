@@ -6,7 +6,7 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 
 test('global metadata exposes descriptive search and social metadata', () => {
   const layout = read('apps/frontend/src/app/layout.tsx');
-  assert.match(layout, /無料SEO診断・サイトマップ・AI検索対策ツール/);
+  assert.match(layout, /無料SEO診断・サイトマップ・技術監査ツール/);
   assert.match(layout, /openGraph:/);
   assert.match(layout, /twitter:/);
   assert.match(layout, /'@type': 'WebSite'/);

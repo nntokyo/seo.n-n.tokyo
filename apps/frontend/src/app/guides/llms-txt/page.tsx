@@ -48,10 +48,10 @@ export default function Page() {
         </p>
       </section>
       <section>
-        <h2 className="text-xl font-semibold text-white">llms.txtだけでAI引用は保証されない</h2>
+        <h2 className="text-xl font-semibold text-white">Google検索はllms.txtを使わない</h2>
         <p className="mt-3">
-          AI回答への引用や検索順位はllms.txtだけで決まりません。本文の品質、公開情報の明確さ、内部リンク、技術SEO、外部からの評価など複数要素が関係します。
-          llms.txtはサイト構造を説明する一手段として使い、通常のSEO改善と並行して運用します。
+          Google検索は、llms.txtも生成AI用の特別なマークアップも使いません。このファイルを置いても、順位やAI回答への引用は変わりません。
+          インデックスではrobots、canonical、内部リンク、XMLサイトマップを先に確認します。
         </p>
       </section>
     </GuideArticle>

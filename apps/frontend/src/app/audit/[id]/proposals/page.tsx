@@ -1,39 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import {
-  ArrowLeft,
-  Code2,
-  Copy,
-  Check,
-  CheckCircle2,
-  Sparkles,
-  ExternalLink
-} from 'lucide-react';
-import { FullAuditResult } from '@seo/shared';
+import { ArrowLeft, Code2, Copy, Check } from 'lucide-react';
+import { AuditLoading, AuditMissing, useStoredAudit } from '../../../../components/AuditResultGate';
 
 export default function AuditProposalsPage() {
   const params = useParams();
   const id = params.id as string;
-  const [audit, setAudit] = useState<FullAuditResult | null>(null);
+  const { audit, phase } = useStoredAudit(id);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!id) return;
-    fetch(`/api/v1/audit/results/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setAudit(data));
-  }, [id]);
-
-  if (!audit) {
-    return (
-      <div className="min-h-screen bg-[#080B11] flex items-center justify-center text-slate-400 font-mono text-xs">
-        読み込み中...
-      </div>
-    );
-  }
+  if (phase === 'loading') return <AuditLoading />;
+  if (phase === 'missing' || !audit) return <AuditMissing />;
 
   const copyCode = (code: string, proposalId: string) => {
     navigator.clipboard.writeText(code);
@@ -75,9 +55,18 @@ export default function AuditProposalsPage() {
             コピペ可能な Next.js / HTML 修正スニペット ({proposalsWithCode.length}件)
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            検出されたSEO課題に対して、App Routerの `export const metadata` やコンポーネント実装のBefore/Afterコードを提供します。
+            検出した項目のうち、コピーできる例があるものだけを出します。文字数の枠や未設定の任意タグは不具合ではありません。
           </p>
         </div>
+
+        {proposalsWithCode.length === 0 && (
+          <p className="text-sm text-slate-300">
+            コピーできる修正コードはありません。
+            <Link href={`/audit/${id}#action-plan`} className="ml-2 text-cyan-300 underline">
+              直す順番を見る
+            </Link>
+          </p>
+        )}
 
         <div className="space-y-4">
           {proposalsWithCode.map((m) => (
@@ -86,7 +75,7 @@ export default function AuditProposalsPage() {
                 <span className="text-sm font-bold text-white">{m.name}</span>
                 <span
                   className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase ${
-                    m.status === 'good' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                    m.status === 'good' ? 'bg-emerald-500/10 text-emerald-400' : m.status === 'notice' ? 'bg-slate-500/10 text-slate-300' : 'bg-amber-500/10 text-amber-400'
                   }`}
                 >
                   {m.status}

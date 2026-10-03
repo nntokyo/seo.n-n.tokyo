@@ -313,7 +313,7 @@ export function collectPageFindings(signals: PageSignals): PageFindingResult {
   if (!signals.title) {
     add(finding('title_missing', 'onpage', 'high', 'title がない', 'title 要素が空、または無い。', 'そのページの内容が分かる固有の title を、本文と同じ言語で書く。', SRC.title, 1, false, [url]));
   } else if (signals.title.length < 15 || signals.title.length > 70) {
-    add(finding('title_length', 'onpage', 'low', 'title がとても短い、またはとても長い', `${signals.title.length} 文字。Google は文字数の上限を定めておらず、表示幅で切る。`, '内容が伝わる短い題名にする。15〜70 文字は画面上の目安であり、合格ラインではない。', SRC.title, 1, true, [url]));
+    add(finding('title_length', 'onpage', 'info', 'title がとても短い、またはとても長い', `${signals.title.length} 文字。Google は文字数の上限を定めておらず、表示幅で切る。`, '内容が伝わる短い題名にする。15〜70 文字は画面上の目安であり、合格ラインではない。文字数では減点しない。', SRC.title, 1, true, [url]));
   }
 
   assess('meta_missing', 'onpage');
@@ -384,7 +384,7 @@ export function collectPageFindings(signals: PageSignals): PageFindingResult {
     add(finding('jsonld_errors', 'structured', 'high', 'JSON-LD が壊れている', signals.jsonLdErrors.slice(0, 2).join(' / '), '見える内容と一致する JSON-LD に直す。', SRC.sd, 1, false, [url]));
   }
   if (signals.schemaNodes.length === 0 && signals.jsonLdErrors.length === 0) {
-    add(finding('no_structured_data', 'structured', 'medium', '構造化データが無い', 'JSON-LD が無い。生成 AI の検索結果に構造化データは必須ではない。', 'リッチリザルトに出したい型だけ、見える内容と一致させて追加する。', SRC.sd, 2, false, [url]));
+    add(finding('no_structured_data', 'structured', 'info', '構造化データが無い', 'JSON-LD が無い。生成 AI の検索結果に構造化データは必須ではない。', 'リッチリザルトに出したい型だけ、見える内容と一致させて追加する。無いこと自体は減点しない。', SRC.sd, 2, false, [url]));
   }
 
   const schemaProblems: string[] = [];

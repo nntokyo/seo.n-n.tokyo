@@ -17,7 +17,8 @@ test('tools hub groups public product capabilities by user goal', () => {
   const page = read('apps/frontend/src/app/tools/page.tsx');
   assert.match(page, /まず診断/);
   assert.match(page, /技術SEO/);
-  assert.match(page, /AI検索対応/);
+  assert.match(page, /公式データと任意ファイル/);
+  assert.doesNotMatch(page, /AI検索対応/);
   assert.match(page, /継続運用/);
   assert.match(page, /\/tools\/sitemap-analyzer/);
   assert.match(page, /\/tools\/llms-txt/);

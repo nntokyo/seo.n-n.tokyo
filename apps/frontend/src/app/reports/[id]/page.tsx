@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { AuditLoading, AuditMissing, useStoredAudit } from '../../../components/AuditResultGate';
 import {
   Printer,
   ArrowLeft,
@@ -15,27 +15,13 @@ import {
   Zap,
   Bot
 } from 'lucide-react';
-import { FullAuditResult } from '@seo/shared';
-
 export default function AuditReportPrintPage() {
   const params = useParams();
   const id = params.id as string;
-  const [audit, setAudit] = useState<FullAuditResult | null>(null);
+  const { audit, phase } = useStoredAudit(id);
 
-  useEffect(() => {
-    if (!id) return;
-    fetch(`/api/v1/audit/results/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setAudit(data));
-  }, [id]);
-
-  if (!audit) {
-    return (
-      <div className="min-h-screen bg-[#080B11] flex items-center justify-center text-slate-400 font-mono text-xs">
-        レポートを生成中...
-      </div>
-    );
-  }
+  if (phase === 'loading') return <AuditLoading label="レポートを読み込み中..." />;
+  if (phase === 'missing' || !audit) return <AuditMissing />;
 
   const criticalIssues = audit.metrics.filter((m) => m.status === 'critical');
   const warningIssues = audit.metrics.filter((m) => m.status === 'warning');
@@ -72,7 +58,7 @@ export default function AuditReportPrintPage() {
               </span>
               <span className="text-xs text-slate-500 font-mono">SCR-21 White-label Report</span>
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-900">Webサイト精密SEO・AI表示診断報告書</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900">技術診断の報告書</h1>
             <p className="text-xs text-slate-600 font-mono mt-1">対象URL: {audit.url}</p>
           </div>
 
@@ -87,7 +73,7 @@ export default function AuditReportPrintPage() {
         {/* Score Summary Box */}
         <div className="p-6 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between">
           <div>
-            <span className="text-xs font-mono text-slate-500 block">総合評価スコア</span>
+            <span className="text-xs font-mono text-slate-500 block">作業順の点数。順位は予測しない</span>
             <div className="flex items-baseline gap-1 mt-1">
               <span className="text-5xl font-extrabold font-mono text-slate-900">{audit.overallScore}</span>
               <span className="text-base font-mono text-slate-500">/ 100</span>
@@ -95,24 +81,34 @@ export default function AuditReportPrintPage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
-            <div className="p-3 bg-white rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-500">SEO内部構造</span>
-              <div className="text-base font-bold text-slate-900">{audit.scores.seo}点</div>
-            </div>
-            <div className="p-3 bg-white rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-500">メタ/ソーシャル</span>
-              <div className="text-base font-bold text-slate-900">{audit.scores.meta}点</div>
-            </div>
-            <div className="p-3 bg-white rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-500">Core Web Vitals</span>
-              <div className="text-base font-bold text-slate-900">{audit.scores.performance}点</div>
-            </div>
-            <div className="p-3 bg-white rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-500">AEO/AI引用適性</span>
-              <div className="text-base font-bold text-slate-900">{audit.scores.aeo_llmo}点</div>
-            </div>
+            {audit.actionPlan ? audit.actionPlan.areas.map((area) => (
+              <div key={area.id} className="p-3 bg-white rounded-xl border border-slate-200">
+                <span className="text-[10px] text-slate-500">{area.label}</span>
+                <div className="text-base font-bold text-slate-900">{area.score ?? '未評価'}</div>
+              </div>
+            )) : (
+              <div className="p-3 bg-white rounded-xl border border-slate-200 sm:col-span-4">
+                <span className="text-[10px] text-slate-500">領域別の点数は、この保存結果にはありません</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {audit.actionPlan && (
+          <div className="space-y-2">
+            <h2 className="text-base font-bold text-slate-900 border-b border-slate-200 pb-2">直す順番</h2>
+            {audit.actionPlan.actions.filter((action) => action.severity !== 'info').slice(0, 8).map((action) => (
+              <div key={action.id} className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-800">
+                <span className="font-mono font-bold">{action.priority}</span>
+                <span className="font-sans">{action.title}</span>
+                <span className="font-mono text-slate-500">影響 {action.impact} · {action.effortLabel}{action.heuristic ? ' · 目安' : ''}</span>
+              </div>
+            ))}
+            {audit.actionPlan.caps.map((cap) => (
+              <p key={cap} className="text-xs text-amber-800">{cap}</p>
+            ))}
+          </div>
+        )}
 
         {/* Priority Action Issues */}
         <div className="space-y-4">
@@ -155,11 +151,11 @@ export default function AuditReportPrintPage() {
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
               <span className="text-[10px] text-slate-500">正規URL (Canonical)</span>
-              <div className="font-sans text-slate-800 break-all">{audit.meta.canonical || '未指定 (Self)'}</div>
+              <div className="font-sans text-slate-800 break-all">{audit.meta.canonical || '未設定'}</div>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
               <span className="text-[10px] text-slate-500">Googlebot / Robots</span>
-              <div className="text-slate-800">{audit.meta.robots || 'index, follow'}</div>
+              <div className="text-slate-800">{audit.meta.robots || '未設定（タグが無ければ Google の初期値は index, follow）'}</div>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
               <span className="text-[10px] text-slate-500">H1見出し数</span>

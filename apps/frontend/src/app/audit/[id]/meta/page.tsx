@@ -1,40 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import {
-  ArrowLeft,
-  FileCode,
-  CheckCircle2,
-  AlertTriangle,
-  ExternalLink,
-  Copy,
-  Check,
-  Globe
-} from 'lucide-react';
-import { FullAuditResult } from '@seo/shared';
+import { ArrowLeft, FileCode } from 'lucide-react';
+import { AuditLoading, AuditMissing, useStoredAudit } from '../../../../components/AuditResultGate';
+import { metricPointLabel } from '../../../../components/metric-point';
 
 export default function AuditMetaPage() {
   const params = useParams();
   const id = params.id as string;
-  const [audit, setAudit] = useState<FullAuditResult | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { audit, phase } = useStoredAudit(id);
 
-  useEffect(() => {
-    if (!id) return;
-    fetch(`/api/v1/audit/results/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setAudit(data));
-  }, [id]);
-
-  if (!audit) {
-    return (
-      <div className="min-h-screen bg-[#080B11] flex items-center justify-center text-slate-400 font-mono text-xs">
-        読み込み中...
-      </div>
-    );
-  }
+  if (phase === 'loading') return <AuditLoading />;
+  if (phase === 'missing' || !audit) return <AuditMissing />;
 
   const metaMetrics = audit.metrics.filter((m) => m.category === 'content' || m.id.includes('meta') || m.id.includes('canonical') || m.id.includes('title') || m.id.includes('og'));
 
@@ -79,16 +57,16 @@ export default function AuditMetaPage() {
           <h2 className="text-xs font-mono font-bold text-white uppercase tracking-wider">検出されたメタタグ一覧</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
             <div className="p-3.5 bg-black/30 rounded-xl border border-white/[0.06] space-y-1">
-              <span className="text-[10px] text-slate-500">Title ({audit.meta.title?.length || 0}文字)</span>
+              <span className="text-[10px] text-slate-500">Title ({audit.meta.title ? `${audit.meta.title.length}文字` : '未設定'})</span>
               <div className="text-white font-sans break-all">{audit.meta.title || '未設定'}</div>
             </div>
             <div className="p-3.5 bg-black/30 rounded-xl border border-white/[0.06] space-y-1">
-              <span className="text-[10px] text-slate-500">Description ({audit.meta.description?.length || 0}文字)</span>
+              <span className="text-[10px] text-slate-500">Description ({audit.meta.description ? `${audit.meta.description.length}文字` : '未設定'})</span>
               <div className="text-white font-sans break-all">{audit.meta.description || '未設定'}</div>
             </div>
             <div className="p-3.5 bg-black/30 rounded-xl border border-white/[0.06] space-y-1">
               <span className="text-[10px] text-slate-500">Canonical</span>
-              <div className="text-cyan-400 break-all">{audit.meta.canonical || '未指定 (Self)'}</div>
+              <div className="text-cyan-400 break-all">{audit.meta.canonical || '未設定'}</div>
             </div>
             <div className="p-3.5 bg-black/30 rounded-xl border border-white/[0.06] space-y-1">
               <span className="text-[10px] text-slate-500">Robots / Googlebot</span>
@@ -114,10 +92,12 @@ export default function AuditMetaPage() {
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                         : m.status === 'warning'
                         ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : m.status === 'notice'
+                        ? 'bg-slate-500/10 text-slate-300 border border-slate-500/20'
                         : 'bg-red-500/10 text-red-400 border border-red-500/20'
                     }`}
                   >
-                    {m.status} ({m.score}点)
+                    {metricPointLabel(m.status, m.score)}
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 font-sans leading-relaxed">{m.message}</p>
