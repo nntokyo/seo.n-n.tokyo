@@ -15,7 +15,19 @@ export function createAuditPdf(audit: FullAuditResult): Promise<Buffer> {
     doc.moveDown().fontSize(36).fillColor('#0891b2').text(`${audit.overallScore} / 100`);
     doc.moveDown(0.5).fontSize(12).fillColor('#0f172a');
     doc.text(`SEO: ${audit.scores.seo}   Meta: ${audit.scores.meta}   Performance: ${audit.scores.performance}   AEO/LLMO: ${audit.scores.aeo_llmo}`);
-    doc.moveDown().fontSize(15).text('Priority findings');
+    if (audit.actionPlan) {
+      doc.moveDown().fontSize(15).text('Ranked actions');
+      doc.fontSize(8).fillColor('#64748b').text('Scores rank work. They do not predict rankings, indexing, or traffic.');
+      for (const action of audit.actionPlan.actions.filter((item) => item.severity !== 'info').slice(0, 12)) {
+        doc.moveDown(0.35).fontSize(10).fillColor('#0f172a').text(
+          `${action.priority}  impact ${action.impact}  effort ${action.effort}/4  ${action.id}${action.heuristic ? '  heuristic' : ''}`,
+        );
+      }
+      if (audit.actionPlan.caps.length) {
+        doc.moveDown(0.3).fontSize(8).fillColor('#b45309').text(`Score caps applied: ${audit.actionPlan.caps.length}. See the on-screen report for the reason.`);
+      }
+    }
+    doc.moveDown().fontSize(15).fillColor('#0f172a').text('Priority findings');
     const issues = audit.metrics.filter((item) => item.status === 'critical' || item.status === 'warning');
     if (!issues.length) doc.fontSize(10).fillColor('#475569').text('No critical or warning findings.');
     for (const issue of issues.slice(0, 30)) {

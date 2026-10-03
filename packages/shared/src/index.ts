@@ -141,6 +141,62 @@ export interface SitemapValidationResult {
   analytics?: SitemapAnalytics;
 }
 
+export type AuditArea =
+  | 'crawl'
+  | 'onpage'
+  | 'content'
+  | 'links'
+  | 'structured'
+  | 'ai'
+  | 'performance'
+  | 'security';
+
+export type ActionSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+export type ActionPriority = 'P1' | 'P2' | 'P3';
+
+export interface AreaScore {
+  id: AuditArea;
+  label: string;
+  weight: number;
+  /** 未評価の領域は null。0 点にはしない。 */
+  score: number | null;
+  deduction: number;
+}
+
+export interface RankedAction {
+  id: string;
+  category: AuditArea;
+  categoryLabel: string;
+  severity: ActionSeverity;
+  priority: ActionPriority;
+  title: string;
+  evidence: string;
+  fix: string;
+  source: string;
+  effort: 1 | 2 | 3 | 4;
+  effortLabel: string;
+  heuristic: boolean;
+  /** 同じ監査の中で最大の施策を 100 とした相対値。順位や流入の予測ではない。 */
+  impact: number;
+  quickWin: boolean;
+  urls: string[];
+}
+
+export interface ActionPlan {
+  overall: number;
+  /** 単一URL、フィールドデータなし、など評価が部分的なとき true。 */
+  partial: boolean;
+  partialReasons: string[];
+  caps: string[];
+  areas: AreaScore[];
+  actions: RankedAction[];
+  /** 減点の大きい領域。作業を寄せる場所。 */
+  invest: Array<{ id: AuditArea; label: string; deduction: number }>;
+  /** 実行して引っかからなかったルール。 */
+  passed: string[];
+  method: string;
+}
+
 export interface FullAuditResult {
   id: string;
   url: string;
@@ -156,6 +212,8 @@ export interface FullAuditResult {
     aeo_llmo: number;
     security: number;
   };
+  /** 旧キャッシュには無い。 */
+  actionPlan?: ActionPlan;
   metrics: AuditMetric[];
   jevShadow?: JevShadowSummary;
   meta: PageMeta;

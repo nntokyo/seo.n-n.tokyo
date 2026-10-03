@@ -1,10 +1,12 @@
 import { safeFetchUrl } from './url-security.js';
 import * as cheerio from 'cheerio';
 import { SitemapValidationResult, SitemapUrlEntry, SitemapIssue, AuditMetric } from '@seo/shared';
+import { inspectRobots, RobotsSnapshot } from './robots.js';
 
 export interface SitemapCheckOutcome {
   sitemapResult: SitemapValidationResult;
   metric: AuditMetric;
+  robots: RobotsSnapshot;
 }
 
 export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOutcome> {
@@ -16,6 +18,13 @@ export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOu
   let discoveredSitemapUrls: string[] = [];
   let hasRobotsTxtSitemap = false;
   const issues: SitemapIssue[] = [];
+  let robots: RobotsSnapshot = {
+    present: false,
+    status: null,
+    disallowAll: false,
+    searchBotsBlocked: [],
+    aiBotsBlocked: [],
+  };
 
   // 1. robots.txt の取得と Sitemap ディレクティブの検証
   try {
@@ -26,9 +35,10 @@ export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOu
       },
       signal: AbortSignal.timeout(6000),
     });
+    const robotsContent = robotsRes.ok ? await robotsRes.text() : '';
+    robots = inspectRobots(robotsRes.status, robotsContent);
 
     if (robotsRes.ok) {
-      const robotsContent = await robotsRes.text();
       const lines = robotsContent.split(/\r?\n/);
       for (const line of lines) {
         const trimmed = line.trim();
@@ -42,7 +52,7 @@ export async function checkSitemap(targetUrlStr: string): Promise<SitemapCheckOu
       }
     }
   } catch {
-    // robots.txt の取得タイムアウト等は後続で判定
+    // robots.txt の取得タイムアウト等は後続で判定。欠落とは扱わない。
   }
 
   if (!hasRobotsTxtSitemap) {
@@ -257,9 +267,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     metricStatus = 'critical';
     metricMessage = 'XMLサイトマップは存在しますが、構文エラーまたはプロトコル違反が検出されました。';
   } else {
-    metricScore = 0;
-    metricStatus = 'critical';
-    metricMessage = 'XMLサイトマップが見つかりません。検索エンジンのクローラーによる新規ページの発見や巡回頻度が著しく低下します。';
+    metricScore = 70;
+    metricStatus = 'warning';
+    metricMessage = 'XMLサイトマップが見つかりません。サイトマップは発見のヒントであり、クロールも掲載も保証しません。インデックスさせたい正規URLがあるなら追加します。';
   }
 
   const metric: AuditMetric = {
@@ -503,5 +513,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return {
     sitemapResult,
     metric,
+    robots,
   };
 }

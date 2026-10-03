@@ -28,7 +28,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import { AuthUser } from '@seo/shared';
+import { ActionPlan, AuthUser } from '@seo/shared';
 
 interface AuditResponse {
   id: string;
@@ -59,6 +59,7 @@ interface AuditResponse {
     summary: string;
     citations: Array<{ title: string; url: string; domain: string }>;
   };
+  actionPlan?: ActionPlan;
   metaDetails: {
     title: string | null;
     description: string | null;
@@ -391,8 +392,8 @@ export function HomeInteractive() {
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
                   {auditResult ? auditResult.overallScore : 94}<span className="text-slate-500 text-base font-normal">/100</span>
                 </div>
-                <p className="text-xs text-emerald-400 flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" aria-hidden="true" /> Excellent SEO Health
+                <p className="text-xs text-slate-400 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" aria-hidden="true" /> {auditResult ? '作業順の点数。順位は予測しない' : 'URL を入れると診断します'}
                 </p>
               </button>
 
@@ -404,7 +405,7 @@ export function HomeInteractive() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">CORE WEB VITALS</span>
-                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">実測速度</span>
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">{auditResult ? '1回の取得' : 'サンプル'}</span>
                 </div>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
                   {auditResult ? auditResult.scores.performance : 98}<span className="text-slate-500 text-base font-normal">/100</span>
@@ -422,12 +423,12 @@ export function HomeInteractive() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">AEO / LLMO READY</span>
-                  <span className="text-[10px] font-mono text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">AI 引用適性</span>
+                  <span className="text-[10px] font-mono text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">AI クローラー</span>
                 </div>
                 <div className="font-mono text-4xl font-extrabold text-white mb-1">
                   {auditResult ? auditResult.scores.aeo_llmo : 92}<span className="text-slate-500 text-base font-normal">/100</span>
                 </div>
-                <p className="text-xs text-violet-400">AI Overviews カルーセル対象</p>
+                <p className="text-xs text-violet-400">特別なマークアップは不要</p>
               </button>
 
               <button
@@ -446,6 +447,27 @@ export function HomeInteractive() {
                 <p className="text-xs text-amber-400">Canonical & OGP 整合性</p>
               </button>
             </div>
+
+            {auditResult?.actionPlan && (
+              <div className="px-6 py-4 border-t border-white/[0.08] bg-[#0B101A] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-slate-300">先に直す施策</span>
+                  <Link href={`/audit/${auditResult.id}?url=${encodeURIComponent(auditResult.url)}`} className="text-[11px] font-mono text-cyan-300">
+                    スコアカードを開く
+                  </Link>
+                </div>
+                {auditResult.actionPlan.actions.filter((action) => action.severity !== 'info').slice(0, 3).map((action) => (
+                  <div key={action.id} className="flex flex-wrap items-baseline gap-2 text-xs">
+                    <span className="font-mono text-cyan-300">{action.priority}</span>
+                    <span className="text-white">{action.title}</span>
+                    <span className="font-mono text-slate-500">影響 {action.impact} · {action.effortLabel}{action.heuristic ? ' · 目安' : ''}</span>
+                  </div>
+                ))}
+                {auditResult.actionPlan.caps[0] && (
+                  <p className="text-[11px] text-amber-200/90">{auditResult.actionPlan.caps[0]}</p>
+                )}
+              </div>
+            )}
 
             {/* Proposal Code / Dynamic Tab Content */}
             <div className="p-6 bg-[#0B101A] border-t border-white/[0.08]">
@@ -475,6 +497,7 @@ export function HomeInteractive() {
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                               m.status === 'good' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                               m.status === 'warning' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                              m.status === 'notice' ? 'bg-slate-500/10 text-slate-300 border border-slate-500/20' :
                               'bg-red-500/10 text-red-400 border border-red-500/20'
                             }`}>
                               {m.id}
@@ -507,11 +530,11 @@ export function HomeInteractive() {
                     <>
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">CRITICAL</span>
-                          <span className="text-sm font-semibold text-white">[AIO-001] AIスニペット最大表示メタタグの付与推奨</span>
+                          <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">P1</span>
+                          <span className="text-sm font-semibold text-white">[title_missing] title がない</span>
                         </div>
-                        <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                          獲得見込み: +15点
+                        <span className="text-xs font-mono text-slate-300 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                          影響 100 · 数時間
                         </span>
                       </div>
 
@@ -521,10 +544,10 @@ export function HomeInteractive() {
                             <AlertTriangle className="w-3.5 h-3.5" /> 検出された現状コード (未設定)
                           </div>
                           <div className="text-slate-400 line-through">
-                            &lt;!-- max-snippet タグが存在しません --&gt;
+                            &lt;!-- title が空 --&gt;
                           </div>
                           <p className="mt-3 text-[11px] text-slate-400 leading-relaxed font-sans">
-                            ⚠️ AI Overviewsや検索スニペットで要約が省略され、サムネイル画像が表示されない危険があります。
+                            title はタイトルリンクの材料です。文字数の枠では合否を付けません。
                           </p>
                         </div>
 
@@ -534,18 +557,13 @@ export function HomeInteractive() {
                           </div>
                           <pre className="text-emerald-300 leading-relaxed overflow-x-auto">
 {`export const metadata: Metadata = {
-  robots: {
-    index: true,
-    googleBot: {
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
+  title: 'このページの内容が分かる題名',
+  description: '本文より正確に説明できるときだけ書く',
 };`}
                           </pre>
                           <button
                             type="button"
-                            onClick={() => copyCode(`export const metadata: Metadata = {\n  robots: {\n    index: true,\n    googleBot: {\n      'max-image-preview': 'large',\n      'max-snippet': -1,\n    },\n  },\n};`)}
+                            onClick={() => copyCode(`export const metadata: Metadata = {\n  title: 'このページの内容が分かる題名',\n  description: '本文より正確に説明できるときだけ書く',\n};`)}
                             className="absolute top-3 right-3 p-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] flex items-center gap-1"
                           >
                             {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -561,21 +579,20 @@ export function HomeInteractive() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-md">AEO / AIO</span>
-                          <span className="text-sm font-semibold text-white">Google AI Overviews & SearchGPT 引用確率シミュレーション</span>
+                          <span className="text-sm font-semibold text-white">生成 AI の検索に特別なファイルは要りません</span>
                         </div>
                         <span className="text-xs font-mono text-violet-400 bg-violet-500/10 px-3 py-1 rounded-full border border-violet-500/20">
-                          引用適性スコア: 92点
+                          引用は予測しない
                         </span>
                       </div>
 
                       <div className="p-4 rounded-xl border border-violet-500/20 bg-violet-950/10 space-y-3">
                         <p className="text-xs text-slate-300 leading-relaxed font-sans">
-                          ✨ <strong>AI生成要約プレビュー:</strong> サイト内のh1〜h3階層と結論先行パラグラフをAIが解析し、強調スニペットおよびAI Overviewsの回答カードとしてカルーセル選出される可能性が極めて高い状態です。
+                          Google 検索は llms.txt も、生成 AI 用の特別なマークアップも使いません。見える本文、クロールできるリンク、正規 URL が先です。llms.txt は他のサービス向けに任意で置けます。
                         </p>
                         <div className="flex items-center gap-3 pt-2 text-xs font-mono text-slate-400">
-                          <span>llms.txt: <strong className="text-emerald-400">対応可能</strong></span>
-                          <span>ファクト密度: <strong className="text-cyan-400">88% (高)</strong></span>
-                          <span>定義文構造: <strong className="text-emerald-400">適合</strong></span>
+                          <span>llms.txt: <strong className="text-slate-300">任意。検索の加点ではない</strong></span>
+                          <span>引用確率: <strong className="text-slate-300">出さない</strong></span>
                         </div>
                       </div>
                     </div>

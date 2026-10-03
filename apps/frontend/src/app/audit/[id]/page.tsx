@@ -30,6 +30,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { FullAuditResult, AuditMetric } from '@seo/shared';
+import { ActionPlanPanel } from '../../../components/ActionPlanPanel';
 
 export default function AuditDetailPage() {
   const params = useParams();
@@ -368,12 +369,16 @@ export default function AuditDetailPage() {
 
           {/* AEO / LLMO */}
           <div className="p-4 rounded-2xl border border-white/[0.08] bg-[#0B0F17] flex flex-col justify-between space-y-2">
-            <span className="text-[11px] font-mono text-slate-400">AEO / AI引用適性</span>
+            <span className="text-[11px] font-mono text-slate-400">AI クローラー</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold font-mono text-violet-400">{audit.scores.aeo_llmo}</span>
+              <span className="text-2xl font-bold font-mono text-violet-400">
+                {audit.actionPlan ? (audit.actionPlan.areas.find((area) => area.id === 'ai')?.score ?? '—') : audit.scores.aeo_llmo}
+              </span>
               <span className="text-xs text-slate-500">点</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">回答抽出性: {audit.aiOverview.answerabilityScore}%</span>
+            <span className="text-[10px] text-slate-400 font-mono">
+              {audit.actionPlan?.areas.find((area) => area.id === 'ai')?.score === null ? '未評価' : '特別なマークアップは不要'}
+            </span>
           </div>
 
           {/* Meta Integrity */}
@@ -393,9 +398,11 @@ export default function AuditDetailPage() {
               <span className="text-2xl font-bold font-mono text-emerald-400">{audit.scores.security}</span>
               <span className="text-xs text-slate-500">点</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">TLS 1.3 / HTTPS</span>
+            <span className="text-[10px] text-slate-400 font-mono">TLS / HTTPS</span>
           </div>
         </div>
+
+        {audit.actionPlan && <ActionPlanPanel plan={audit.actionPlan} url={audit.url} />}
 
         {/* Pill Navigation Tabs (Refero Styles) */}
         <div className="border-b border-white/[0.08] pb-1 flex items-center gap-2 overflow-x-auto">
@@ -537,6 +544,8 @@ export default function AuditDetailPage() {
                             ? 'bg-red-500/10 text-red-400 border-red-500/30'
                             : m.status === 'warning'
                             ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                            : m.status === 'notice'
+                            ? 'bg-slate-500/10 text-slate-300 border-slate-500/30'
                             : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                         }`}
                       >

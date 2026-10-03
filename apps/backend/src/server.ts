@@ -75,6 +75,14 @@ import { evaluateAuditWithJev, getJevRuntimeStats } from './jev.js';
 import { sendAlertEmail, sendTeamInvitationEmail, sendVerificationEmail } from './mailer.js';
 import { createAuditPdf } from './pdf-report.js';
 
+function headerRecord(response: { headers: Headers }): Record<string, string> {
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key.toLowerCase()] = value;
+  });
+  return headers;
+}
+
 async function main() {
   const fastify = Fastify({
     logger: true,
@@ -185,7 +193,7 @@ async function main() {
       const httpStatus = response.status;
 
       const result = await evaluateAuditWithJev(
-        analyzeHtml(targetUrl, html, responseTimeMs, httpStatus, undefined, sitemapOutcome),
+        analyzeHtml(targetUrl, html, responseTimeMs, httpStatus, headerRecord(response), sitemapOutcome),
       );
 
       // メモリ & ディスクに永続保存
@@ -237,7 +245,7 @@ async function main() {
         checkSitemap(targetUrl).catch(() => undefined),
       ]);
       const result = await evaluateAuditWithJev(
-        analyzeHtml(targetUrl, await response.text(), Date.now() - startedAt, response.status, undefined, sitemapOutcome),
+        analyzeHtml(targetUrl, await response.text(), Date.now() - startedAt, response.status, headerRecord(response), sitemapOutcome),
       );
       auditCache.set(result.id, result);
       fs.writeFileSync(path.join(baseDataDir, `${result.id}.json`), JSON.stringify(result), 'utf8');
@@ -291,7 +299,7 @@ async function main() {
         const responseTimeMs = Date.now() - startTime;
         const html = await response.text();
         const result = await evaluateAuditWithJev(
-          analyzeHtml(targetUrl, html, responseTimeMs, response.status, undefined, sitemapOutcome),
+          analyzeHtml(targetUrl, html, responseTimeMs, response.status, headerRecord(response), sitemapOutcome),
         );
         result.id = id; // 要求されたIDで保存
         auditCache.set(id, result);
@@ -348,7 +356,7 @@ async function main() {
 
       const responseTimeMs = Date.now() - startTime;
       const html = await response.text();
-      const result = analyzeHtml(targetUrl, html, responseTimeMs, response.status);
+      const result = analyzeHtml(targetUrl, html, responseTimeMs, response.status, headerRecord(response));
 
       return {
         url: targetUrl,
@@ -384,7 +392,7 @@ async function main() {
         signal: AbortSignal.timeout(8000),
       });
       const html = await response.text();
-      const analysis = analyzeHtml(siteUrl, html, 200, response.status);
+      const analysis = analyzeHtml(siteUrl, html, 200, response.status, headerRecord(response));
 
       if (!siteTitle) siteTitle = analysis.meta.title || new URL(siteUrl).hostname;
       if (!siteDesc) siteDesc = analysis.meta.description || 'AI時代の次世代Webサイト';
@@ -1324,11 +1332,14 @@ ${linksSection}
         for (const project of listProjects(ownerId)) {
           try {
             const startedAt = Date.now();
-            const response = await safeFetchUrl(project.rootUrl, {
-              headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerMonitor/1.0; +https://seo.n-n.tokyo/bot)' },
-              signal: AbortSignal.timeout(12_000),
-            });
-            const result = analyzeHtml(project.rootUrl, await response.text(), Date.now() - startedAt, response.status);
+            const [response, sitemapOutcome] = await Promise.all([
+              safeFetchUrl(project.rootUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerMonitor/1.0; +https://seo.n-n.tokyo/bot)' },
+                signal: AbortSignal.timeout(12_000),
+              }),
+              checkSitemap(project.rootUrl).catch(() => undefined),
+            ]);
+            const result = analyzeHtml(project.rootUrl, await response.text(), Date.now() - startedAt, response.status, headerRecord(response), sitemapOutcome);
             const shouldNotify = result.overallScore < settings.scoreThreshold &&
               (project.auditCount === 0 || project.lastScore >= settings.scoreThreshold);
             recordAuditToProject(project.id, result);

@@ -1,5 +1,8 @@
 import * as cheerio from 'cheerio';
-import { AuditMetric, FullAuditResult, CrawlLink, PageMeta, CwvEstimates, SitemapValidationResult } from '@seo/shared';
+import { AuditMetric, AuditArea, FullAuditResult, CrawlLink, PageMeta, CwvEstimates } from '@seo/shared';
+import { collectPageFindings, isGenericAnchor, readJsonLd, PageSignals } from './page-findings.js';
+import { buildActionPlan, weightedAreaScore } from './ranked-audit.js';
+import { SitemapCheckOutcome } from './sitemap.js';
 
 export function analyzeHtml(
   url: string,
@@ -7,10 +10,7 @@ export function analyzeHtml(
   responseTimeMs: number,
   httpStatus: number,
   responseHeaders?: Record<string, string>,
-  sitemapData?: {
-    sitemapResult: SitemapValidationResult;
-    metric: AuditMetric;
-  }
+  sitemapData?: SitemapCheckOutcome
 ): FullAuditResult {
   const $ = cheerio.load(html);
   const metrics: AuditMetric[] = [];
@@ -46,11 +46,10 @@ export function analyzeHtml(
   const images = $('img');
   const imageCount = images.length;
   let missingAltCount = 0;
+  let imagesMissingDimensions = 0;
   images.each((_, el) => {
-    const alt = $(el).attr('alt');
-    if (alt === undefined || alt === null || alt.trim() === '') {
-      missingAltCount++;
-    }
+    if ($(el).attr('alt') === undefined) missingAltCount++;
+    if (!$(el).attr('width') || !$(el).attr('height')) imagesMissingDimensions++;
   });
 
   // 4. 本文文字数概算
@@ -58,26 +57,12 @@ export function analyzeHtml(
   const wordCount = bodyText.length;
 
   // 5. 構造化データ (JSON-LD)
-  const schemaTypes: string[] = [];
+  const jsonLdRaw: string[] = [];
   $('script[type="application/ld+json"]').each((_, el) => {
-    try {
-      const content = $(el).html() || '';
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) {
-        parsed.forEach((item) => {
-          if (item['@type']) schemaTypes.push(item['@type']);
-        });
-      } else if (parsed['@graph'] && Array.isArray(parsed['@graph'])) {
-        parsed['@graph'].forEach((item: any) => {
-          if (item['@type']) schemaTypes.push(item['@type']);
-        });
-      } else if (parsed['@type']) {
-        schemaTypes.push(parsed['@type']);
-      }
-    } catch {
-      // JSON構文エラー
-    }
+    jsonLdRaw.push($(el).html() || '');
   });
+  const jsonLd = readJsonLd(jsonLdRaw);
+  const schemaTypes = jsonLd.types;
 
   // 6. リンク抽出 (内部 / 外部リンク)
   const links: CrawlLink[] = [];
@@ -125,24 +110,24 @@ export function analyzeHtml(
       message: 'Titleタグが存在しません。検索エンジンやAIがページ内容を特定できません。',
       proposal: '<title>サイト名やページの要約</title> を設定してください。',
     });
-  } else if (title.length < 15 || title.length > 60) {
+  } else if (title.length < 15 || title.length > 70) {
     metrics.push({
       id: 'CONT-002',
-      name: 'Title文字数の最適化',
+      name: 'Titleの表示幅の目安',
       category: 'content',
-      score: 75,
-      status: 'warning',
-      message: `Title文字数が${title.length}文字です。検索結果で省略されない30〜35文字前後を推奨します。`,
-      proposal: '主要キーワードを含めつつ適切な長さに調整してください。',
+      score: 90,
+      status: 'notice',
+      message: `Titleは${title.length}文字です。Google は文字数の上限を定めておらず、端末の表示幅で切れます。15〜70文字は画面上の目安であり、合格・不合格ではありません。`,
+      proposal: 'そのページの内容が分かる題名にする。キーワードの詰め込みはしない。',
     });
   } else {
     metrics.push({
       id: 'CONT-001',
-      name: 'Titleタグの最適化',
+      name: 'Titleタグの存在',
       category: 'content',
       score: 100,
       status: 'good',
-      message: `適切なTitle文字数（${title.length}文字）が設定されています。`,
+      message: `Titleがあります（${title.length}文字）。文字数だけでは合否を付けていません。`,
     });
   }
 
@@ -151,28 +136,19 @@ export function analyzeHtml(
       id: 'CONT-003',
       name: 'Meta Descriptionの存在',
       category: 'content',
-      score: 30,
-      status: 'critical',
-      message: 'Meta Descriptionが設定されていません。検索結果スニペットのクリック率に影響します。',
-      proposal: '<meta name="description" content="ページ概要（80〜120文字）"> を記述してください。',
-    });
-  } else if (description.length < 50 || description.length > 160) {
-    metrics.push({
-      id: 'CONT-003',
-      name: 'Meta Description文字数',
-      category: 'content',
-      score: 75,
+      score: 70,
       status: 'warning',
-      message: `Description文字数が${description.length}文字です。80〜130文字程度が最適です。`,
+      message: 'meta description がありません。スニペットは主に本文から作られ、description は本文よりそのページを正確に説明できるときに使われます。',
+      proposal: 'ページ固有の説明を書く。文字数の枠では合否を付けない。',
     });
   } else {
     metrics.push({
       id: 'CONT-003',
-      name: 'Meta Descriptionの最適化',
+      name: 'Meta Descriptionの存在',
       category: 'content',
       score: 100,
       status: 'good',
-      message: `適切なDescription（${description.length}文字）が記述されています。`,
+      message: `meta description があります（${description.length}文字）。文字数は合否にしていません。`,
     });
   }
 
@@ -181,19 +157,20 @@ export function analyzeHtml(
       id: 'CONT-004',
       name: 'H1見出しの存在',
       category: 'content',
-      score: 20,
-      status: 'critical',
-      message: 'ページ内にH1タグが存在しません。主要テーマの伝達力が低下します。',
-      proposal: 'ページの本質を表すH1タグを1つ配置してください。',
+      score: 80,
+      status: 'notice',
+      message: 'H1 がありません。見出しの個数は順位の固定条件ではありません。主題が画面上で分かるか、という編集上の目安です。',
+      proposal: 'ページの主題が分かる見出しを置く。',
     });
   } else if (h1Count > 1) {
     metrics.push({
       id: 'CONT-004',
-      name: 'H1見出しの複数重複',
+      name: 'H1見出しが複数',
       category: 'content',
-      score: 65,
-      status: 'warning',
-      message: `H1タグが${h1Count}個存在します。1ページにつき主要なH1を1つに絞る設計が推奨されます。`,
+      score: 90,
+      status: 'notice',
+      message: `H1 が ${h1Count} 個あります。複数であること自体は順位の減点条件ではありません。`,
+      proposal: '主見出しを一つにすると、読者には伝わりやすい。',
     });
   } else {
     metrics.push({
@@ -213,8 +190,8 @@ export function analyzeHtml(
       category: 'content',
       score: Math.max(30, 100 - missingAltCount * 15),
       status: missingAltCount > 3 ? 'critical' : 'warning',
-      message: `${imageCount}個中${missingAltCount}個の画像にalt属性が設定されていません。画像検索やスクリーンリーダーで不利になります。`,
-      proposal: 'すべてのimgタグに意味のある代替テキストalt属性を付与してください。',
+      message: `${imageCount}個中${missingAltCount}個の画像に alt 属性自体がありません。装飾画像の空の alt は正しい指定です。`,
+      proposal: '情報を持つ画像には内容が分かる alt を付ける。装飾なら alt=""。',
     });
   } else if (imageCount > 0) {
     metrics.push({
@@ -321,21 +298,17 @@ export function analyzeHtml(
       category: 'aeo_llmo',
       score: 100,
       status: 'good',
-      message: 'max-snippet:-1 および max-image-preview:large が正しく設定されており、Google AI Overviewsで最大サイズの引用・サムネイル表示が可能です。',
+      message: 'max-snippet:-1 と max-image-preview:large は入っています。これはスニペットの任意の制御であり、AI Overviews への掲載や順位を保証しません。',
     });
   } else {
     metrics.push({
       id: 'AIO-001',
-      name: 'AIスニペット最大表示メタタグの付与推奨',
+      name: 'スニペット制御メタタグ',
       category: 'aeo_llmo',
-      score: 35,
-      status: 'critical',
-      message: 'max-snippet:-1 や max-image-preview:large タグが未設定です。Google AI Overviewsで要約文が省略され、サムネイル画像が除外される恐れがあります。',
-      proposal: '<meta name="robots" content="max-snippet:-1, max-image-preview:large"> を付与してください。',
-      codeDiff: {
-        before: '<!-- max-snippet / max-image-preview 未設定 -->',
-        after: `export const metadata: Metadata = {\n  robots: {\n    googleBot: {\n      'max-image-preview': 'large',\n      'max-snippet': -1,\n    },\n  },\n};`,
-      },
+      score: 100,
+      status: 'notice',
+      message: 'max-snippet と max-image-preview は任意の制御です。Google は生成 AI の検索結果に、特別なマークアップや llms.txt を要求していません。未設定でも減点しません。',
+      proposal: 'スニペットを意図して短くしたいときだけ指定する。',
     });
   }
 
@@ -355,17 +328,17 @@ export function analyzeHtml(
       category: 'aeo_llmo',
       score: 95,
       status: 'good',
-      message: `主要見出し直下に結論定義文（${definitionCount}箇所）が検出され、AI回答エンジン（Perplexity/SearchGPT）がダイレクト回答として抽出しやすい構造です。`,
+      message: `主要見出し直下に定義らしい文が ${definitionCount} 箇所あります。編集上の観察であり、引用や掲載の予測ではありません。`,
     });
   } else {
     metrics.push({
       id: 'AEO-001',
-      name: '結論ファースト定義文の不足',
+      name: '見出し直下の定義文',
       category: 'aeo_llmo',
-      score: 55,
-      status: 'warning',
-      message: '見出し直下に「〜とは、〜である」形式の明確な結論定義文が見当たりません。AIによる引用獲得率が低下します。',
-      proposal: '見出しの直後に100〜160文字程度で結論・定義を述べるパラグラフを配置してください。',
+      score: 100,
+      status: 'notice',
+      message: '見出し直下の定型的な定義文は見当たりません。これは編集上の観察であり、Google の要件でも引用の予測でもありません。',
+      proposal: '読者が最初に答えを必要とするページなら、結論を先に書く。',
     });
   }
 
@@ -399,8 +372,8 @@ export function analyzeHtml(
       category: 'technical',
       score: 45,
       status: 'warning',
-      message: 'Schema.org JSON-LD が検出されませんでした。AI Overviewsやリッチリザルトの獲得チャンスを逃しています。',
-      proposal: 'Organization, Article, WebSite 等の構造化データを追加してください。',
+      message: 'JSON-LD がありません。生成 AI の検索結果に構造化データは必須ではありません。リッチリザルトに出したい型だけ、見える内容と一致させて追加します。',
+      proposal: 'リッチリザルトの対象になる型があるときだけ、その型の必須プロパティを足す。',
       codeDiff: {
         before: '<!-- JSON-LD なし -->',
         after: `<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "WebSite",\n  "name": "${title || 'My Site'}",\n  "url": "${url}"\n}\n</script>`,
@@ -501,18 +474,118 @@ export function analyzeHtml(
     });
   }
 
-  // --- スコア集計 ---
-  const criticalCount = metrics.filter((m) => m.status === 'critical').length;
-  const warningCount = metrics.filter((m) => m.status === 'warning').length;
-
-  const penalty = criticalCount * 12 + warningCount * 4;
-  const overallScore = Math.max(25, Math.min(100, 100 - penalty));
-
-  const seoScore = Math.max(30, Math.min(100, 100 - (criticalCount > 0 ? 15 : 0) - (title ? 0 : 25) - (canonical ? 0 : 10)));
-  const performanceScore = responseTimeMs < 800 ? 98 : responseTimeMs < 2000 ? 82 : 55;
-  const metaScore = Math.max(30, 100 - (description ? 0 : 20) - (ogImage ? 0 : 15) - (canonical ? 0 : 15));
-  const aeoScore = Math.max(35, (hasMaxSnippet ? 50 : 15) + (definitionCount > 0 ? 30 : 15) + (schemaTypes.length > 0 ? 20 : 5));
-  const securityScore = isHttps ? 100 : 20;
+  // --- 順位付き施策（領域点・インパクト・工数） ---
+  const headerMap: Record<string, string> = {};
+  if (responseHeaders) {
+    for (const [key, value] of Object.entries(responseHeaders)) {
+      headerMap[key.toLowerCase()] = value;
+    }
+  }
+  const titleCount = $('title').length;
+  const canonicals: string[] = [];
+  $('link[rel="canonical"]').each((_, el) => {
+    const href = $(el).attr('href')?.trim();
+    if (href) canonicals.push(href);
+  });
+  const genericAnchors: string[] = [];
+  $('a[href]').each((_, el) => {
+    const text = $(el).text().replace(/\s+/g, ' ').trim();
+    if (text && isGenericAnchor(text) && genericAnchors.length < 8 && !genericAnchors.includes(text)) {
+      genericAnchors.push(text);
+    }
+  });
+  const mixedContent: string[] = [];
+  if (isHttps) {
+    $('img[src], script[src], iframe[src], video[src], audio[src], source[src]').each((_, el) => {
+      const src = $(el).attr('src')?.trim();
+      if (!src || mixedContent.length >= 5) return;
+      try {
+        const absolute = new URL(src, url).href;
+        if (absolute.startsWith('http://')) mixedContent.push(absolute);
+      } catch {
+        // 壊れた URL は別問題
+      }
+    });
+  }
+  const hreflangHrefs: string[] = [];
+  $('link[rel="alternate"][hreflang]').each((_, el) => {
+    const href = $(el).attr('href')?.trim();
+    if (href) {
+      try {
+        hreflangHrefs.push(new URL(href, url).href);
+      } catch {
+        hreflangHrefs.push(href);
+      }
+    }
+  });
+  const favicon = $('link[rel="icon"], link[rel="shortcut icon"]').length > 0;
+  const signals: PageSignals = {
+    url,
+    httpStatus,
+    responseTimeMs,
+    pageSizeBytes,
+    https: isHttps,
+    headers: headerMap,
+    headersKnown: Boolean(responseHeaders),
+    title,
+    titleCount,
+    description,
+    canonicals,
+    robotsMeta: robots,
+    googlebot,
+    viewport,
+    lang,
+    h1Count,
+    headings,
+    imagesMissingAlt: missingAltCount,
+    imagesMissingDimensions,
+    textLength: wordCount,
+    jsonLdErrors: jsonLd.errors,
+    schemaNodes: jsonLd.nodes,
+    ogTitle,
+    ogImage,
+    hreflangCount: hreflangHrefs.length,
+    hreflangSelf: hreflangHrefs.some((href) => {
+      try {
+        const left = new URL(href);
+        const right = new URL(url);
+        const path = (value: string) => (value.length > 1 && value.endsWith('/') ? value.slice(0, -1) : value);
+        return left.host === right.host && path(left.pathname) === path(right.pathname);
+      } catch {
+        return false;
+      }
+    }),
+    genericAnchors,
+    mixedContent,
+    favicon,
+    robots: sitemapData?.robots,
+    sitemapStatus: sitemapData?.sitemapResult.status,
+    sitemapInRobots: sitemapData?.sitemapResult.hasRobotsTxtSitemap,
+    sitemapHttpUrls: sitemapData?.sitemapResult.analytics?.protocol.httpCount,
+  };
+  const pageFindings = collectPageFindings(signals);
+  const partialReasons = [
+    '単一 URL の取得です。重複タイトル、孤立ページ、リダイレクトチェーン、サイト全体の内部リンクは見ていません。',
+    'Core Web Vitals のフィールドデータはありません。応答時間はこの 1 回の取得です。',
+  ];
+  if (!responseHeaders) partialReasons.push('応答ヘッダーを渡されていないため、HSTS とセキュリティヘッダーは未評価です。');
+  if (!sitemapData) partialReasons.push('robots.txt とサイトマップを取得していないため、その項目は未評価です。');
+  const actionPlan = buildActionPlan(pageFindings.findings, {
+    https: isHttps,
+    robotsBlocksAll: Boolean(sitemapData?.robots.disallowAll),
+    noindex: pageFindings.noindex,
+    pageCount: 1,
+    assessedIds: pageFindings.assessedIds,
+    assessedAreas: pageFindings.assessedAreas,
+    partialReasons,
+  });
+  const areaScore = (id: AuditArea) => actionPlan.areas.find((area) => area.id === id)?.score ?? actionPlan.overall;
+  const overallScore = actionPlan.overall;
+  const seoScore = weightedAreaScore(actionPlan, ['crawl', 'onpage', 'links']);
+  const performanceScore = Math.round(areaScore('performance'));
+  const metaScore = Math.round(areaScore('structured'));
+  const aeoScore = Math.round(areaScore('ai'));
+  const securityScore = Math.round(areaScore('security'));
 
   const pageMeta: PageMeta = {
     title,
@@ -537,19 +610,10 @@ export function analyzeHtml(
 
   const answerabilityScore = Math.min(100, Math.round((definitionCount * 25) + (hasMaxSnippet ? 30 : 0) + (schemaTypes.length > 0 ? 20 : 0) + 25));
 
-  const recommendations: string[] = [];
-  if (!hasMaxSnippet) {
-    recommendations.push('Google AI Overviewsで引用を最大化するため `max-snippet:-1` と `max-image-preview:large` メタタグを設定してください。');
-  }
-  if (definitionCount === 0) {
-    recommendations.push('主要な見出しの直下に「〜とは」などの簡潔な定義文（100〜160文字）を配置し、回答枠の抽出性を高めてください。');
-  }
-  if (schemaTypes.length === 0) {
-    recommendations.push('Schema.org (JSON-LD) 構造化データを実装し、AIクローラーが組織・記事・著者を正確にエンティティ認識できるようにしてください。');
-  }
-  if (!canonical) {
-    recommendations.push('正規URLを指示する `<link rel="canonical">` を設定し、重複コンテンツの評価分散を防いでください。');
-  }
+  const recommendations = actionPlan.actions
+    .filter((action) => action.severity !== 'info')
+    .slice(0, 3)
+    .map((action) => action.fix);
 
   const generatedId = `audit_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
@@ -568,13 +632,14 @@ export function analyzeHtml(
       aeo_llmo: aeoScore,
       security: securityScore,
     },
+    actionPlan,
     metrics,
     meta: pageMeta,
     links,
     cwv,
     sitemap: sitemapData?.sitemapResult,
     aiOverview: {
-      summary: `${parsedUrl.hostname} のコンテンツは、${title || 'Webページ'} に関する情報を発信しており、${aeoScore >= 80 ? '最新のAI検索・AEO基準に高水準で最適化されています。' : 'AIによる要約や引用の獲得に向けて改善の余地が存在します。'}`,
+      summary: `${parsedUrl.hostname} のこの URL を、検索の技術要件と内部の作業順ルーブリックで見ました。P1 は ${actionPlan.actions.filter((action) => action.priority === 'P1').length} 件です。点数は掲載や順位の予測ではありません。`,
       answerabilityScore,
       citations: [
         { title: title || parsedUrl.hostname, url, domain: parsedUrl.hostname },
