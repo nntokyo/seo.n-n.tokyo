@@ -177,20 +177,37 @@ async function requestOnce(url: URL, options: SafeFetchOptions): Promise<Respons
   });
 }
 
-export async function safeFetchUrl(rawUrl: string, options: SafeFetchOptions = {}): Promise<Response> {
+export interface SafeFetchResult {
+  response: Response;
+  finalUrl: string;
+  requestCount: number;
+}
+
+export async function safeFetchUrlWithMetadata(
+  rawUrl: string,
+  options: SafeFetchOptions = {},
+): Promise<SafeFetchResult> {
   let current = await assertPublicHttpUrl(rawUrl);
   const maxRedirects = options.maxRedirects ?? 5;
 
   for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount++) {
     const response = await requestOnce(current, options);
-    if (!REDIRECT_STATUSES.has(response.status)) return response;
+    if (!REDIRECT_STATUSES.has(response.status)) {
+      return { response, finalUrl: current.toString(), requestCount: redirectCount + 1 };
+    }
 
     const location = response.headers.get('location');
-    if (!location) return response;
+    if (!location) {
+      return { response, finalUrl: current.toString(), requestCount: redirectCount + 1 };
+    }
     if (redirectCount === maxRedirects) throw new Error('too many redirects');
 
     current = await assertPublicHttpUrl(new URL(location, current).toString());
   }
 
   throw new Error('too many redirects');
+}
+
+export async function safeFetchUrl(rawUrl: string, options: SafeFetchOptions = {}): Promise<Response> {
+  return (await safeFetchUrlWithMetadata(rawUrl, options)).response;
 }
