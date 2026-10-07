@@ -54,7 +54,7 @@ test('detects dangerous passive CORS signals and HTTP password forms', () => {
     },
     html: '<html></html>',
   });
-  assert.ok(cors.findings.some((finding) => finding.id === 'SEC-CORS-001' && finding.severity === 'high'));
+  assert.ok(cors.findings.some((finding) => finding.id === 'SEC-CORS-001' && finding.severity === 'medium' && finding.status === 'warning'));
 
   const http = reviewSiteSecurity({
     url: 'http://example.com/login',
@@ -81,4 +81,48 @@ test('strong baseline receives a high score', () => {
 
   assert.ok(result.score >= 90);
   assert.equal(result.grade, 'A');
+});
+
+
+test('uses the final redirected URL and actual request count', () => {
+  const result = reviewSiteSecurity({
+    requestedUrl: 'http://example.com/start?token=secret',
+    url: 'https://www.example.com/final?redirect_token=hidden',
+    requestCount: 3,
+    responseHeaders: {
+      'content-type': 'text/html',
+      'strict-transport-security': 'max-age=31536000',
+      'content-security-policy': "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'strict-origin-when-cross-origin',
+    },
+    html: '<html></html>',
+  });
+
+  assert.equal(result.url, 'https://www.example.com/final');
+  assert.equal(result.scope.requestCount, 3);
+  assert.match(
+    result.findings.find((finding) => finding.id === 'SEC-TRANSPORT-001')?.evidence || '',
+    /HTTP URLはHTTPSへリダイレクト/,
+  );
+  assert.equal(JSON.stringify(result).includes('secret'), false);
+  assert.equal(JSON.stringify(result).includes('hidden'), false);
+});
+
+test('parses CSP tokens at directive boundaries and rejects permissive framing', () => {
+  const result = reviewSiteSecurity({
+    url: 'https://example.com',
+    responseHeaders: {
+      'content-type': 'text/html',
+      'content-security-policy': "default-src *; script-src 'self' 'unsafe-inline'; frame-ancestors *",
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'unsafe-url',
+    },
+    html: '<html></html>',
+  });
+
+  assert.ok(result.findings.some((finding) => finding.id === 'SEC-CSP-003' && finding.status === 'warning'));
+  assert.ok(result.findings.some((finding) => finding.id === 'SEC-CSP-004' && finding.status === 'warning'));
+  assert.ok(result.findings.some((finding) => finding.id === 'SEC-HDR-005' && finding.status === 'warning'));
+  assert.ok(result.findings.some((finding) => finding.id === 'SEC-HDR-003' && finding.status === 'warning'));
 });
