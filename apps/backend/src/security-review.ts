@@ -7,6 +7,8 @@ import type {
 
 export interface ReviewSiteSecurityInput {
   url: string;
+  requestedUrl?: string;
+  requestCount?: number;
   responseHeaders: Record<string, string>;
   setCookieHeaders?: string[];
   html?: string;
@@ -44,8 +46,21 @@ function hasDirective(csp: string, directive: string): boolean {
   return parts.some((part) => part === directive || part.startsWith(directive + ' '));
 }
 
+function directiveSources(csp: string, directive: string): string[] | null {
+  const normalizedDirective = directive.toLowerCase();
+  for (const rawPart of csp.split(';')) {
+    const parts = rawPart.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (parts[0] === normalizedDirective) return parts.slice(1);
+  }
+  return null;
+}
+
 function containsCspToken(csp: string, token: string): boolean {
-  return csp.toLowerCase().split(/\s+/).includes(token.toLowerCase());
+  const normalizedToken = token.toLowerCase();
+  return csp.split(';').some((rawPart) => {
+    const parts = rawPart.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return parts.slice(1).includes(normalizedToken);
+  });
 }
 
 function lowerCaseHeaders(input: Record<string, string>): Record<string, string> {
@@ -68,7 +83,9 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
   const headers = lowerCaseHeaders(input.responseHeaders);
   const findings: SecurityReviewFinding[] = [];
   const url = new URL(input.url);
+  const requestedUrl = new URL(input.requestedUrl || input.url);
   const isHttps = url.protocol === 'https:';
+  const upgradedToHttps = requestedUrl.protocol === 'http:' && isHttps;
   const csp = headers['content-security-policy'] || '';
   const xFrameOptions = headers['x-frame-options'] || '';
   const setCookies = input.setCookieHeaders || [];
@@ -79,8 +96,12 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
     category: 'transport',
     severity: 'info',
     status: 'pass',
-    evidence: '対象URLはHTTPSです。',
-    risk: '通信経路の暗号化を確認しました。',
+    evidence: upgradedToHttps
+      ? '入力されたHTTP URLはHTTPSへリダイレクトされ、最終レスポンスはHTTPSでした。'
+      : '最終レスポンスURLはHTTPSです。',
+    risk: upgradedToHttps
+      ? 'HTTPSへの移行を確認しました。HTTP入口では恒久リダイレクトの運用も継続確認してください。'
+      : '通信経路の暗号化を確認しました。',
     remediation: 'HTTPSを継続し、証明書更新を自動化してください。',
   } : {
     id: 'SEC-TRANSPORT-001',
@@ -649,9 +670,9 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
     findings,
     scope: {
       mode: 'passive',
-      requestCount: 1,
+      requestCount: Math.max(1, input.requestCount || 1),
       htmlReviewed,
-      note: '公開GETレスポンスだけを評価します。侵入、exploit payload、ポートスキャン、認証回避は実施しません。',
+      note: '公開GETレスポンスの取得チェーンだけを評価します。requestCountには安全に追跡したredirect hopも含みます。能動的な攻撃テストは実施しません。',
     },
   };
 }
