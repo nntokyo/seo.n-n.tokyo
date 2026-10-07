@@ -197,27 +197,43 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
     }
 
     if (containsCspToken(csp, "'unsafe-inline'")) {
+      const scriptSources = directiveSources(csp, 'script-src') || directiveSources(csp, 'default-src') || [];
+      const hasNonceOrHash = scriptSources.some((source) =>
+        /^'nonce-/i.test(source) || /^'sha(?:256|384|512)-/i.test(source),
+      );
       addFinding(findings, {
         id: 'SEC-CSP-003',
         title: 'CSP unsafe-inline',
         category: 'csp',
-        severity: 'medium',
-        status: 'warning',
-        evidence: "CSPに 'unsafe-inline' が含まれます。",
-        risk: 'インラインスクリプトやスタイルの制限が弱くなる場合があります。',
-        remediation: 'nonce/hashベースへ移行できるか検討してください。',
+        severity: hasNonceOrHash ? 'info' : 'medium',
+        status: hasNonceOrHash ? 'info' : 'warning',
+        evidence: hasNonceOrHash
+          ? "CSPに 'unsafe-inline' はありますが、script-srcにnonce/hashも確認しました。"
+          : "CSPに 'unsafe-inline' が含まれます。",
+        risk: hasNonceOrHash
+          ? '対応ブラウザーではnonce/hashがある場合にunsafe-inlineの影響が抑制されます。互換目的で残している可能性があります。'
+          : 'インラインスクリプトやスタイルの制限が弱くなる場合があります。',
+        remediation: hasNonceOrHash
+          ? '互換性要件を確認し、不要になったunsafe-inlineは削除を検討してください。'
+          : 'nonce/hashベースへ移行できるか検討してください。',
       });
     }
 
     if (containsCspToken(csp, '*')) {
+      const executableWildcard = ['default-src', 'script-src', 'script-src-elem']
+        .some((directive) => directiveSources(csp, directive)?.includes('*'));
       addFinding(findings, {
         id: 'SEC-CSP-004',
         title: 'CSP wildcard source',
         category: 'csp',
-        severity: 'medium',
+        severity: executableWildcard ? 'medium' : 'low',
         status: 'warning',
-        evidence: 'CSPソースにワイルドカードが含まれます。',
-        risk: '許可範囲が広く、CSPの制限効果が弱くなる場合があります。',
+        evidence: executableWildcard
+          ? 'script/default系CSPソースにワイルドカードが含まれます。'
+          : 'CSPの一部ソースにワイルドカードが含まれます。',
+        risk: executableWildcard
+          ? '実行可能コンテンツの許可範囲が広く、CSPの制限効果が弱くなる場合があります。'
+          : '対象リソース種別の許可範囲が広くなっています。',
         remediation: '必要なオリジン・スキームへ許可範囲を絞ってください。',
       });
     }
@@ -420,10 +436,10 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
         id: 'SEC-COOKIE-003',
         title: 'Cookie HttpOnly flag',
         category: 'cookies',
-        severity: 'medium',
+        severity: 'low',
         status: 'warning',
         evidence: 'Set-Cookie ' + setCookies.length + ' 件中 ' + missingHttpOnly + ' 件でHttpOnlyを確認できません。',
-        risk: 'JavaScriptからCookieへアクセスできるため、XSS時の影響が増える場合があります。',
+        risk: 'JavaScriptから参照できます。認証・セッション用途のCookieであればXSS時の影響を増やす場合がありますが、用途まではこの受動チェックでは断定しません。',
         remediation: 'JavaScriptから不要な認証・セッションCookieにはHttpOnlyを付与してください。',
       });
     }
@@ -585,29 +601,49 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
       });
     }
 
-    let externalScriptsWithoutSri = 0;
-    $('script[src]').each((_, element) => {
-      const src = $(element).attr('src')?.trim();
-      if (!src) return;
+    let externalResourcesWithoutSri = 0;
+    $('script[src], link[rel~="stylesheet"][href]').each((_, element) => {
+      const resourceUrl = element.tagName === 'link'
+        ? $(element).attr('href')?.trim()
+        : $(element).attr('src')?.trim();
+      if (!resourceUrl) return;
       try {
-        const resolved = new URL(src, url);
+        const resolved = new URL(resourceUrl, url);
         if (resolved.origin !== url.origin && !$(element).attr('integrity')) {
-          externalScriptsWithoutSri += 1;
+          externalResourcesWithoutSri += 1;
         }
       } catch {
-        // ignore
+        // ignore malformed resource URLs
       }
     });
-    if (externalScriptsWithoutSri > 0) {
+    if (externalResourcesWithoutSri > 0) {
       addFinding(findings, {
         id: 'SEC-HTML-004',
-        title: 'External script integrity',
+        title: 'External resource integrity',
         category: 'html',
         severity: 'info',
         status: 'info',
-        evidence: '外部scriptのうちSRI属性なしを ' + externalScriptsWithoutSri + ' 件確認しました。',
+        evidence: '外部script/stylesheetのうちSRI属性なしを ' + externalResourcesWithoutSri + ' 件確認しました。',
         risk: 'SRIはすべての配信方式で必須ではありませんが、固定CDN資産では改ざん検知に役立ちます。',
-        remediation: '固定バージョンの第三者scriptではintegrity/crossoriginの利用可否を検討してください。',
+        remediation: '固定バージョンの第三者script/stylesheetではintegrity/crossoriginの利用可否を検討してください。',
+      });
+    }
+
+    let blankTargetsWithoutNoopener = 0;
+    $('a[target="_blank"]').each((_, element) => {
+      const rel = ($(element).attr('rel') || '').toLowerCase().split(/\s+/).filter(Boolean);
+      if (!rel.includes('noopener') && !rel.includes('noreferrer')) blankTargetsWithoutNoopener += 1;
+    });
+    if (blankTargetsWithoutNoopener > 0) {
+      addFinding(findings, {
+        id: 'SEC-HTML-005',
+        title: 'target=_blank opener hardening',
+        category: 'html',
+        severity: 'info',
+        status: 'info',
+        evidence: 'target="_blank" のリンクでnoopener/noreferrer未指定を ' + blankTargetsWithoutNoopener + ' 件確認しました。',
+        risk: '現行ブラウザーの多くはtarget=_blankを暗黙にnoopener相当として扱います。古い環境や明示性の観点で補強余地があります。',
+        remediation: '互換性要件がある場合は rel="noopener" を明示してください。参照元情報も送らない要件ではnoreferrerを検討してください。',
       });
     }
   } else {
