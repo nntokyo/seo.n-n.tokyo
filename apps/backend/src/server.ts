@@ -74,6 +74,7 @@ import { tokenFromAuthorizationHeader, tokenFromCookieHeader } from './request-a
 import { evaluateAuditWithJev, getJevRuntimeStats } from './jev.js';
 import { sendAlertEmail, sendTeamInvitationEmail, sendVerificationEmail } from './mailer.js';
 import { createAuditPdf } from './pdf-report.js';
+import { reviewSiteSecurity } from './security-review.js';
 
 function headerRecord(response: { headers: Headers }): Record<string, string> {
   const headers: Record<string, string> = {};
@@ -81,6 +82,14 @@ function headerRecord(response: { headers: Headers }): Record<string, string> {
     headers[key.toLowerCase()] = value;
   });
   return headers;
+}
+
+function setCookieHeaders(response: Response): string[] {
+  const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+  const values = headers.getSetCookie?.();
+  if (values && values.length > 0) return values;
+  const fallback = response.headers.get('set-cookie');
+  return fallback ? [fallback] : [];
 }
 
 async function main() {
@@ -105,6 +114,20 @@ async function main() {
 
   // インメモリ診断結果キャッシュ (直近500件)
   const auditCache = new Map<string, any>();
+
+  // 公開セキュリティレビューは能動スキャンではないが、外部取得を伴うため固定窓で制限する。
+  const securityReviewRate = new Map<string, { count: number; resetAt: number }>();
+  const allowSecurityReview = (key: string): boolean => {
+    const now = Date.now();
+    const current = securityReviewRate.get(key);
+    if (!current || current.resetAt <= now) {
+      securityReviewRate.set(key, { count: 1, resetAt: now + 60_000 });
+      return true;
+    }
+    if (current.count >= 10) return false;
+    current.count += 1;
+    return true;
+  };
 
   const readCookie = (request: any, name: string): string | undefined =>
     tokenFromCookieHeader(request.headers.cookie, name);
@@ -367,6 +390,60 @@ async function main() {
     } catch (err: any) {
       fastify.log.error(err);
       return reply.status(500).send({ error: 'Failed to crawl links', message: err.message });
+    }
+  });
+
+
+  // 公開サイトのパッシブ・セキュリティレビュー
+  fastify.post('/api/v1/tools/security-review', async (request, reply) => {
+    if (!allowSecurityReview(request.ip || 'unknown')) {
+      return reply
+        .header('Retry-After', '60')
+        .status(429)
+        .send({ error: 'Too many requests', message: '1分後にもう一度実行してください。' });
+    }
+
+    const body = (request.body || {}) as { url?: string };
+    let targetUrl = (body.url || '').trim();
+    if (!targetUrl) {
+      return reply.status(400).send({ error: 'URL is required' });
+    }
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'https://' + targetUrl;
+    }
+
+    try {
+      const response = await safeFetchUrl(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerSecurityReview/1.0; +https://seo.n-n.tokyo/bot)',
+          'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+        },
+        signal: AbortSignal.timeout(12_000),
+        maxBytes: 2 * 1024 * 1024,
+        maxRedirects: 5,
+      });
+      const contentType = response.headers.get('content-type') || '';
+      const html = contentType.includes('html') || contentType.includes('xhtml')
+        ? await response.text()
+        : '';
+
+      return reviewSiteSecurity({
+        url: targetUrl,
+        responseHeaders: headerRecord(response),
+        setCookieHeaders: setCookieHeaders(response),
+        html,
+        contentType,
+      });
+    } catch (error) {
+      const rawMessage = error instanceof Error ? error.message : '';
+      const inputError = /invalid url|only http|private or reserved|localhost|credentials|ports? 80 and 443|not allowed/i.test(rawMessage);
+      fastify.log.warn({ errorName: error instanceof Error ? error.name : 'Error' }, 'Security review failed');
+      return reply.status(inputError ? 400 : 502).send({
+        error: 'Security review failed',
+        message: inputError
+          ? '公開HTTP/HTTPS URLを指定してください。内部ネットワーク・予約済みIP・特殊ポートは診断できません。'
+          : '対象サイトを安全に取得できませんでした。',
+      });
     }
   });
 
