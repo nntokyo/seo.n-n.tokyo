@@ -16,7 +16,7 @@ import { AdSenseUnit } from '../_components/AdSenseUnit';
 
 export const metadata: Metadata = {
   title: 'SEOツール一覧',
-  description: 'SEO総合診断、サイトマップ分析、ディープクロール、任意の llms.txt、Google公式API連携を目的別に選べるツール一覧です。',
+  description: 'SEO総合診断、パッシブ・セキュリティレビュー、サイトマップ分析、ディープクロール、任意の llms.txt、Google公式API連携を目的別に選べるツール一覧です。',
   alternates: { canonical: '/tools' },
 };
 
@@ -31,6 +31,13 @@ const groups = [
         description: 'クロール、タイトル、構造化データ、HTTPSを確認し、直す順番を出します。Core Web Vitals はこの診断では測りません。',
         icon: Search,
         accent: 'text-cyan-400',
+      },
+      {
+        href: '/tools/security-review',
+        title: 'セキュリティレビュー',
+        description: '攻撃的スキャンを行わず、HTTPS・CSP・Cookie・CORS・主要セキュリティヘッダーを公開レスポンスから確認します。',
+        icon: ShieldCheck,
+        accent: 'text-emerald-400',
       },
     ],
   },
@@ -115,7 +122,7 @@ export default function ToolsPage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">SEOツール</h1>
           <p className="mt-4 text-sm leading-7 text-slate-400 sm:text-base">
-            まず総合診断で問題を見つけ、必要に応じてサイトマップ、クロール、llms.txt、Google公式データへ進めます。
+            まず総合診断またはセキュリティレビューで問題を見つけ、必要に応じてサイトマップ、クロール、llms.txt、Google公式データへ進めます。
             機能名ではなく、やりたいことから選べるように整理しています。
           </p>
         </section>

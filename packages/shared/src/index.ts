@@ -800,3 +800,56 @@ export interface AdminStatsResponse {
 export interface AdminUserRecord extends AuthUser {
   projectCount: number;
 }
+
+
+// ==============================================================================
+// 公開サイト・パッシブセキュリティレビュー
+// ==============================================================================
+
+export type SecurityReviewSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+export type SecurityReviewStatus = 'pass' | 'warning' | 'fail' | 'info' | 'unassessed';
+export type SecurityReviewCategory =
+  | 'transport'
+  | 'headers'
+  | 'csp'
+  | 'cookies'
+  | 'cors'
+  | 'html'
+  | 'information';
+
+export interface SecurityReviewFinding {
+  id: string;
+  title: string;
+  category: SecurityReviewCategory;
+  severity: SecurityReviewSeverity;
+  status: SecurityReviewStatus;
+  assessed: boolean;
+  evidence: string;
+  risk: string;
+  remediation: string;
+  references?: string[];
+}
+
+export interface SecurityReviewSummary {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+  unassessed: number;
+}
+
+export interface SecurityReviewResult {
+  url: string;
+  reviewedAt: string;
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+  summary: SecurityReviewSummary;
+  findings: SecurityReviewFinding[];
+  scope: {
+    mode: 'passive';
+    requestCount: number;
+    htmlReviewed: boolean;
+    note: string;
+  };
+}
