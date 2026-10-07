@@ -4,6 +4,9 @@ const internalApiUrl = (process.env.INTERNAL_API_URL || 'http://127.0.0.1:5601')
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  experimental: {
+    globalNotFound: true,
+  },
   // 本番デプロイでは別ディレクトリへ完成させてから原子的に切り替える。
   distDir: process.env.NEXT_DIST_DIR || '.next',
   // Caddy を経由しない開発・プレビュー環境でも、ブラウザーは常に同一オリジンの
