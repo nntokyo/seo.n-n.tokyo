@@ -685,6 +685,18 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
     });
   }
 
+  addFinding(findings, {
+    id: 'SEC-THREAT-001',
+    title: 'Google Web Risk',
+    category: 'information',
+    severity: 'info',
+    status: 'unassessed',
+    assessed: false,
+    evidence: '現在のリポジトリにはGoogle Web Risk連携がないため、この項目は未評価です。',
+    risk: '未評価であり、安全を意味しません。公開設定レビューのスコアからは除外します。',
+    remediation: '将来Web Risk連携を追加する場合は、補助シグナルとして表示し、未設定時は減点しないでください。',
+  });
+
   const score = Math.max(0, findings.reduce((current, finding) => {
     if (!finding.assessed || (finding.status !== 'fail' && finding.status !== 'warning')) return current;
     return current - DEDUCTIONS[finding.severity];
