@@ -162,7 +162,7 @@ export default function SecurityReviewPage() {
                     </p>
                   </div>
                   <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-                    passive / {result.scope.requestCount} request
+                    passive / HTTP {result.scope.requestCount} request{result.scope.requestCount === 1 ? '' : 's'}
                   </span>
                 </div>
 
