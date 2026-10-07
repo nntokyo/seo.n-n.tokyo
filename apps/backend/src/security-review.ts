@@ -271,15 +271,23 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
   });
 
   if (headers['referrer-policy']) {
+    const referrerPolicy = headers['referrer-policy'].split(',').at(-1)?.trim().toLowerCase() || '';
+    const weakReferrerPolicy = referrerPolicy === 'unsafe-url' || referrerPolicy === 'no-referrer-when-downgrade';
     addFinding(findings, {
       id: 'SEC-HDR-003',
       title: 'Referrer-Policy',
       category: 'headers',
-      severity: 'info',
-      status: 'pass',
-      evidence: 'Referrer-Policy ヘッダーを確認しました。',
-      risk: 'リファラー情報の送信範囲を制御できます。',
-      remediation: 'サービス要件に合うポリシーか継続確認してください。',
+      severity: weakReferrerPolicy ? 'low' : 'info',
+      status: weakReferrerPolicy ? 'warning' : 'pass',
+      evidence: weakReferrerPolicy
+        ? 'Referrer-Policy は設定されていますが、URL情報を比較的広く送信するポリシーです。'
+        : 'Referrer-Policy ヘッダーを確認しました。',
+      risk: weakReferrerPolicy
+        ? '遷移先へ不要なURL情報を送信する場合があります。'
+        : 'リファラー情報の送信範囲を制御できます。',
+      remediation: weakReferrerPolicy
+        ? 'strict-origin-when-cross-origin またはより厳格なポリシーを検討してください。'
+        : 'サービス要件に合うポリシーか継続確認してください。',
     });
   } else {
     addFinding(findings, {
@@ -311,26 +319,42 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
       title: 'Permissions-Policy',
       category: 'headers',
       severity: 'info',
-      status: 'pass',
-      evidence: 'Permissions-Policy ヘッダーを確認しました。',
+      status: 'info',
+      evidence: 'Permissions-Policy ヘッダーを確認しました。内容の最小権限性はこの受動チェックでは断定しません。',
       risk: 'ブラウザー機能の利用範囲を制御できます。',
       remediation: '必要最小限の許可になっているか確認してください。',
     });
   }
 
-  const frameAncestors = csp && hasDirective(csp, 'frame-ancestors');
-  if (frameAncestors || xFrameOptions) {
+  const frameAncestorSources = csp ? directiveSources(csp, 'frame-ancestors') : null;
+  const validFrameAncestors = Boolean(frameAncestorSources && !frameAncestorSources.includes('*'));
+  const normalizedXFrameOptions = xFrameOptions.trim().toLowerCase();
+  const validXFrameOptions = normalizedXFrameOptions === 'deny' || normalizedXFrameOptions === 'sameorigin';
+  const hasFrameSetting = frameAncestorSources !== null || Boolean(xFrameOptions);
+
+  if (validFrameAncestors || validXFrameOptions) {
     addFinding(findings, {
       id: 'SEC-HDR-005',
       title: 'Framing protection',
       category: 'headers',
       severity: 'info',
       status: 'pass',
-      evidence: frameAncestors
-        ? 'CSP frame-ancestors を確認しました。'
-        : 'X-Frame-Options を確認しました。',
+      evidence: validFrameAncestors
+        ? 'CSP frame-ancestors に制限設定を確認しました。'
+        : 'X-Frame-Options に DENY/SAMEORIGIN を確認しました。',
       risk: 'クリックジャッキング対策の設定を確認しました。',
       remediation: '埋め込み要件と整合する設定を維持してください。',
+    });
+  } else if (hasFrameSetting) {
+    addFinding(findings, {
+      id: 'SEC-HDR-005',
+      title: 'Framing protection',
+      category: 'headers',
+      severity: 'medium',
+      status: 'warning',
+      evidence: 'Framing制御ヘッダーはありますが、許可範囲が広いか有効な制限値を確認できません。',
+      risk: 'クリックジャッキング対策として十分に機能しない可能性があります。',
+      remediation: "CSP frame-ancestors 'none'/'self'/必要なOrigin、またはX-Frame-Options DENY/SAMEORIGINを使用してください。",
     });
   } else {
     addFinding(findings, {
@@ -436,10 +460,10 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
       id: 'SEC-CORS-001',
       title: 'CORS wildcard with credentials',
       category: 'cors',
-      severity: 'high',
-      status: 'fail',
+      severity: 'medium',
+      status: 'warning',
       evidence: 'Access-Control-Allow-Origin: * と credentials許可が同時に見えます。',
-      risk: 'CORS設計が不整合または過剰許可になっている可能性があります。',
+      risk: 'ブラウザーはワイルドカードOriginとcredential付きCORSの組み合わせを許可しません。直接のcredential漏えいとは断定せず、CORS設定の不整合として扱います。',
       remediation: 'credentialを使う場合は許可Originを明示し、動的反映時はallowlist検証してください。',
     });
   } else if (allowOrigin === '*') {
@@ -470,9 +494,9 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
       title: 'CORS response',
       category: 'cors',
       severity: 'info',
-      status: 'pass',
+      status: 'info',
       evidence: 'このレスポンスではAccess-Control-Allow-Originを確認できませんでした。',
-      risk: '少なくとも通常GETレスポンスで広いCORS許可は観測されていません。',
+      risk: 'この通常GETレスポンスでは広いCORS許可を観測していませんが、他のAPIエンドポイントの設定までは評価していません。',
       remediation: 'APIエンドポイントでは個別に確認してください。',
     });
   }
@@ -485,8 +509,8 @@ export function reviewSiteSecurity(input: ReviewSiteSecurityInput): SecurityRevi
     const $ = cheerio.load(html);
     const mixed = new Set<string>();
     if (isHttps) {
-      $('script[src], img[src], iframe[src], video[src], audio[src], source[src], link[href], form[action]').each((_, element) => {
-        const attr = element.tagName === 'link' || element.tagName === 'form' ? (element.tagName === 'link' ? 'href' : 'action') : 'src';
+      $('script[src], img[src], iframe[src], video[src], audio[src], source[src], link[rel~="stylesheet"][href]').each((_, element) => {
+        const attr = element.tagName === 'link' ? 'href' : 'src';
         const value = $(element).attr(attr)?.trim();
         if (!value) return;
         try {
