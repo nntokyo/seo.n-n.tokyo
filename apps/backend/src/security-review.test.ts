@@ -126,3 +126,23 @@ test('parses CSP tokens at directive boundaries and rejects permissive framing',
   assert.ok(result.findings.some((finding) => finding.id === 'SEC-HDR-005' && finding.status === 'warning'));
   assert.ok(result.findings.some((finding) => finding.id === 'SEC-HDR-003' && finding.status === 'warning'));
 });
+
+
+test('covers informational HTML hardening without overstating risk', () => {
+  const result = reviewSiteSecurity({
+    url: 'https://example.com',
+    responseHeaders: {
+      'content-type': 'text/html',
+      'content-security-policy': "default-src 'self'; script-src 'self' 'nonce-abc' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'strict-origin-when-cross-origin',
+    },
+    setCookieHeaders: ['theme=dark; Secure; SameSite=Lax'],
+    html: '<html><head><link rel="stylesheet" href="https://cdn.example.net/app.css"></head><body><a target="_blank" href="https://other.example">open</a></body></html>',
+  });
+
+  assert.ok(result.findings.some((finding) => finding.id === 'SEC-CSP-003' && finding.severity === 'info'));
+  assert.ok(result.findings.some((finding) => finding.id === 'SEC-COOKIE-003' && finding.severity === 'low'));
+  assert.ok(result.findings.some((finding) => finding.id === 'SEC-HTML-004' && finding.severity === 'info'));
+  assert.ok(result.findings.some((finding) => finding.id === 'SEC-HTML-005' && finding.severity === 'info'));
+});
