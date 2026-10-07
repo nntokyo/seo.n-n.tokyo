@@ -69,7 +69,7 @@ import {
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { safeFetchUrl } from './url-security.js';
+import { safeFetchUrl, safeFetchUrlWithMetadata } from './url-security.js';
 import { tokenFromAuthorizationHeader, tokenFromCookieHeader } from './request-auth.js';
 import { evaluateAuditWithJev, getJevRuntimeStats } from './jev.js';
 import { sendAlertEmail, sendTeamInvitationEmail, sendVerificationEmail } from './mailer.js';
@@ -119,7 +119,14 @@ async function main() {
   const securityReviewRate = new Map<string, { count: number; resetAt: number }>();
   const allowSecurityReview = (key: string): boolean => {
     const now = Date.now();
+    if (securityReviewRate.size > 1_000) {
+      for (const [storedKey, entry] of securityReviewRate) {
+        if (entry.resetAt <= now) securityReviewRate.delete(storedKey);
+      }
+    }
+
     const current = securityReviewRate.get(key);
+    if (!current && securityReviewRate.size >= 5_000) return false;
     if (!current || current.resetAt <= now) {
       securityReviewRate.set(key, { count: 1, resetAt: now + 60_000 });
       return true;
@@ -413,7 +420,7 @@ async function main() {
     }
 
     try {
-      const response = await safeFetchUrl(targetUrl, {
+      const fetchResult = await safeFetchUrlWithMetadata(targetUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; SEOAnalyzerSecurityReview/1.0; +https://seo.n-n.tokyo/bot)',
           'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
@@ -422,13 +429,16 @@ async function main() {
         maxBytes: 2 * 1024 * 1024,
         maxRedirects: 5,
       });
+      const { response } = fetchResult;
       const contentType = response.headers.get('content-type') || '';
       const html = contentType.includes('html') || contentType.includes('xhtml')
         ? await response.text()
         : '';
 
       return reviewSiteSecurity({
-        url: targetUrl,
+        requestedUrl: targetUrl,
+        url: fetchResult.finalUrl,
+        requestCount: fetchResult.requestCount,
         responseHeaders: headerRecord(response),
         setCookieHeaders: setCookieHeaders(response),
         html,
