@@ -9,9 +9,9 @@ test('security review is explicit, passive, and indexed as a public tool', () =>
 
   assert.match(page, /fetch\('\/api\/v1\/tools\/security-review'/);
   assert.doesNotMatch(page, /useEffect\s*\(/);
-  assert.match(server, /safeFetchUrl\(targetUrl/);
+  assert.match(server, /safeFetchUrlWithMetadata\(targetUrl/);
   assert.match(server, /maxBytes:\s*2 \* 1024 \* 1024/);
   assert.match(server, /maxRedirects:\s*5/);
-  assert.match(server, /allowSecurityReview/);
+  assert.match(server, /allowSecurityReview/);\n  assert.match(server, /requestCount: fetchResult\.requestCount/);
   assert.match(sitemap, /\/tools\/security-review/);
 });
