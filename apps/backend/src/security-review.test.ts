@@ -81,6 +81,7 @@ test('strong baseline receives a high score', () => {
 
   assert.ok(result.score >= 90);
   assert.equal(result.grade, 'A');
+  assert.equal(result.findings.find((finding) => finding.id === 'SEC-THREAT-001')?.status, 'unassessed');
 });
 
 
