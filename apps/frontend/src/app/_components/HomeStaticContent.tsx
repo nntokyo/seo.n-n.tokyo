@@ -308,6 +308,11 @@ export function HomeStaticContent() {
                     </Link>
                   </li>
                   <li>
+                    <Link href="/tools/security-review" className="hover:text-white transition-colors">
+                      セキュリティレビュー（HTTPS・ヘッダー・Cookie安全診断）
+                    </Link>
+                  </li>
+                  <li>
                     <Link href="/tools/sitemap-analyzer" className="hover:text-white transition-colors">
                       XMLサイトマップ解析ツール
                     </Link>

@@ -141,7 +141,7 @@ export function HomeInteractive() {
             </div>
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-bold text-base tracking-tight text-white truncate">SEO Analyzer</span>
-              <span className="hidden sm:inline-flex text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/10">v2.0</span>
+              <span className="hidden sm:inline-flex text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-cyan-500/30 text-cyan-400 bg-cyan-500/10">v2.5</span>
             </div>
           </div>
 
@@ -150,6 +150,10 @@ export function HomeInteractive() {
             <Link href="/tools" className="hover:text-cyan-300 transition-colors flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
               <span>ツール</span>
+            </Link>
+            <Link href="/guides" className="hover:text-emerald-300 transition-colors flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+              <span>ガイド</span>
             </Link>
             <Link href="/google/hub" className="hover:text-violet-300 transition-colors flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" />
@@ -222,12 +226,14 @@ export function HomeInteractive() {
               <div>
                 <p className="px-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">分析ツール</p>
                 <Link href="/tools" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-cyan-300 hover:bg-white/5">ツール一覧</Link>
+                <Link href="/tools/security-review" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-emerald-300 hover:bg-white/5">セキュリティレビュー</Link>
                 <Link href="/tools/sitemap-analyzer" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">サイトマップ分析</Link>
                 <Link href="/crawl/new" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">ディープクロール</Link>
                 <Link href="/tools/llms-txt" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">llms.txt生成</Link>
               </div>
               <div>
-                <p className="px-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">運用</p>
+                <p className="px-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">学習・運用</p>
+                <Link href="/guides" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">SEO実践ガイド</Link>
                 <Link href="/google/hub" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">Google連携</Link>
                 <Link href="/projects" onClick={() => setMobileMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-slate-200 hover:bg-white/5">プロジェクト</Link>
               </div>

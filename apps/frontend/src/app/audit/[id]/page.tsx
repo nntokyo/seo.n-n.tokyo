@@ -313,6 +313,15 @@ export default function AuditDetailPage() {
               <span className="hidden sm:inline">PDF保存</span>
             </Link>
             <Link
+              href={`/tools/security-review?url=${encodeURIComponent(audit.url)}`}
+              aria-label="セキュリティ診断"
+              className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-xs font-mono text-emerald-300 flex items-center gap-1.5 transition-colors"
+              title="公開サイトのパッシブ・セキュリティレビューを実行"
+            >
+              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+              <span className="hidden sm:inline">セキュリティ診断</span>
+            </Link>
+            <Link
               href={`/google/hub?url=${encodeURIComponent(audit.url)}`}
               aria-label="Google公式連携"
               className="px-3 py-1.5 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-xs font-mono text-violet-300 flex items-center gap-1.5 transition-colors"

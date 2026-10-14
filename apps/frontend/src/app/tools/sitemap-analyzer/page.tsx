@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Map,
@@ -37,6 +37,14 @@ export default function SitemapAnalyzerPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParam = new URLSearchParams(window.location.search).get('url');
+    if (urlParam) {
+      setTargetUrl(urlParam);
+    }
+  }, []);
 
   const handleAnalyze = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();

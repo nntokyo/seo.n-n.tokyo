@@ -64,8 +64,10 @@ function GoogleHubContent() {
 
     checkSessionStatus();
 
-    // 初回自動データ取得 (デフォルトURL)
-    fetchHubData('https://seo.n-n.tokyo');
+    // クエリパラメータのurlがあればそれを優先、なければデフォルトURL
+    const initialUrl = searchParams.get('url') || 'https://seo.n-n.tokyo';
+    setTargetUrl(initialUrl);
+    fetchHubData(initialUrl);
   }, [searchParams]);
 
   // セッション状態照会

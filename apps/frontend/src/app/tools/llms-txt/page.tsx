@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AdSenseUnit } from '../../_components/AdSenseUnit';
 import {
@@ -26,6 +26,14 @@ export default function LlmsTxtToolPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParam = new URLSearchParams(window.location.search).get('url');
+    if (urlParam) {
+      setTargetUrl(urlParam);
+    }
+  }, []);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
