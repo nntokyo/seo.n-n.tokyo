@@ -46,7 +46,7 @@ const SPARSE_GSC_IMPRESSION_THRESHOLD = 20;
 
 function GoogleHubContent() {
   const searchParams = useSearchParams();
-  const [targetUrl, setTargetUrl] = useState('https://seo.n-n.tokyo');
+  const [targetUrl, setTargetUrl] = useState('');
   const [sessionStatus, setSessionStatus] = useState<GoogleSessionStatus>({ isConnected: false });
   const [hubData, setHubData] = useState<GoogleHubDataResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,10 +64,15 @@ function GoogleHubContent() {
 
     checkSessionStatus();
 
-    // クエリパラメータのurlがあればそれを優先、なければデフォルトURL
-    const initialUrl = searchParams.get('url') || 'https://seo.n-n.tokyo';
-    setTargetUrl(initialUrl);
-    fetchHubData(initialUrl);
+    // クエリパラメータにURLが指定されている場合のみ自動取得。未指定時は初期表示にとどめる
+    const queryUrl = searchParams.get('url');
+    if (queryUrl) {
+      const decodedUrl = decodeURIComponent(queryUrl).trim();
+      if (decodedUrl) {
+        setTargetUrl(decodedUrl);
+        fetchHubData(decodedUrl);
+      }
+    }
   }, [searchParams]);
 
   // セッション状態照会
@@ -109,7 +114,11 @@ function GoogleHubContent() {
     } catch {}
     setSessionStatus({ isConnected: false });
     // データ再取得 (未連携状態)
-    fetchHubData(targetUrl);
+    if (targetUrl.trim()) {
+      fetchHubData(targetUrl);
+    } else {
+      setHubData(null);
+    }
   };
 
   // 統合データ取得
@@ -150,6 +159,7 @@ function GoogleHubContent() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!targetUrl.trim()) return;
     fetchHubData(targetUrl);
   };
 
@@ -324,7 +334,7 @@ function GoogleHubContent() {
               {psi ? psi.performanceScore : '--'}<span className="text-slate-500 text-base font-normal">/100</span>
             </div>
             <p className="text-xs text-cyan-400 font-mono truncate">
-              {psi ? `LCP: ${psi.lcp.value}ms / TTFB: ${psi.ttfb.value}ms` : '未取得 (APIキーまたは診断実行待ち)'}
+              {psi ? `LCP: ${psi.lcp.value}ms / TTFB: ${psi.ttfb.value}ms` : (isLoading ? '公式データ取得中...' : 'URLを入力して「公式データ取得」を実行')}
             </p>
           </div>
 
@@ -513,9 +523,13 @@ function GoogleHubContent() {
               </div>
             ) : (
               <div className="p-8 rounded-2xl border border-white/10 bg-[#0F1623] text-center space-y-2">
-                <div className="text-xs font-mono text-amber-400">⚠️ PageSpeed 診断データ: 未取得</div>
+                <div className="text-xs font-mono text-amber-400">
+                  {hubData ? '⚠️ PageSpeed 診断データ: 未取得' : 'ℹ️ PageSpeed & CrUX 診断'}
+                </div>
                 <p className="text-xs text-slate-400 max-w-md mx-auto">
-                  {hubData?.errors.psi || 'APIキーが未設定か、Google PageSpeedサーバーからの応答待機中です。画面上部の「公式データ取得」を再試行してください。'}
+                  {hubData
+                    ? (hubData.errors.psi || 'APIキーが未設定か、Google PageSpeedサーバーからの応答待機中です。画面上部の「公式データ取得」を再試行してください。')
+                    : 'URLを入力して「公式データ取得」を押すと、Google PageSpeed InsightsとCrUX実測値を取得します。'}
                 </p>
               </div>
             )}

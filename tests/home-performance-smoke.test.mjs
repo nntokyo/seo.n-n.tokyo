@@ -53,4 +53,12 @@ test('Google Hub uses current Gemini label and explains sparse GSC data', () => 
   // データ不足の判定基準をマジックナンバーで散らさない。
   assert.match(hub, /const SPARSE_GSC_IMPRESSION_THRESHOLD = 20;/);
   assert.match(hub, /gsc\.totalImpressions < SPARSE_GSC_IMPRESSION_THRESHOLD/);
+
+  // 初期表示でシステムURLへの自動フェッチを走らせない。
+  assert.doesNotMatch(hub, /useState\(['"]https:\/\/seo\.n-n\.tokyo['"]\)/);
+  assert.match(hub, /searchParams\.get\(['"]url['"]\)/);
+
+  // バックエンドは照会URLに関わらずシステムPageSpeedキーを許可する。
+  const server = read('apps/backend/src/server.ts');
+  assert.match(server, /allowSystemApiKey:\s*true/);
 });

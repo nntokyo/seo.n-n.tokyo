@@ -617,18 +617,16 @@ ${linksSection}
   // 5. Google統合ハブデータ取得 (PSI + GSC + GA4 + Gemini)
   fastify.post('/api/v1/google/hub-data', async (request, reply) => {
     const body = request.body as { url?: string; session_id?: string; projectId?: string };
-    let targetUrl = (body?.url || 'https://seo.n-n.tokyo').trim();
+    if (!body?.url || !body.url.trim()) {
+      return reply.status(400).send({ error: 'URLを指定してください' });
+    }
+    let targetUrl = body.url.trim();
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
       targetUrl = `https://${targetUrl}`;
     }
 
     const user = currentUser(request);
     const isSuperAdmin = user?.role === 'ADMIN';
-    const publicSiteUrl = process.env.PUBLIC_SITE_URL || 'https://seo.n-n.tokyo';
-    let isSystemSite = false;
-    try {
-      isSystemSite = new URL(targetUrl).origin === new URL(publicSiteUrl).origin;
-    } catch {}
 
     // プロジェクト設定の読み込み
     let projectGoogleApiKey: string | undefined;
@@ -646,15 +644,17 @@ ${linksSection}
       }
     } else {
       // URLから該当プロジェクトを検索
-      const parsed = new URL(targetUrl);
-      const userProjects = listProjects(user?.id);
-      const matched = userProjects.find((p) => p.targetDomain === parsed.hostname);
-      if (matched?.googleSettings) {
-        projectGoogleApiKey = matched.googleSettings.googleApiKey;
-        projectGeminiApiKey = matched.googleSettings.geminiApiKey;
-        gscSiteUrl = matched.googleSettings.gscSiteUrl;
-        ga4PropertyId = matched.googleSettings.ga4PropertyId;
-      }
+      try {
+        const parsed = new URL(targetUrl);
+        const userProjects = listProjects(user?.id);
+        const matched = userProjects.find((p) => p.targetDomain === parsed.hostname);
+        if (matched?.googleSettings) {
+          projectGoogleApiKey = matched.googleSettings.googleApiKey;
+          projectGeminiApiKey = matched.googleSettings.geminiApiKey;
+          gscSiteUrl = matched.googleSettings.gscSiteUrl;
+          ga4PropertyId = matched.googleSettings.ga4PropertyId;
+        }
+      } catch {}
     }
 
     const sessionId = googleSessionId(request);
@@ -666,7 +666,7 @@ ${linksSection}
         gscSiteUrl,
         ga4PropertyId,
         isSuperAdmin,
-        allowSystemApiKey: isSystemSite,
+        allowSystemApiKey: true,
       });
       return hubData;
     } catch (err: any) {
