@@ -125,3 +125,39 @@ GitHubリポジトリ（`git@nntokyo:nntokyo/seo.n-n.tokyo.git`）の Settings >
 - セッショントークン: 平文ではなくSHA-256ハッシュを保存
 
 現行のusers/sessionsは互換性維持のため `.data/auth/*.json` を継続利用します。次段階ではPrisma/PostgreSQLへ `AuthUser` / `AuthSession` / `EmailVerification` 相当のモデルを追加し、既存JSONを一度だけ読み込むmigrationスクリプトで移行します。移行完了まではJSONファイルをバックアップ対象とし、ファイル権限をサーバー実行ユーザーのみに制限します。
+
+---
+
+## 7. 外部リクエストのSSRF防御アーキテクチャ & プラットフォームセキュリティ運用
+
+### 7.1 SSRF (Server-Side Request Forgery) 多層防御
+即時URL診断、XMLサイトマップ検証、およびパッシブ・セキュリティレビュー（`/tools/security-review`）では、外部ユーザーが指定した任意のURLに対してサーバーサイドからHTTPリクエストを送信します。内部インフラやクラウドメタデータへの不正アクセスを完全に遮断するため、以下の多層SSRF防御を強制適用しています：
+
+```mermaid
+flowchart TD
+    ReqURL["外部指定URL (例: https://target.example.com)"] --> ValidateScheme{"プロトコル検証\n(http / https のみ？)"}
+    ValidateScheme -- NO (file://, gopher://等) --> BlockProto["🚨 遮断 (Invalid Protocol)"]
+    
+    ValidateScheme -- YES --> ResolveDNS["DNS名前解決 (A / AAAA レコード)"]
+    ResolveDNS --> CheckPrivateIP{"プライベート / ループバック / メタデータIPか？\n(127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12,\n192.168.0.0/16, 169.254.169.254, ::1, fc00::/7等)"}
+    
+    CheckPrivateIP -- YES --> BlockIP["🚨 遮断 (SSRF: Forbidden Target IP)"]
+    CheckPrivateIP -- NO --> SafeFetch["検証済みIPへのセキュアFetch実行\n(タイムアウト: 10秒 / 最大サイズ制限)"]
+    
+    SafeFetch --> CheckRedirect{"HTTP 3xx リダイレクト？"}
+    CheckRedirect -- NO --> Finish["レスポンス取得 & パッシブ解析"]
+    CheckRedirect -- YES (<= 3回) --> ReCheck["リダイレクト先URLを再検証 (プロトコル & IP検査)"]
+    ReCheck --> CheckPrivateIP
+    CheckRedirect -- YES (> 3回) --> BlockLoop["🚨 遮断 (Redirect Chain Exceeded)"]
+```
+
+1. **プロトコル制限**: `http:` および `https:` のみを許可し、`file:`, `ftp:`, `gopher:`, `javascript:` 等の特殊スキームは即時拒否。
+2. **DNS名前解決とIPレンジ遮断**:
+   - リクエスト直前にDNS名前解決を行い、解決先IPがRFC 1918プライベートアドレス、ループバック（`127.0.0.1`）、リンクローカル（`169.254.169.254` などのクラウドメタデータエンドポイント）、キャリアグレードNAT（`100.64.0.0/10`）、マルチキャスト等に該当する場合は通信を拒絶。
+   - DNS Rebinding攻撃を防ぐため、名前解決されたIPアドレスを直接指定するか、再解決時の整合性を担保。
+3. **リダイレクト追従の安全制御**:
+   - リダイレクトは最大3回までに制限。リダイレクトの各ホップごとにURLプロトコルと解決先IPのSSRF検査を再実行。
+
+### 7.2 プラットフォームセキュリティ保守 & Next.jsセキュリティ修正
+- **Next.js セキュリティアップデート**: 公式セキュリティアドバイザリ（Server Actions, Image Optimizer, Cache Poisoning等）に即時追従し、最新の安定版Next.js 16.3へ継続追従。
+- **グローバル404 Not Found 運用**: 本番環境における未一致URL、不正パストラバーサル試行、存在しないルーティングに対しては、Next.jsのカスタム404ページ（`global-not-found.tsx` / `not-found.tsx`）を適用し、システム内部パスの漏洩防止と正規サイト機能への安全な回帰導線を確保。

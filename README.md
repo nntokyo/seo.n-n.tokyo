@@ -20,17 +20,26 @@
 2. **Google公式API完全統合 & 具体的修正案の自動生成**
    - **PageSpeed Insights (v5)**: CrUX実測値 & LighthouseラボデータによるCore Web Vitals精密測定。
    - **Search Console URL Inspection**: Googlebot公式のインデックス状態（未登録/重複/canonical不備）照会。
+   - **Search Console SEO Opportunities**: GSC検索アナリティクスから改善余地の大きいSEO機会（Low CTR, Quick Win 4-10位, Refresh候補等）を決定論的に抽出・優先順位付け。
    - **Web Risk (v1)** & **Google Indexing API (v3)**: 広告収益を含むサイト向けのセキュリティ脅威判定 & 対象構造化データの更新通知。
    - **Gemini 3.8 Flash API**: 課題に対するBefore/After差分と、Next.js App Router向けコピペ用改善コードの動的生成。
-3. **メタ情報・タグ競合・文字化け 完全検知エンジン**
+3. **影響度・工数別SEOアクションプラン (Search Central基準整合)**
+   - 診断結果を影響度（Impact: High / Med / Low）、作業工数（Effort）、領域（Technical / Content / Performance / Crawl）でスコアリングし、現実的な着手順序を提示。
+   - Google Search Centralの最新指針に基づき、タイトルの文字数制限やスニペット、llms.txtの有無だけでページを過剰にFail判定しない、実測ファクトベースの監査。
+4. **公開サイトのパッシブ・セキュリティレビュー (Passive Security Review)**
+   - 外部公開サイトに対する非侵入的なセキュリティヘッダー（HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy）、Cookie属性、HTTPS強制、露出情報の総合診断とグレード判定。
+   - 厳格なSSRF保護（プライベートIP、localhost、クラウドメタデータエンドポイントへのアクセス遮断、DNSリバインディング対策）を適用。
+5. **メタ情報・タグ競合・文字化け 完全検知エンジン**
    - 複数Canonicalタグ重複、Robotsディレクティブの矛盾、文字コード（Mojibake）の検知。
    - 相対パスCanonical/OGP画像の検出、Hreflang多言語相互リンク欠落の検出。
-4. **HTMLベースのSEO・メタ診断（実装済み） / Rendered DOM差分（設計済み）**
+6. **HTMLベースのSEO・メタ診断（実装済み） / Rendered DOM差分（設計済み）**
    - 現行実装はCheerioによる取得HTMLの解析を中心に、メタタグ・構造化データ・リンク等を診断します。
    - Headless ChromeによるRaw HTML vs Rendered DOM Diffは設計書に記載された拡張計画で、現行の依存関係にはPlaywright/Chromium Clusterを含みません。
-5. **サイト全体クロール & 内部リンクネットワーク診断**
+7. **サイト全体クロール & 内部リンク・トピッククラスター診断**
    - 内部PageRank相当のスコア、リンク切れ（404）、孤立ページ、クリック階層、内部リンク・トピッククラスター改善候補を診断します。
-6. **Time-travel 履歴差分比較**
+8. **SEO実践ガイド集 & 目的別ツールハブ**
+   - 検索意図に応じたSEO診断ガイド、XMLサイトマップ活用ガイド、llms.txt導入ガイド（`/guides`）および独立ツールハブ（`/tools`）を提供。
+9. **Time-travel 履歴差分比較**
    - デプロイ前後や施策実施前後のスコア変動とタグ変更差分をタイムライン比較。
 
 ---
@@ -73,24 +82,25 @@ flowchart TD
 
 ## 📚 設計書一覧 (Complete Documentation Suite)
 
-本プロジェクトは、以下の13件の詳細仕様書により設計・運用方針を公開しています。読みやすく整理した版は [GitHub Wiki](https://github.com/nntokyo/seo.n-n.tokyo/wiki) から参照できます。
+本プロジェクトは、以下の14件の詳細仕様書により設計・運用方針を公開しています。読みやすく整理した版は [GitHub Wiki](https://github.com/nntokyo/seo.n-n.tokyo/wiki) から参照できます。
 
 | ファイル | ドキュメント名 | 内容概要 |
 |---|---|---|
 | [`DESIGN.md`](./DESIGN.md) | **UI/UXデザインシステム規約** | ShadcnAdmin & Refero統合トークン、OKLCH、Border Grid、ピル型タブ |
-| [`docs/00_OVERVIEW.md`](./docs/00_OVERVIEW.md) | **プロジェクト全体要件・KPI** | 背景、ターゲットユーザー、事業要件、成功KPI |
-| [`docs/01_BASIC_DESIGN.md`](./docs/01_BASIC_DESIGN.md) | **基本設計書 & 全25画面一覧** | 分離アーキテクチャ、全25画面一覧、業務フロー、非機能要件 |
-| [`docs/02_SEO_ANALYSIS_ENGINE.md`](./docs/02_SEO_ANALYSIS_ENGINE.md) | **SEO評価エンジン・150+検査項目** | スコアリング数式、150+検査ルール、具体的修正案生成ロジック |
+| [`docs/00_OVERVIEW.md`](./docs/00_OVERVIEW.md) | **プロジェクト全体要件・KPI** | 背景、ターゲットユーザー、事業要件、成功KPI、全体機能スコープ |
+| [`docs/01_BASIC_DESIGN.md`](./docs/01_BASIC_DESIGN.md) | **基本設計書 & 全39画面一覧** | 分離アーキテクチャ、全39画面一覧＋404ページ、業務フロー、非機能要件 |
+| [`docs/02_SEO_ANALYSIS_ENGINE.md`](./docs/02_SEO_ANALYSIS_ENGINE.md) | **SEO評価エンジン・150+検査項目** | スコアリング数式、影響度・工数別アクションプラン、Search Central基準整合、修正案生成 |
 | [`docs/03_DATABASE_DESIGN.md`](./docs/03_DATABASE_DESIGN.md) | **データベース詳細設計** | ER図、Prisma Schema、Google連携、AI表示、有向グラフテーブル |
-| [`docs/04_API_SPECIFICATION.md`](./docs/04_API_SPECIFICATION.md) | **API詳細仕様書** | バックエンド専用ポート5601、REST API、SSE、Webhook仕様 |
-| [`docs/05_UI_UX_DESIGN.md`](./docs/05_UI_UX_DESIGN.md) | **UI/UX・画面詳細設計書** | ShadcnAdminダッシュボード、Refero 16:10プレビュー、DOM差分 |
+| [`docs/04_API_SPECIFICATION.md`](./docs/04_API_SPECIFICATION.md) | **API詳細仕様書** | バックエンド専用ポート5601、REST API、パッシブセキュリティ、SSE、Webhook仕様 |
+| [`docs/05_UI_UX_DESIGN.md`](./docs/05_UI_UX_DESIGN.md) | **UI/UX・画面詳細設計書** | ShadcnAdminダッシュボード、アクションプラン、Refero 16:10プレビュー、DOM差分 |
 | [`docs/06_AI_GEO_OPTIMIZATION.md`](./docs/06_AI_GEO_OPTIMIZATION.md) | **AEO/AIO/LLMO/GEO最適化詳細設計書** | 強調スニペット/音声検索(AEO)、AI Overviews(AIO)、ChatGPT(LLMO)、Perplexity(GEO) |
-| [`docs/07_GOOGLE_OFFICIAL_APIS.md`](./docs/07_GOOGLE_OFFICIAL_APIS.md) | **Google公式API連携仕様書** | PSI, GSC URL Inspection, Web Risk, Indexing, Gemini |
-| [`docs/08_OPERATIONS_AND_SECURITY.md`](./docs/08_OPERATIONS_AND_SECURITY.md) | **運用・インフラ・セキュリティ設計** | ゼロダウンタイムデプロイ、GitHub Webhook設定、PM2構成、Caddy |
+| [`docs/07_GOOGLE_OFFICIAL_APIS.md`](./docs/07_GOOGLE_OFFICIAL_APIS.md) | **Google公式API連携仕様書** | PSI, GSC URL Inspection, GSC SEO機会分析, Web Risk, Indexing, Gemini 3.8 Flash |
+| [`docs/08_OPERATIONS_AND_SECURITY.md`](./docs/08_OPERATIONS_AND_SECURITY.md) | **運用・インフラ・セキュリティ設計** | ゼロダウンタイムデプロイ、SSRF保護アーキテクチャ、GitHub Webhook設定、PM2構成、Caddy |
 | [`docs/09_META_DEFECT_DETECTION.md`](./docs/09_META_DEFECT_DETECTION.md) | **メタ不具合・競合・文字化け仕様書**| タグ重複、Mojibake、Canonical不整合、SSR遅延注入、Hreflang |
 | [`docs/10_CRAWLER_AND_SCRAPING_ENGINE.md`](./docs/10_CRAWLER_AND_SCRAPING_ENGINE.md) | **クローラー・SPA描画判定仕様書** | WAF対策、ハイドレーション待機、CMPバナー無効化、チェックポイント再開 |
 | [`docs/11_OSS_SUPPORT_PROGRAMS.md`](./docs/11_OSS_SUPPORT_PROGRAMS.md) | **OSS支援制度と申請準備** | Codex for Open Source、Codex open source fund、Claude for Open Source、申請証拠の整備方針 |
-| [`docs/12_ADSENSE_AND_PRIVACY.md`](./docs/12_ADSENSE_AND_PRIVACY.md) | **Google AdSense・広告表示・プライバシー運用** | 環境変数、ads.txt、自動広告、CMP、審査と障害対応 |
+| [`docs/12_ADSENSE_AND_PRIVACY.md`](./docs/12_ADSENSE_AND_PRIVACY.md) | **Google AdSense・広告表示・プライバシー運用** | 環境変数、ads.txt、安全な広告配置、CMP、審査と障害対応 |
+| [`docs/13_JEV_SHADOW_EVALUATION.md`](./docs/13_JEV_SHADOW_EVALUATION.md) | **Jev Shadow Evaluation 設計** | TypeSafe AI Jevによる決定論的監査の非破壊的シャドウ判定・Gemini出力検証 |
 
 ---
 

@@ -131,3 +131,54 @@ flowchart TD
     );
   }
   ```
+
+---
+
+## 4. 影響度・工数別アクションプラン & Search Central基準整合 (Ranked Audit Engine)
+
+### 4.1 設計思想: 「順位予測」から「現実的な着手順序」へ
+従来のSEO監査ツールで散見される「この修正で検索順位が○位上昇する」といった根拠のない推測順位表示を排除し、**「影響度（Impact）」「改修工数（Effort）」「対象領域（Area）」** に基づいてエンジニアやサイト運営者が今日着手すべき優先アクションを順位付け（Ranking）します。
+
+```mermaid
+quadrantChart
+    title 課題の優先度マトリクス (Impact vs Effort)
+    x-axis 低工数 (Low Effort) --> 高工数 (High Effort)
+    y-axis 低影響 (Low Impact) --> 高影響 (High Impact)
+    quadrant-1 "戦略的改善 (Strategic Fixes)"
+    quadrant-2 "最優先対応 (Quick Wins / Immediate)"
+    quadrant-3 "低優先度 (Nice to Have)"
+    quadrant-4 "計画的対応 (Planned Improvements)"
+    "Canonical誤爆解消": [0.2, 0.95]
+    "HTTPS混在解消": [0.15, 0.85]
+    "noindex誤付与解除": [0.1, 0.98]
+    "LCP画像priority指定": [0.25, 0.75]
+    "全画像alt属性補完": [0.65, 0.45]
+    "CSS/JS肥大化削減": [0.85, 0.70]
+```
+
+### 4.2 優先度スコアリング & 分類モデル
+各検出課題は以下の属性を持ち、自動ソートされて `ActionPlanPanel` に提示されます：
+
+- **影響度 (Impact)**:
+  - `HIGH`: インデックス除外、クロール阻害、著しいUX毀損（noindex誤爆、Canonical競合、致命的4xx/5xx、Web Risk脅威）
+  - `MEDIUM`: ランキングシグナル損失、Core Web Vitals悪化、構造化データエラー
+  - `LOW`: 軽微なメタタグ推奨値超過、マイナーな情報不足
+- **改修工数 (Effort)**:
+  - `LOW`: HTMLタグ・ヘッダーの1行修正（数分で対応可能）
+  - `MEDIUM`: 複数テンプレート・コンポーネントの修正、画像リサイズ（半日程度）
+  - `HIGH`: アーキテクチャ改修、サーバー設定変更、大規模なリファクタリング（数日〜数週）
+- **対象領域 (Area)**:
+  - `TECHNICAL`: クロール・インデックス制御、HTTPステータス、セキュリティ
+  - `CONTENT`: タイトル、見出し、本文、メタディスクリプション
+  - `PERFORMANCE`: Core Web Vitals、画像最適化、リソース配信
+  - `CRAWLING`: 内部リンク構造、サイトマップ、robots.txt
+
+### 4.3 Google Search Central ガイドラインとの厳格な整合性
+Google公式のSearch Centralドキュメントに準拠し、機械的・硬直的なアンチパターン判定を是正しています：
+
+1. **文字数制限でページをFail（不合格）にしない**:
+   - タイトルタグやメタディスクリプションが特定文字数（例: 30文字や160文字）を超過していても、Googlebotはコンテンツを理解するため、減点ではなく「改善の機会（Opportunity / Notice）」として案内します。
+2. **スニペット設定・llms.txtの有無による減点廃止**:
+   - `max-snippet` や `llms.txt` が存在しないこと自体は検索エンジンのペナルティ対象ではないため、ページ全体の合否判定（Pass/Fail）を左右せず、AI検索（GEO）最適化の推奨オプションとして提示します。
+3. **実測・検証されたファクト（Measured Facts）のみの表示**:
+   - 実際にHTTPレスポンスやDOMから取得・測定できたデータのみを根拠とし、憶測や擬似スコアによる水増し表示を行いません。

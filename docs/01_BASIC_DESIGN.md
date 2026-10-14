@@ -1,8 +1,8 @@
 # 01. システム基本設計書 & 全画面一覧 (BASIC DESIGN)
 
 > **プロジェクト名称**: SEO Analyzer  
-> **ドキュメント種別**: システム基本設計書（アーキテクチャ・全25画面一覧・業務フロー・非機能要件）  
-> **版数**: 2.2.0 (バックエンド/フロントエンド完全分離 & ゼロダウンタイムWebhook対応版)
+> **ドキュメント種別**: システム基本設計書（アーキテクチャ・全39画面一覧＋404ページ・業務フロー・非機能要件）  
+> **版数**: 3.0.0 (全画面拡張 & パッシブセキュリティ・SEOガイド・ツールハブ統合版)
 
 ---
 
@@ -54,7 +54,7 @@ graph TD
 
 ---
 
-## 3. 全28画面一覧マトリクス & インタラクティブUI設計規約
+## 3. 全39画面一覧マトリクス & インタラクティブUI設計規約
 
 すべての画面において、表示されるボタン、タブ、リンク、アクションカードは単なる装飾（ダミーUI）であってはならず、クリック時に即座に状態変更・画面遷移・コピー・モーダル表示などのフィードバックを提供する完全なインタラクティブ性を備えます。
 
@@ -62,7 +62,7 @@ graph TD
 |---|---|---|---|
 | **SCR-01** | トップ / 即時URL診断 | `/` | `POST /api/v1/audit/quick` |
 | **SCR-02** | 診断リアルタイム進捗 | `/audit/progress/:id` | `GET /sse/audit/:id` (SSE) |
-| **SCR-03** | 総合診断ダッシュボード | `/audit/:id` | `GET /api/v1/audit/results/:id` |
+| **SCR-03** | 総合診断ダッシュボード (アクションプラン含む) | `/audit/:id` | `GET /api/v1/audit/results/:id` |
 | **SCR-04** | メタ不具合インスペクター | `/audit/:id/meta` | `GET /api/v1/audit/:id/meta-defects` |
 | **SCR-05** | Raw vs Rendered DOM差分 | `/audit/:id/dom-diff` | `GET /api/v1/audit/:id/dom-diff` |
 | **SCR-06** | AI表示 (GEO) シミュレータ| `/audit/:id/ai-preview` | `GET /api/v1/audit/:id/ai-preview` |
@@ -80,16 +80,26 @@ graph TD
 | **SCR-18** | GSC URL Inspection | `/google/inspect` | `POST /api/v1/google/inspect` |
 | **SCR-19** | Google Indexing 通知 | `/google/indexing` | `POST /api/v1/google/index-publish` |
 | **SCR-20** | llms.txt 自動合成ツール | `/tools/llms-txt` | `POST /api/v1/tools/generate-llms-txt`|
-| **SCR-21** | PDFレポート出力 | `/reports/:id` | `GET /api/v1/reports/:id/pdf` |
-| **SCR-22** | 監視アラート・通知設定 | `/settings/alerts` | `POST /api/v1/projects/:id/notify/test`|
-| **SCR-23** | Google APIアカウント連携 | `/settings/integrations` | `GET /api/v1/integrations/google/auth-url` |
-| **SCR-24** | チーム・メンバー管理 | `/settings/team` | `GET /api/v1/team/members` |
-| **SCR-25** | APIキー・Webhook管理 | `/settings/api-keys` | `GET /api/v1/settings/api-keys` |
+| **SCR-21** | PDFレポート出力 | `/reports/:id` | `GET /api/v1/reports/:id/pdf` (または `/api/v1/audit/results/:id/pdf`) |
+| **SCR-22** | 監視アラート・通知設定 | `/settings/alerts` | `GET /api/v1/settings/alerts`, `POST /api/v1/settings/alerts`, `POST /api/v1/settings/alerts/test` |
+| **SCR-23** | Google APIアカウント連携 | `/settings/integrations` | `GET /api/v1/integrations/google/auth-url`, `GET /api/v1/integrations/google/session`, `POST /api/v1/integrations/google/disconnect` |
+| **SCR-24** | チーム・メンバー管理 | `/settings/team` | `GET /api/v1/team/members`, `POST /api/v1/team/members`, `DELETE /api/v1/team/members/:id` |
+| **SCR-25** | APIキー・Webhook管理 | `/settings/api-keys` | `GET /api/v1/settings/api-keys`, `POST /api/v1/settings/api-keys`, `DELETE /api/v1/settings/api-keys/:id` |
 | **SCR-26** | サイトマップ&ハブ・カノニカル分析 | `/tools/sitemap-analyzer` | `POST /api/v1/tools/validate-sitemap` |
-| **SCR-27** | Google公式統合ハブ (PSI/GSC/GA4/Gemini) | `/google/hub` | `POST /api/v1/google/hub-data` |
+| **SCR-27** | Google公式統合ハブ (PSI/GSC/GA4/Gemini/SEO機会) | `/google/hub` | `POST /api/v1/google/hub-data` |
 | **SCR-28** | ユーザー認証 (ログイン・新規登録) | `/login` | `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, `POST /api/v1/auth/google/callback` |
 | **SCR-29** | マイページ (アカウント・プロファイル管理) | `/account` | `GET /api/v1/auth/me`, `PUT /api/v1/auth/profile`, `PUT /api/v1/auth/password`, `PUT /api/v1/auth/email`, `POST /api/v1/auth/verify-email`, `POST /api/v1/auth/logout` |
 | **SCR-30** | プラットフォーム管理画面 (スーパー管理者専用) | `/admin` | `GET /api/v1/admin/stats`, `GET /api/v1/admin/users`, `PUT /api/v1/admin/users/:id/role`, `GET /api/v1/admin/projects` |
+| **SCR-31** | 公開サイト・パッシブセキュリティレビュー | `/tools/security-review` | `POST /api/v1/tools/security-review` |
+| **SCR-32** | トピッククラスター分析 | `/crawl/:sessionId/clusters` | `GET /api/v1/crawl/:sessionId/clusters` |
+| **SCR-33** | SEO実践ガイド一覧・ハブ | `/guides` | フロントエンド静的・動的ガイド目次 |
+| **SCR-34** | SEO診断完全ガイド | `/guides/seo-diagnosis` | フロントエンド実践解説ガイド |
+| **SCR-35** | XMLサイトマップ活用ガイド | `/guides/xml-sitemap` | フロントエンド実践解説ガイド |
+| **SCR-36** | llms.txt導入・AI最適化ガイド | `/guides/llms-txt` | フロントエンド実践解説ガイド |
+| **SCR-37** | 目的別ツール一覧ハブ | `/tools` | 単体ツール集約ナビゲーション |
+| **SCR-38** | このサイトについて (About・運営方針) | `/about` | 運営情報・利用規約・免責事項 |
+| **SCR-39** | プライバシーポリシー & 広告運用規約 | `/privacy` | プライバシーポリシー・AdSense・Cookie運用規約 |
+| **ERR-01** | 404 Not Found 専用エラー画面 | `/not-found` (未一致URL全域) | `global-not-found.tsx` / `not-found.tsx` |
 
 ---
 

@@ -83,13 +83,33 @@ Googlebotが実際にどのようにページをインデックスしている�
 
 ---
 
-### 2.3 Google Search Console Search Analytics API
-実際に検索結果で流入しているクエリや、クリック率（CTR）が低迷している「お宝キーワード」を発掘します。
+### 2.3 Google Search Console Search Analytics API & SEO機会分析 (GSC Opportunities)
+実際に検索結果で流入しているクエリや、クリック率（CTR）が低迷している「お宝キーワード」を発掘し、決定論的に優先順位付け（Prioritized Opportunities）します。
 
 - **エンドポイント**: `POST https://searchconsole.googleapis.com/webmasters/v3/sites/{siteUrl}/searchAnalytics/query`
-- **分析ロジック**:
-  - **低CTR課題（Low CTR Opportunity）**: 検索順位が1〜5位であるにもかかわらず、CTRが平均を大きく下回っているクエリを抽出（タイトルタグやメタディスクリプションの訴求力不足を特定）。
-  - **ストライクゾーン課題（Quick Win）**: 検索順位が11〜20位（2ページ目）のクエリを抽出（見出し追加や本文補強で1ページ目進出が狙えるキーワード）。
+- **分析・分類ロジック (SEO Opportunities Engine)**:
+  1. **インデックス阻害 (`indexing_issue`)**:
+     - 条件: URL Inspectionステータスが `verdict !== 'PASS'`、`robotsTxtState === 'DISALLOWED'`、または `indexingState !== 'INDEXING_ALLOWED'`。
+     - 優先度: `high`
+     - 推奨対応: robots.txt、meta robots、canonical、HTTPステータスを確認してインデックス阻害要因を解消。
+  2. **ゼロクリック課題 (`zero_click`)**:
+     - 条件: 表示回数（Impressions）が20回以上あるにもかかわらず、クリック数（Clicks）が0件。
+     - 優先度: 表示回数100回以上は `high`、それ以外は `medium`。
+     - 推奨対応: 検索意図とページ内容の一致を確認し、title・description・見出しの訴求を検索結果に合わせて改善。
+  3. **低CTR改善機会 (`ctr_opportunity`)**:
+     - 条件: 平均掲載順位が10位以内（1ページ目）、表示回数30回以上、かつCTRが2.0%未満。
+     - 優先度: 表示回数100回以上は `high`、それ以外は `medium`。
+     - 推奨対応: titleとdescriptionを検索意図に合わせて具体化し、検索結果一覧で競合より選ばれる理由を明確化。
+  4. **ストライクゾーン進出 (`striking_distance` / Quick Win)**:
+     - 条件: 平均掲載順位が8位〜20位（1ページ目後半〜2ページ目）かつ表示回数20回以上。
+     - 優先度: 順位12位以内かつ表示回数50回以上は `high`、それ以外は `medium`。
+     - 推奨対応: 対象ページの検索意図充足、本文の具体性、関連内部リンク、見出し構成を強化して1ページ目上位へ押し上げ。
+  5. **キーワードカニバリゼーション (`cannibalization`)**:
+     - 条件: 同一クエリに対して複数URLが表示され、2番目のURLの表示シェアが25%以上、かつ合計表示回数が20回以上。
+     - 優先度: 合計表示回数100回以上は `high`、それ以外は `medium`。
+     - 推奨対応: 各ページの検索意図と役割を明確に切り分け、必要に応じてcanonical、内部リンク再編、またはコンテンツ統合を実施。
+- **優先順位ソート**:
+  - `priority`（`high` -> `medium` -> `low`）を第1キー、`impressions`（降順）を第2キーとしてソートし、UIに即座に実行可能なタスクとして提示します。
 
 ---
 
