@@ -238,6 +238,10 @@ export function recordAuditToProject(projectId: string, audit: FullAuditResult):
     auditedAt: audit.timestamp,
   };
 
+  if (p.userId && legacyAuditOwnerIndex && !legacyAuditOwnerIndex.has(audit.id)) {
+    legacyAuditOwnerIndex.set(audit.id, p.userId);
+  }
+
   p.auditCount++;
   p.lastScore = audit.overallScore;
   p.lastAuditedAt = audit.timestamp;
@@ -253,6 +257,23 @@ export function recordAuditToProject(projectId: string, audit: FullAuditResult):
     list.unshift(historyItem);
     fs.writeFileSync(historyFile, JSON.stringify(list.slice(0, 100)), 'utf8');
   } catch {}
+}
+
+// 所有者を保存していない旧形式の診断結果向け: 診断ID → プロジェクト所有ユーザー
+let legacyAuditOwnerIndex: Map<string, string> | null = null;
+
+export function findAuditOwnerUserId(auditId: string): string | undefined {
+  if (!legacyAuditOwnerIndex) {
+    const index = new Map<string, string>();
+    for (const p of projectsStore.values()) {
+      if (!p.userId) continue;
+      for (const item of getProjectHistory(p.id)) {
+        if (item.auditId && !index.has(item.auditId)) index.set(item.auditId, p.userId);
+      }
+    }
+    legacyAuditOwnerIndex = index;
+  }
+  return legacyAuditOwnerIndex.get(auditId);
 }
 
 export function getProjectHistory(projectId: string): ProjectHistoryItem[] {

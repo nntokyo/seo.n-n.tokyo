@@ -37,6 +37,7 @@ import {
   listAllProjectsAdmin,
   countUserProjects,
   publicProject,
+  findAuditOwnerUserId,
 } from './projects.js';
 import {
   getAlertSettings,
@@ -75,6 +76,7 @@ import { evaluateAuditWithJev, getJevRuntimeStats } from './jev.js';
 import { sendAlertEmail, sendTeamInvitationEmail, sendVerificationEmail } from './mailer.js';
 import { createAuditPdf } from './pdf-report.js';
 import { reviewSiteSecurity } from './security-review.js';
+import { createAuditStore, isValidAuditId } from './audit-store.js';
 
 function headerRecord(response: { headers: Headers }): Record<string, string> {
   const headers: Record<string, string> = {};
@@ -108,12 +110,14 @@ async function main() {
 
   // 永続化ディレクトリ設定 (.data/audits)
   const baseDataDir = process.env.DATA_DIR || path.resolve(process.cwd(), '.data', 'audits');
-  try {
-    fs.mkdirSync(baseDataDir, { recursive: true });
-  } catch {}
 
-  // インメモリ診断結果キャッシュ (直近500件)
-  const auditCache = new Map<string, any>();
+  // 診断結果の保存と所有者確認 (メモリは直近500件、ディスクに永続化)
+  const auditStore = createAuditStore({
+    dir: baseDataDir,
+    maxCached: 500,
+    findLegacyOwner: findAuditOwnerUserId,
+    onWriteError: (err) => fastify.log.warn({ err }, 'Failed to persist audit result'),
+  });
 
   // 公開セキュリティレビューは能動スキャンではないが、外部取得を伴うため固定窓で制限する。
   const securityReviewRate = new Map<string, { count: number; resetAt: number }>();
@@ -141,6 +145,13 @@ async function main() {
   const authToken = (request: any): string | undefined =>
     tokenFromAuthorizationHeader(request.headers.authorization) || readCookie(request, 'seo_auth_token');
   const currentUser = (request: any) => verifySessionToken(authToken(request));
+  // 診断結果の読み取り者: ログインユーザー、または読み取り権限付き API キーの所有者
+  const auditReaderId = (request: any): string | undefined => {
+    const user = currentUser(request);
+    if (user) return user.id;
+    const rawKey = request.headers['x-api-key'];
+    return typeof rawKey === 'string' ? verifyApiKey(rawKey, 'read')?.ownerId : undefined;
+  };
   const googleSessionId = (request: any): string | undefined => readCookie(request, 'google_session_id');
   const secureCookie = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   const sendWebhook = async (rawUrl: string, payload: unknown): Promise<Response> => {
@@ -162,28 +173,12 @@ async function main() {
     return response;
   };
 
-  // 起動時にディスク上の既存レポートを復元
-  try {
-    if (fs.existsSync(baseDataDir)) {
-      const files = fs.readdirSync(baseDataDir);
-      for (const file of files) {
-        if (file.endsWith('.json')) {
-          const id = file.replace('.json', '');
-          try {
-            const raw = fs.readFileSync(path.join(baseDataDir, file), 'utf8');
-            auditCache.set(id, JSON.parse(raw));
-          } catch {}
-        }
-      }
-    }
-  } catch {}
-
   fastify.get('/api/health', async () => {
     return {
       status: 'ok',
       service: 'seo-backend',
       version: '1.3.0',
-      cachedAudits: auditCache.size,
+      cachedAudits: auditStore.size,
       jevShadowEnabled: process.env.JEV_ENABLED === 'true' && Boolean(process.env.TYPESAFE_API_KEY),
       jevShadowStats: getJevRuntimeStats(),
       timestamp: new Date().toISOString(),
@@ -226,25 +221,17 @@ async function main() {
         analyzeHtml(targetUrl, html, responseTimeMs, httpStatus, headerRecord(response), sitemapOutcome),
       );
 
-      // メモリ & ディスクに永続保存
-      auditCache.set(result.id, result);
-      try {
-        fs.writeFileSync(path.join(baseDataDir, `${result.id}.json`), JSON.stringify(result), 'utf8');
-      } catch {}
+      // メモリ & ディスクに永続保存 (ログイン中なら本人だけが読める結果として保存)
+      const user = currentUser(request);
+      auditStore.save(result, user?.id);
 
       // ログイン中のユーザーの場合のみ、プロジェクトへ自動記録（未ログイン時はパブリック汚染防止）
       try {
-        const user = currentUser(request);
         if (user) {
           const proj = createProject(new URL(targetUrl).hostname, targetUrl, user.id);
           recordAuditToProject(proj.id, result);
         }
       } catch {}
-
-      if (auditCache.size > 500) {
-        const oldestKey = auditCache.keys().next().value;
-        if (oldestKey) auditCache.delete(oldestKey);
-      }
 
       return result;
     } catch (err: any) {
@@ -277,8 +264,7 @@ async function main() {
       const result = await evaluateAuditWithJev(
         analyzeHtml(targetUrl, await response.text(), Date.now() - startedAt, response.status, headerRecord(response), sitemapOutcome),
       );
-      auditCache.set(result.id, result);
-      fs.writeFileSync(path.join(baseDataDir, `${result.id}.json`), JSON.stringify(result), 'utf8');
+      auditStore.save(result, verified.ownerId);
       const project = createProject(new URL(targetUrl).hostname, targetUrl, verified.ownerId);
       recordAuditToProject(project.id, result);
       return result;
@@ -291,22 +277,22 @@ async function main() {
   fastify.get('/api/v1/audit/results/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const query = request.query as { url?: string };
-    let cached = auditCache.get(id);
+    if (!isValidAuditId(id)) {
+      return reply.status(404).send({ error: 'Audit result not found or expired' });
+    }
+    const readerId = auditReaderId(request);
 
-    if (!cached) {
-      // ディスクから読み込み試行
-      try {
-        const filePath = path.join(baseDataDir, `${id}.json`);
-        if (fs.existsSync(filePath)) {
-          const raw = fs.readFileSync(filePath, 'utf8');
-          cached = JSON.parse(raw);
-          auditCache.set(id, cached);
-        }
-      } catch {}
+    // 他人の結果は存在を明かさず 404 にする
+    if (auditStore.has(id)) {
+      const owned = auditStore.readForUser(id, readerId);
+      if (!owned) return reply.status(404).send({ error: 'Audit result not found or expired' });
+      return owned;
     }
 
     // クエリパラメータに url がある場合、見つからなければその場で即時診断して復元
-    if (!cached && query.url) {
+    // (他人のプロジェクト履歴にある ID は復元させない)
+    const historyOwner = findAuditOwnerUserId(id);
+    if (query.url && (!historyOwner || historyOwner === readerId)) {
       let targetUrl = query.url.trim();
       if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
         targetUrl = `https://${targetUrl}`;
@@ -332,28 +318,18 @@ async function main() {
           analyzeHtml(targetUrl, html, responseTimeMs, response.status, headerRecord(response), sitemapOutcome),
         );
         result.id = id; // 要求されたIDで保存
-        auditCache.set(id, result);
-        try {
-          fs.writeFileSync(path.join(baseDataDir, `${id}.json`), JSON.stringify(result), 'utf8');
-        } catch {}
-        return result;
+        return auditStore.save(result, readerId);
       } catch (err: any) {
         fastify.log.error(err);
       }
     }
 
-    if (!cached) {
-      return reply.status(404).send({ error: 'Audit result not found or expired' });
-    }
-    return cached;
+    return reply.status(404).send({ error: 'Audit result not found or expired' });
   });
 
   fastify.get('/api/v1/audit/results/:id/pdf', async (request, reply) => {
     const { id } = request.params as { id: string };
-    let audit = auditCache.get(id);
-    if (!audit) {
-      try { audit = JSON.parse(fs.readFileSync(path.join(baseDataDir, `${id}.json`), 'utf8')); } catch {}
-    }
+    const audit = auditStore.readForUser(id, auditReaderId(request));
     if (!audit) return reply.status(404).send({ error: 'Audit result not found' });
     const pdf = await createAuditPdf(audit);
     return reply
@@ -955,20 +931,13 @@ ${linksSection}
     const baseAuditId = query.baseId || history[history.length - 1]?.auditId;
     const compAuditId = query.compareId || history[0]?.auditId;
 
-    // ディスクまたはキャッシュから取得
-    let baseAudit = auditCache.get(baseAuditId);
-    if (!baseAudit) {
-      try {
-        baseAudit = JSON.parse(fs.readFileSync(path.join(baseDataDir, `${baseAuditId}.json`), 'utf8'));
-      } catch {}
+    // 比較できるのはこのプロジェクトの履歴に含まれる診断だけ
+    const historyIds = new Set(history.map((h) => h.auditId));
+    if (!historyIds.has(baseAuditId) || !historyIds.has(compAuditId)) {
+      return reply.status(404).send({ error: '指定された監査データが見つかりません' });
     }
-
-    let compAudit = auditCache.get(compAuditId);
-    if (!compAudit) {
-      try {
-        compAudit = JSON.parse(fs.readFileSync(path.join(baseDataDir, `${compAuditId}.json`), 'utf8'));
-      } catch {}
-    }
+    const baseAudit = auditStore.readInternal(baseAuditId);
+    const compAudit = auditStore.readInternal(compAuditId);
 
     if (!baseAudit || !compAudit) {
       return reply.status(404).send({ error: '指定された監査データが見つかりません' });
@@ -1341,7 +1310,7 @@ ${linksSection}
     const allProjects = listAllProjectsAdmin().map(publicProject);
 
     // 診断キャッシュ/ディスクから全診断数をカウント
-    let totalAudits = auditCache.size;
+    let totalAudits = auditStore.size;
     try {
       if (fs.existsSync(baseDataDir)) {
         const files = fs.readdirSync(baseDataDir).filter((f) => f.endsWith('.json') && !f.startsWith('project_') && !f.startsWith('users') && !f.startsWith('sessions'));

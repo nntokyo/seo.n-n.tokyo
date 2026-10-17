@@ -3,6 +3,7 @@ import { AuditMetric, AuditArea, FullAuditResult, CrawlLink, PageMeta, CwvEstima
 import { collectPageFindings, isGenericAnchor, readJsonLd, PageSignals } from './page-findings.js';
 import { buildActionPlan, weightedAreaScore } from './ranked-audit.js';
 import { SitemapCheckOutcome } from './sitemap.js';
+import { generateAuditId } from './audit-store.js';
 
 function htmlAttr(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -589,7 +590,7 @@ export function analyzeHtml(
     .slice(0, 3)
     .map((action) => action.fix);
 
-  const generatedId = `audit_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  const generatedId = generateAuditId();
 
   return {
     id: generatedId,
