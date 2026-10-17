@@ -35,7 +35,7 @@ export function HomeStaticContent() {
             <div className="text-center max-w-3xl mx-auto mb-16">
               <h2 className="text-xs font-bold uppercase tracking-widest text-cyan-400 mb-3">FEATURES</h2>
               <p className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-                なぜ、トップエンジニアとSEOアナリストに選ばれるのか
+                SEO Analyzer でできること
               </p>
             </div>
 
@@ -71,7 +71,7 @@ export function HomeStaticContent() {
                   連携したアカウントで、PageSpeed Insights のフィールドデータと Search Console の URL 検査を見ます。未連携のときはこの画面では測れません。
                 </p>
                 <div className="text-xs font-mono text-violet-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                  <span>Google公式統合ハブを開く</span>
+                  <span>Google API 連携ハブを開く</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </div>
               </Link>
@@ -237,7 +237,7 @@ export function HomeStaticContent() {
                 className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-white bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 px-6 py-3 rounded-full transition-all shadow-lg shadow-violet-500/10"
               >
                 <ShieldCheck className="w-4 h-4 text-violet-400" />
-                <span>Google公式統合ハブを開く（PageSpeed / Search Console / GA4 / Gemini）</span>
+                <span>Google API 連携ハブを開く（PageSpeed / Search Console / GA4 / Gemini）</span>
                 <ArrowRight className="w-3.5 h-3.5 text-violet-300" />
               </Link>
             </div>
@@ -324,7 +324,7 @@ export function HomeStaticContent() {
                   </li>
                   <li>
                     <Link href="/google/hub" className="hover:text-white transition-colors">
-                      Google公式統合ハブ（PageSpeed / Search Console）
+                      Google API 連携ハブ（PageSpeed / Search Console）
                     </Link>
                   </li>
                   <li>

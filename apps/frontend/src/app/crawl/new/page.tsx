@@ -145,7 +145,7 @@ export default function CrawlNewPage() {
             <div className="flex justify-between text-[10px] font-mono text-slate-500">
               <span>10ページ (超高速)</span>
               <span>60ページ (標準)</span>
-              <span>200ページ (精密)</span>
+              <span>200ページ (詳細)</span>
             </div>
           </div>
 

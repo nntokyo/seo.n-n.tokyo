@@ -1011,7 +1011,7 @@ export default function AuditDetailPage() {
                         href="/tools/sitemap-analyzer"
                         className="text-sky-400 hover:text-sky-300 flex items-center gap-1"
                       >
-                        <span>サイトマップ精密分析ツールで詳細を確認</span>
+                        <span>サイトマップ分析ツールで詳細を確認</span>
                         <ExternalLink className="w-3 h-3" />
                       </Link>
                     </div>

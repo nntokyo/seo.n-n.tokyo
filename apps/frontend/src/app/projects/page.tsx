@@ -364,10 +364,10 @@ export default function ProjectsPage() {
               <>
                 <div className="space-y-1">
                   <h3 className="text-base font-bold text-white">プロジェクト管理にはログインが必要です</h3>
-                  <span className="text-[11px] font-mono text-cyan-400">🛡️ 世界公開システムにおけるプライバシー保護規約</span>
+                  <span className="text-[11px] font-mono text-cyan-400">🛡️ プロジェクトデータの扱い</span>
                 </div>
                 <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                  本システムは全世界に公開されているため、登録ドメインや内部監査データは他の利用者に一切公開されないよう暗号化・アカウント分離されています。
+                  登録したプロジェクトとその履歴はアカウントごとに分けて管理し、他の利用者の一覧には表示しません。連携用の API キーなどは暗号化して保存します。
                   プロジェクトの作成・管理を行うには、無料アカウントにログインしてください。
                 </p>
                 <div className="flex justify-center gap-3 pt-2">

@@ -126,7 +126,7 @@ export default function SitemapAnalyzerPage() {
         {/* Intro */}
         <div className="max-w-3xl space-y-3">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            XMLサイトマップ、ハブページ、コンパニオンURL精密解析
+            XMLサイトマップ、ハブページ、コンパニオンURLの詳細解析
           </h1>
           <p className="text-sm text-slate-400 leading-relaxed">
             サイトマップのXML構文や到達性だけでなく、<strong>トピックハブ（親カテゴリ）と子ページ群のクラスタリング構造</strong>、<strong>Canonical（正規化）整合性</strong>、および<strong>多言語・AMPコンパニオンURL</strong>の相互連携を網羅的に分析します。
@@ -159,7 +159,7 @@ export default function SitemapAnalyzerPage() {
                 </>
               ) : (
                 <>
-                  <span>精密分析を実行</span>
+                  <span>詳細分析を実行</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

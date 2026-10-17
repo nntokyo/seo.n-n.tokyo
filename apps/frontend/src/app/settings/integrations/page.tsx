@@ -177,7 +177,7 @@ export default function IntegrationsSettingsPage() {
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              診断スコアと検索クエリ、GA4指標を統合分析し、クリック率を最大化するタイトル・説明文・修正コードを自動生成します。
+              診断スコアと検索クエリ、GA4指標を統合分析し、タイトル・説明文・修正コードの改善案を生成します。
             </p>
           </div>
         </div>

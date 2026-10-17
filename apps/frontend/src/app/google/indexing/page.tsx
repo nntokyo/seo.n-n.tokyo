@@ -91,7 +91,7 @@ export default function GoogleIndexingPage() {
                   Indexing API v3
                 </span>
               </div>
-              <p className="text-xs text-slate-400">新規公開・更新ページや削除ページのURLをGoogleクローラーへ即時巡回通知</p>
+              <p className="text-xs text-slate-400">新規公開・更新ページや削除ページのURLを Indexing API で通知（対象ページの種類に制限あり。巡回は保証されません）</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ export default function GoogleIndexingPage() {
         {/* Indexing Trigger Console */}
         <section className="bg-slate-900/50 border border-white/10 rounded-2xl p-6 shadow-xl space-y-6">
           <div>
-            <h2 className="text-sm font-bold text-white mb-1">即時クロールリクエスト送信コンソール</h2>
+            <h2 className="text-sm font-bold text-white mb-1">URL 更新通知の送信コンソール</h2>
             <p className="text-xs text-slate-400">
               更新または削除されたURLを入力し、Google Indexing APIへ直接通知します。通常数分から数時間以内にGooglebotの巡回がトリガーされます。
             </p>
