@@ -1,23 +1,23 @@
-# SEO Analyzer (次世代SEO & AEO / AIO / LLMO / GEO 技術監査プラットフォーム)
+# SEO Analyzer (技術的SEO・AEO / AIO / LLMO / GEO 監査ツール)
 
-> **最高峰の技術的SEO監査・Google公式API統合・次世代AI対応（AEO / AIO / LLMO / GEO）・メタ不具合自動検知プラットフォーム**  
+> **技術的SEO監査・Google公式API連携・AI検索向けの確認（AEO / AIO / LLMO / GEO）・メタ情報の不具合検知を行う Web アプリケーション**  
 > 
 > 公式UI/UXデザインリファレンス:
 > - [ShadcnAdmin](https://shadcnadmin.com/) — shadcn/ui, Tailwind CSS v4, OKLCH, Border Grids, Stat Cards, DataTables
 > - [Refero Styles](https://styles.refero.design/) — AI-Native DESIGN.md Standard, Obsidian Gallery Dark Aesthetic, 16:10 Media Containers, Pill Tabs
 >
-> 独立したバックエンド（API/Worker/Crawler）とフロントエンド（Next.js 16 UI）、およびGitHub Webhookによるローリングデプロイ機構を備えたエンタープライズSaaS設計です。
+> 独立したバックエンド（API/Worker/Crawler）とフロントエンド（Next.js 16 UI）、およびGitHub Webhookによるローリングデプロイ機構を備えた構成です。
 
 ---
 
 ## 🚀 コア機能・ハイライト
 
-1. **次世代AI検索・回答エンジン完全最適化 (AEO / AIO / LLMO / GEO)**
+1. **AI検索・回答エンジン向けの確認 (AEO / AIO / LLMO / GEO)**
    - **AEO (Answer Engine Optimization)**: Google強調スニペット、Siri/Alexa等の音声検索、ダイレクトアンサー、Speakable/FAQPage構造化データの自動検証。
    - **AIO (AI Overviews Optimization)**: Google AI Overviewsの要約・カルーセル引用再現シミュレータ、`max-snippet:-1` メタタグ監査。
    - **LLMO (Large Language Model Optimization)**: ChatGPT Search、Claude、Geminiのインライン引用（Pill Citations）適性診断、主要AIクローラー（GPTBot, ClaudeBot等）のアクセス監査。
    - **GEO (Generative Engine Optimization)**: Perplexityソースカード再現、`llms.txt` / `llms-full.txt` Web標準自動生成、`Accept: text/markdown` 配信コード提案。
-2. **Google公式API完全統合 & 具体的修正案の自動生成**
+2. **Google公式API連携 & 修正案の生成**
    - **PageSpeed Insights (v5)**: CrUX実測値 & LighthouseラボデータによるCore Web Vitals精密測定。
    - **Search Console URL Inspection**: Googlebot公式のインデックス状態（未登録/重複/canonical不備）照会。
    - **Search Console SEO Opportunities**: GSC検索アナリティクスから改善余地の大きいSEO機会（Low CTR, Quick Win 4-10位, Refresh候補等）を決定論的に抽出・優先順位付け。
@@ -29,7 +29,7 @@
 4. **公開サイトのパッシブ・セキュリティレビュー (Passive Security Review)**
    - 外部公開サイトに対する非侵入的なセキュリティヘッダー（HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy）、Cookie属性、HTTPS強制、露出情報の総合診断とグレード判定。
    - 厳格なSSRF保護（プライベートIP、localhost、クラウドメタデータエンドポイントへのアクセス遮断、DNSリバインディング対策）を適用。
-5. **メタ情報・タグ競合・文字化け 完全検知エンジン**
+5. **メタ情報・タグ競合・文字化けの検知**
    - 複数Canonicalタグ重複、Robotsディレクティブの矛盾、文字コード（Mojibake）の検知。
    - 相対パスCanonical/OGP画像の検出、Hreflang多言語相互リンク欠落の検出。
 6. **HTMLベースのSEO・メタ診断（実装済み） / Rendered DOM差分（設計済み）**
@@ -44,9 +44,9 @@
 
 ---
 
-## 🏗️ 分離アーキテクチャ & 高可用性・ゼロダウンタイム設計
+## 🏗️ 分離アーキテクチャ & デプロイ設計
 
-本システムは、**バックエンドAPI（Port 5601）** と **フロントエンドUI（Port 5600）** を物理的に分離し、**GitHub Webhook（Port 9104）** による完全自動かつダウンタイム0秒のデプロイパイプラインで運用されます。
+本システムは、**バックエンドAPI（Port 5601）** と **フロントエンドUI（Port 5600）** を物理的に分離し、**GitHub Webhook（Port 9104）** による自動デプロイで運用します（新しいビルドが成功するまで既存プロセスを止めない方式）。
 
 ```mermaid
 flowchart TD

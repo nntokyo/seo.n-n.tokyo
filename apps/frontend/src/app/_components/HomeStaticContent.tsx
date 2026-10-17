@@ -35,7 +35,7 @@ export function HomeStaticContent() {
             <div className="text-center max-w-3xl mx-auto mb-16">
               <h2 className="text-xs font-bold uppercase tracking-widest text-cyan-400 mb-3">FEATURES</h2>
               <p className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-                なぜ、トップエンジニアとSEOアナリストに選ばれるのか
+                SEO Analyzer でできること
               </p>
             </div>
 
