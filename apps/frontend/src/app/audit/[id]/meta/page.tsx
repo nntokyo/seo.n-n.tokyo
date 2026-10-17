@@ -45,7 +45,7 @@ export default function AuditMetaPage() {
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            メタタグ・ソーシャルタグ・カノニカル精密診断
+            メタタグ・ソーシャルタグ・カノニカルの詳細診断
           </h1>
           <p className="text-xs text-slate-400 mt-1">
             タイトルタグ、メタディスクリプション、正規化カノニカルタグ、OGP/Twitter Cardの整合性をインスペクションします。

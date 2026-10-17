@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Google公式統合ハブ',
+  title: 'Google API 連携ハブ',
   robots: {
     index: false,
     follow: true,

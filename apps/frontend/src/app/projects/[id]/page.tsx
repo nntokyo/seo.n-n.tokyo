@@ -358,7 +358,7 @@ export default function ProjectDetailPage() {
                 </div>
                 <h3 className="text-sm font-bold text-white">インデックス検査 & 即時送信</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Googleでのインデックス登録状況の精密検査と、Indexing APIによるクローラー即時巡回リクエスト。
+                  Googleでのインデックス登録状況の確認と、Indexing API による URL 更新通知の送信（対象ページの種類に制限あり。巡回は保証されません）。
                 </p>
               </div>
               <Link

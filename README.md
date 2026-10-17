@@ -18,7 +18,7 @@
    - **LLMO (Large Language Model Optimization)**: ChatGPT Search、Claude、Geminiのインライン引用（Pill Citations）適性診断、主要AIクローラー（GPTBot, ClaudeBot等）のアクセス監査。
    - **GEO (Generative Engine Optimization)**: Perplexityソースカード再現、`llms.txt` / `llms-full.txt` Web標準自動生成、`Accept: text/markdown` 配信コード提案。
 2. **Google公式API連携 & 修正案の生成**
-   - **PageSpeed Insights (v5)**: CrUX実測値 & LighthouseラボデータによるCore Web Vitals精密測定。
+   - **PageSpeed Insights (v5)**: CrUX実測値 & LighthouseラボデータによるCore Web Vitals測定。
    - **Search Console URL Inspection**: Googlebot公式のインデックス状態（未登録/重複/canonical不備）照会。
    - **Search Console SEO Opportunities**: GSC検索アナリティクスから改善余地の大きいSEO機会（Low CTR, Quick Win 4-10位, Refresh候補等）を決定論的に抽出・優先順位付け。
    - **Web Risk (v1)** & **Google Indexing API (v3)**: 広告収益を含むサイト向けのセキュリティ脅威判定 & 対象構造化データの更新通知。
@@ -28,7 +28,7 @@
    - Google Search Centralの最新指針に基づき、タイトルの文字数制限やスニペット、llms.txtの有無だけでページを過剰にFail判定しない、実測ファクトベースの監査。
 4. **公開サイトのパッシブ・セキュリティレビュー (Passive Security Review)**
    - 外部公開サイトに対する非侵入的なセキュリティヘッダー（HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy）、Cookie属性、HTTPS強制、露出情報の総合診断とグレード判定。
-   - 厳格なSSRF保護（プライベートIP、localhost、クラウドメタデータエンドポイントへのアクセス遮断、DNSリバインディング対策）を適用。
+   - SSRF保護（プライベートIP、localhost、クラウドメタデータエンドポイントへのアクセス遮断、DNSリバインディング対策）を適用。
 5. **メタ情報・タグ競合・文字化けの検知**
    - 複数Canonicalタグ重複、Robotsディレクティブの矛盾、文字コード（Mojibake）の検知。
    - 相対パスCanonical/OGP画像の検出、Hreflang多言語相互リンク欠落の検出。

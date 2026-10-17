@@ -367,7 +367,7 @@ export default function ProjectsPage() {
                   <span className="text-[11px] font-mono text-cyan-400">🛡️ プロジェクトデータの扱い</span>
                 </div>
                 <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                  登録したプロジェクトと診断データはアカウントごとに分けて管理し、他の利用者には表示しません。連携用の API キーなどは暗号化して保存します。
+                  登録したプロジェクトとその履歴はアカウントごとに分けて管理し、他の利用者の一覧には表示しません。連携用の API キーなどは暗号化して保存します。
                   プロジェクトの作成・管理を行うには、無料アカウントにログインしてください。
                 </p>
                 <div className="flex justify-center gap-3 pt-2">

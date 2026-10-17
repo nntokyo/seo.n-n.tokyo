@@ -905,7 +905,7 @@ export default function GoogleHubPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-[#080B11] text-white flex flex-col items-center justify-center space-y-4">
         <div className="w-10 h-10 border-2 border-violet-500/20 border-t-violet-400 rounded-full animate-spin" />
-        <p className="text-sm font-mono text-slate-400">Google公式統合ハブを読み込み中...</p>
+        <p className="text-sm font-mono text-slate-400">Google API 連携ハブを読み込み中...</p>
       </div>
     }>
       <GoogleHubContent />

@@ -110,7 +110,7 @@ export default function GoogleInspectPage() {
                 <span>{loading ? 'Google検証中...' : 'URLを検査する'}</span>
               </button>
             </div>
-            <p className="text-[11px] text-slate-400">Google公式統合ハブで連携したアカウントのSearch Consoleデータを使用します。</p>
+            <p className="text-[11px] text-slate-400">Google API 連携ハブで連携したアカウントのSearch Consoleデータを使用します。</p>
           </form>
         </section>
 
