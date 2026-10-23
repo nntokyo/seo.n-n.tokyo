@@ -6,6 +6,9 @@
 set -uo pipefail
 
 export PATH="/usr/local/bin:/usr/bin:/bin:$HOME/.local/share/pnpm:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -1)/bin"
+# デプロイは ryo で動く。PATH 上書き後も pm2-shim（webapp ユーザーの pm2 へ中継）を優先する
+PM2_SHIM_DIR=/home/ryo/ops/security/pm2-shim
+if [ -x "$PM2_SHIM_DIR/pm2" ]; then export PATH="$PM2_SHIM_DIR:$PATH"; fi
 # package.json の packageManager に従い、デプロイ時も pnpm 12 を使用する。
 if command -v corepack >/dev/null 2>&1; then
   corepack enable >/dev/null 2>&1 || true
