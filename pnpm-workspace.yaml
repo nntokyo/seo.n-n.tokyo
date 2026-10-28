@@ -17,3 +17,5 @@ minimumReleaseAgeExclude:
 # Prisma 7が要求するMySQLドライバーの既知の脆弱性を修正済みの同一メジャーへ固定する。
 overrides:
   mysql2: 3.24.4
+  # @prisma/config（prisma 7.10.0）が固定する deepmerge-ts 7.1.5 のプロトタイプ汚染（8.0.0 で修正）を避ける
+  deepmerge-ts: ^8.0.2
